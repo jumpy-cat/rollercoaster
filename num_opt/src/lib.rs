@@ -3,6 +3,9 @@
 extern crate nalgebra as na;
 
 use std::num::NonZero;
+use std::sync::mpsc::{self, channel};
+use std::thread::{self, sleep};
+use std::time::Duration;
 
 use godot::classes::Node;
 use godot::prelude::*;
@@ -17,6 +20,16 @@ struct MyExtension;
 #[gdextension]
 unsafe impl ExtensionLibrary for MyExtension {}
 
+enum ToWorker {
+    Enable,
+    Disable,
+    SetPoints(Vec<point::Point<f64>>)
+}
+
+enum FromWorker {
+    NewPoints(Vec<point::Point<f64>>)
+}
+
 #[derive(GodotClass)]
 #[class(base=Node)]
 struct Optimizer {
@@ -24,17 +37,48 @@ struct Optimizer {
     curve: hermite::Spline,
     run_optimizer: bool,
     segment_points_cache: Option<Vec<Vector3>>,
+    from_worker: mpsc::Receiver<FromWorker>,
+    to_worker: mpsc::Sender<ToWorker>
 }
 
 #[godot_api]
 impl INode for Optimizer {
     fn init(base: Base<Node>) -> Self {
         godot_print!("Hello from Optimizer!");
+
+        let (to_worker_tx, to_worker_rx) = channel();
+        let (to_main_tx, to_main_rx) = channel();
+
+        thread::spawn(move || {
+            let mut active = false;
+            let mut points = vec![];
+            loop {
+                match to_worker_rx.try_recv() {
+                    Ok(msg) => match msg {
+                        ToWorker::Enable => active = true,
+                        ToWorker::Disable => active = false,
+                        ToWorker::SetPoints(vec) => points = vec,
+                    },
+                    Err(e) => match e {
+                        mpsc::TryRecvError::Empty => {},
+                        mpsc::TryRecvError::Disconnected => return,
+                    },
+                }
+                if active {
+
+                } else {
+                    sleep(Duration::from_secs(1));
+                }
+            }
+        });
+
         Self {
             points: vec![],
             curve: Default::default(),
             run_optimizer: false,
             segment_points_cache: None,
+            from_worker: to_main_rx,
+            to_worker: to_worker_tx,
         }
     }
 

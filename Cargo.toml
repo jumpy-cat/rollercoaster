@@ -3,3 +3,6 @@
 members = [
     "num_opt",
 ]
+
+[profile.dev.package."*"]
+opt-level = 3
