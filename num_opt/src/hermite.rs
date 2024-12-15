@@ -191,3 +191,32 @@ pub fn catmull_rom_recursive(values: &Vec<f64>, coeff: f64, depth: u32) -> Vec<V
     }
     out
 }
+
+pub fn set_derivatives_using_catmull_rom(points: &mut Vec<point::Point<f64>>) {
+    const SCALE: f64 = 0.5;
+
+    let x_pos = points.iter().map(|p| p.x).collect();
+    let y_pos = points.iter().map(|p| p.y).collect();
+    let z_pos = points.iter().map(|p| p.z).collect();
+    let x_derives = catmull_rom_recursive(&x_pos, SCALE, 3);
+    let y_derives = catmull_rom_recursive(&y_pos, SCALE, 3);
+    let z_derives = catmull_rom_recursive(&z_pos, SCALE, 3);
+
+    *points = vec![];
+    for i in 0..x_pos.len() {
+        points.push(point::Point {
+            x: x_pos[i],
+            y: y_pos[i],
+            z: z_pos[i],
+            xp: x_derives[0][i],
+            yp: y_derives[0][i],
+            zp: z_derives[0][i],
+            xpp: x_derives[1][i],
+            ypp: y_derives[1][i],
+            zpp: z_derives[1][i],
+            xppp: x_derives[2][i],
+            yppp: y_derives[2][i],
+            zppp: z_derives[2][i],
+        });
+    }
+}
