@@ -7,6 +7,8 @@ extends Node3D
 
 var optimize = false
 var pos: Array[Vector3] = []
+var curve: CoasterCurve
+var physics: CoasterPhysics
 var initial_pos = [[30, 24, 1], [21, 6, 1], [19, 12, 1], [21, 18, 3],
 [25, 16, 2], [23, 9, 4], [20, 13, 4], [16, 2, 6], [15, 7, 4],
 [17, 7, 1], [14, 3, 2], [12, 5, 0], [7, 6, 6], [6, 8, 12],
@@ -39,12 +41,21 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	if Input.is_action_just_pressed("reset_curve"):
+		optimizer.set_points(pos)
+	if Input.is_action_just_pressed("run_simulation"):
+		curve = optimizer.get_curve()
+		physics = CoasterPhysics.create(1.0, -0.01)
+		
 	if Input.is_action_just_pressed("toggle_optimizer"):
 		optimize = !optimize
 		if optimize:
 			optimizer.enable_optimizer()
 		else:
 			optimizer.disable_optimizer()
+	
+	if curve != null:
+		pass
 
 	var m = basic_lines.mesh;
 	m.clear_surfaces();

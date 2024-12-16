@@ -30,6 +30,7 @@ macro_rules! curve_params_getter {
     };
 }
 
+#[derive(Clone)]
 pub struct Spline {
     params: Vec<CurveParams>
 }
