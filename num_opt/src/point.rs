@@ -17,6 +17,7 @@ macro_rules! adjust {
     };
 }
 
+/// A point in 3D space with 1st, 2nd, and 3rd derivatives also specified
 #[derive(Clone)]
 pub struct Point<T> {
     pub x: T,
@@ -71,6 +72,8 @@ where
         }
     }
 
+    /// Descends derivatives specified in `v`  
+    /// Format is xp, xpp, xppp, yp, ypp, ypp, ...
     pub fn descend_derivatives(&mut self, v: &[Option<T>], lr: T) {
         assert_eq!(v.len(), 9);
         adjust!(self.xp, 0, v, lr);
@@ -84,6 +87,7 @@ where
         adjust!(self.zppp, 8, v, lr);
     }
 
+    /// Returns all 9 possible ways to tweak the point without adjusting its position
     pub fn nudged(&self, amount: T) -> Vec<Self> {
         let mut s = self.clone();
         let mut out = vec![];
@@ -106,6 +110,7 @@ impl<T> Default for Point<T>
 where
     T: Default,
 {
+    /// Zeros
     fn default() -> Self {
         Self {
             x: Default::default(),

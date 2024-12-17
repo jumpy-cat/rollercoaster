@@ -1,13 +1,19 @@
 use nannou::glam;
 
+/// Possible ways for the physics system to take a step
+/// Steps are in `u`, the (0,1) parameterization of hermite curves
 #[derive(Debug, Clone, Copy)]
 pub enum StepBehavior {
+    /// Advance by changing `u` to `u + k` where k is a constant
     Constant,
+    /// Advances `u` while trying to keep the arc length traveled constant
     Distance,
+    /// Advances `u` while trying to keep time-step constant
     Time,
 }
 
 impl StepBehavior {
+    /// Cycle through step behaviors
     pub fn next(&self) -> Self {
         match self {
             Self::Constant => Self::Distance,
@@ -17,6 +23,7 @@ impl StepBehavior {
     }
 }
 
+/// Physics solver
 #[derive(Debug, Clone, getset::CopyGetters)]
 #[getset(get_copy = "pub")]
 
@@ -35,6 +42,7 @@ pub struct PhysicsState {
 }
 
 impl PhysicsState {
+    /// Initialize, all values except `mass` and `gravity` are zeroed
     pub fn new(mass: f64, gravity: f64) -> Self {
         Self {
             mass,
@@ -51,6 +59,7 @@ impl PhysicsState {
         }
     }
 
+    /// Solve the physics given the current tangent of the curve
     pub fn step(&mut self, dxdu: f64, dydu: f64, dzdu: f64, behavior: StepBehavior) {
         let drdu = na::Vector3::new(dxdu, dydu, dzdu);
         let raw_arc_len = drdu.magnitude();
@@ -132,10 +141,12 @@ impl PhysicsState {
         }
     }
 
+    /// kinetic energy
     fn k(&self) -> f64 {
         0.5 * self.mass * self.speed.powi(2)
     }
 
+    /// speed from kinetic energy
     fn vel_from_k(&self, k: f64) -> f64 {
         (2.0 * k / self.mass).sqrt()
     }

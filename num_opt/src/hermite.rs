@@ -1,3 +1,7 @@
+/// Creating hermite splines
+/// Initializing their derivatives using Catmull-Rom
+/// Getting position and derivative values of the splines
+
 use std::num::NonZeroU32;
 
 use nannou::glam::Vec3;
@@ -30,18 +34,21 @@ macro_rules! curve_params_getter {
     };
 }
 
+/// A hermite spline
 #[derive(Clone)]
 pub struct Spline {
     params: Vec<CurveParams>
 }
 
 impl Default for Spline {
+    /// Creates an empty spline
     fn default() -> Self {
         Self { params: Default::default() }
     }
 }
 
 impl Spline {
+    /// Creates a spline from the given points
     pub fn new(points: &[point::Point<f64>]) -> Self {
         let mut params = vec![];
         for [p, q] in points.array_windows::<2>() {
@@ -50,14 +57,17 @@ impl Spline {
         Self {params}
     }
 
+    /// Iterate through the hermite curves of the spline
     pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a CurveParams> + use<'a> {
         self.params.iter()
     }
 
+    /// Index into the spline
     pub fn sub_curve(&self, i: usize) -> &CurveParams {
         &self.params[i]
     }
 
+    /// Find the position of the spline at `u`
     pub fn curve_at(&self, u: f64) -> Option<(f64, f64, f64)> {
         let i = u.floor();
         let rem = u - i;
@@ -72,6 +82,7 @@ impl Spline {
         ))
     }
 
+    /// Find the 1st derivative ("velocity") of the spline at `u`
     pub fn curve_1st_derivative_at(&self, u: f64) -> Option<(f64, f64, f64)> {
         let i = u.floor();
         let rem = u - i;
@@ -88,6 +99,7 @@ impl Spline {
     }
 }
 
+/// A single hermite curve
 #[derive(Clone)]
 pub struct CurveParams {
     x: [f64; 8],
@@ -117,6 +129,7 @@ impl CurveParams {
         (1.0, 0),
     ];
 
+    // getters for position and 1st derivative
     curve_params_getter!(x_d0, Self::D0, x);
     curve_params_getter!(y_d0, Self::D0, y);
     curve_params_getter!(z_d0, Self::D0, z);
@@ -125,6 +138,7 @@ impl CurveParams {
     curve_params_getter!(z_d1, Self::D1, z);
 }
 
+/// Given two points, finds a hermite curve interpolating them
 pub fn solve(p: &point::Point<f64>, q: &point::Point<f64>) -> CurveParams {
     let m = get_matrix();
     type SMatrix8x1 = na::SMatrix<f64, 8, 1>;
@@ -151,6 +165,8 @@ pub fn solve(p: &point::Point<f64>, q: &point::Point<f64>) -> CurveParams {
     }
 }
 
+/// Samples a hermite curve, splitting it into `segments` segments
+/// The segments are __not__ equal in length
 pub fn curve_points(params: &CurveParams, segments: NonZeroU32) -> Vec<nannou::glam::Vec3> {
     (0..segments.get() + 1)
         .map(|t| {
@@ -164,6 +180,8 @@ pub fn curve_points(params: &CurveParams, segments: NonZeroU32) -> Vec<nannou::g
         .collect()
 }
 
+/// Uses Catmull-Rom to calculate derivatives  
+/// `coeff` = 0.5 -> cardinal curve
 pub fn catmull_rom(values: &Vec<f64>, coeff: f64) -> Vec<f64> {
     if values.len() < 2 {
         return vec![0.0; values.len()];
@@ -183,6 +201,7 @@ pub fn catmull_rom(values: &Vec<f64>, coeff: f64) -> Vec<f64> {
         .collect()
 }
 
+/// Gets derivatives using Catmull-Rom, then gets derivatives of derivatives, ...
 pub fn catmull_rom_recursive(values: &Vec<f64>, coeff: f64, depth: u32) -> Vec<Vec<f64>> {
     let mut out = vec![];
     let mut v = values;
@@ -193,6 +212,7 @@ pub fn catmull_rom_recursive(values: &Vec<f64>, coeff: f64, depth: u32) -> Vec<V
     out
 }
 
+/// Sets the first three derivatives using recursive cardinal curves
 pub fn set_derivatives_using_catmull_rom(points: &mut Vec<point::Point<f64>>) {
     const SCALE: f64 = 0.5;
 

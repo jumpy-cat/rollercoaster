@@ -36,13 +36,69 @@ mesh = SubResource("ImmediateMesh_hneuq")
 [node name="Anim" parent="." instance=ExtResource("4_s6s4g")]
 visible = false
 
-[node name="Label" type="Label" parent="."]
-offset_right = 98.0
-offset_bottom = 153.0
-scale = Vector2(3, 3)
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+offset_right = 40.0
+offset_bottom = 40.0
+scale = Vector2(2, 2)
+
+[node name="MainStats" type="Label" parent="VBoxContainer"]
+layout_mode = 2
 text = "Cost: 556756
 
 Speed: 44
 Accel: 444
 Gs: 5
 Max Gs: 40"
+
+[node name="CheckButton" type="CheckButton" parent="VBoxContainer"]
+layout_mode = 2
+text = "Optimizer"
+
+[node name="OptimizerSpdLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "-- iter/s"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "LR:"
+
+[node name="LREdit" type="LineEdit" parent="VBoxContainer/HBoxContainer"]
+layout_mode = 2
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="VBoxContainer/HBoxContainer2"]
+layout_mode = 2
+text = "m:"
+
+[node name="MassEdit" type="LineEdit" parent="VBoxContainer/HBoxContainer2"]
+layout_mode = 2
+
+[node name="HBoxContainer3" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="VBoxContainer/HBoxContainer3"]
+layout_mode = 2
+text = "g:"
+
+[node name="GravityEdit" type="LineEdit" parent="VBoxContainer/HBoxContainer3"]
+layout_mode = 2
+
+[node name="HBoxContainer4" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="VBoxContainer/HBoxContainer4"]
+layout_mode = 2
+text = "μ:"
+
+[node name="FrictionEdit" type="LineEdit" parent="VBoxContainer/HBoxContainer4"]
+layout_mode = 2
+
+[connection signal="text_submitted" from="VBoxContainer/HBoxContainer/LREdit" to="." method="_on_lr_edit_text_submitted"]
+[connection signal="text_submitted" from="VBoxContainer/HBoxContainer2/MassEdit" to="." method="_on_mass_edit_text_submitted"]
+[connection signal="text_submitted" from="VBoxContainer/HBoxContainer3/GravityEdit" to="." method="_on_gravity_edit_text_submitted"]
+[connection signal="text_submitted" from="VBoxContainer/HBoxContainer4/FrictionEdit" to="." method="_on_friction_edit_text_submitted"]

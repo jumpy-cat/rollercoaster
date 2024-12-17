@@ -21,16 +21,20 @@ struct MyExtension;
 #[gdextension]
 unsafe impl ExtensionLibrary for MyExtension {}
 
+/// Messages sent from an `Optimizer` to its worker thread
 enum ToWorker {
     Enable,
     Disable,
     SetPoints(Vec<point::Point<f64>>),
 }
 
+/// Messages gotten by an `Optimizer` from its worker thread
 enum FromWorker {
+    /// Sends (`new_points`, `original_cost`)
     NewPoints((Vec<point::Point<f64>>, Option<f64>)),
 }
 
+/// Makes the functionality in optimizer::optimize avaliable to Godot
 #[derive(GodotClass)]
 #[class(base=Node)]
 struct Optimizer {
@@ -44,7 +48,8 @@ struct Optimizer {
 
 #[godot_api]
 impl INode for Optimizer {
-    fn init(base: Base<Node>) -> Self {
+    /// Starts up the worker thread and sets point and curve to empty values
+    fn init(_base: Base<Node>) -> Self {
         godot_print!("Hello from Optimizer!");
 
         let (to_worker_tx, to_worker_rx) = channel();
@@ -107,6 +112,7 @@ impl INode for Optimizer {
         }
     }
 
+    /// Checks for results from worker thread
     fn process(&mut self, delta: f64) {
         match self.from_worker.try_lock() {
             Ok(recv) => {
@@ -126,41 +132,39 @@ impl INode for Optimizer {
             Err(e) => godot_print!("{:?}", e),
         }
     }
-
-    fn enter_tree(&mut self) {
-        godot_print!("Enter");
-    }
-
-    fn exit_tree(&mut self) {
-        godot_print!("Exit")
-    }
 }
 
 #[godot_api]
 impl Optimizer {
+    /// Sets the points to be optimized.\
+    /// No derivative information is given, so derivatives
+    /// are initialized with recursive catmull rom
     #[func]
     fn set_points(&mut self, points: Array<Vector3>) {
         self.to_worker
             .send(ToWorker::SetPoints(
-                (points
+                points
                     .iter_shared()
                     .map(|p| point::Point::new(p.x.as_f64(), p.y.as_f64(), p.z.as_f64()))
-                    .collect()),
+                    .collect(),
             ))
             .unwrap();
     }
 
+    /// Enable the optimizer
     #[func]
     fn enable_optimizer(&mut self) {
         self.to_worker.send(ToWorker::Enable).unwrap();
     }
 
+    /// Disable the optimizer
     #[func]
     fn disable_optimizer(&mut self) {
         self.to_worker.send(ToWorker::Disable).unwrap();
     }
 
     #[func]
+    /// Get the optimized curve as an array of points forming line segments
     fn as_segment_points(&mut self) -> Array<Vector3> {
         if let Some(cache) = &self.segment_points_cache {
             cache
@@ -186,6 +190,7 @@ impl Optimizer {
         }
     }
 
+    /// Get the optimized curve as a handle
     #[func]
     fn get_curve(&self) -> Gd<CoasterCurve> {
         Gd::from_object(CoasterCurve {
@@ -193,6 +198,7 @@ impl Optimizer {
         })
     }
 
+    /// Most recent cost value from optimizer
     #[func]
     fn cost(&self) -> f64 {
         self.most_recent_cost
@@ -217,6 +223,7 @@ struct CoasterPhysics {
 
 #[godot_api]
 impl CoasterPhysics {
+    /// Initialize with mass and gravity
     #[func]
     fn create(mass: f64, gravity: f64) -> Gd<Self> {
         Gd::from_object(Self {
@@ -224,6 +231,7 @@ impl CoasterPhysics {
         })
     }
 
+    /// Progress the simulation given a curve
     #[func]
     fn step(&mut self, curve: Gd<CoasterCurve>) {
         if let Some(phys) = &mut self.inner {
@@ -235,6 +243,7 @@ impl CoasterPhysics {
         }
     }
 
+    /// Current position
     #[func]
     fn pos(&self, curve: Gd<CoasterCurve>) -> Variant {
         if let Some(phys) = &self.inner && let Some(v) = curve.bind().inner.curve_at(phys.u()) {
@@ -245,6 +254,7 @@ impl CoasterPhysics {
         }
     }
 
+    /// Current speed
     #[func]
     fn speed(&self) -> Variant {
         if let Some(phys) = &self.inner {
@@ -254,6 +264,7 @@ impl CoasterPhysics {
         }
     }
 
+    /// Current acceleration (scaler)
     #[func]
     fn accel(&self) -> Variant {
         if let Some(phys) = &self.inner {
@@ -263,6 +274,7 @@ impl CoasterPhysics {
         }
     }
 
+    /// Current g force
     #[func]
     fn g_force(&self) -> Variant {
         if let Some(phys) = &self.inner {
@@ -272,6 +284,7 @@ impl CoasterPhysics {
         }
     }
 
+    /// Max g force experienced
     #[func]
     fn max_g_force(&self) -> Variant {
         if let Some(phys) = &self.inner {
@@ -281,6 +294,7 @@ impl CoasterPhysics {
         }
     }
 
+    /// Accumulating cost value
     #[func]
     fn cost(&self) -> Variant {
         if let Some(phys) = &self.inner {

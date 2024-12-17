@@ -5,7 +5,7 @@ extends Node3D
 @onready var basic_lines: MeshInstance3D = $BasicLines;
 @onready var optimizer: Optimizer = $Optimizer;
 @onready var anim: Node3D = $Anim;
-@onready var label: Label = $Label;
+@onready var label: Label = $VBoxContainer/MainStats;
 
 const utils = preload("res://utils.gd")
 
@@ -18,8 +18,8 @@ var initial_pos = [[30, 24, 1], [21, 6, 1], [19, 12, 1], [21, 18, 3],
 [17, 7, 1], [14, 3, 2], [12, 5, 0], [7, 6, 6], [6, 8, 12],
 [11, 9, 3], [8, 13, 3], [2, 5, 3], [0, 0, 0], [47, 0, 1], [43, 0, 1]]
 
-# Called when the node enters the scene tree for the first time.
 func _ready() -> void:
+	# create list of position vectors, add points to scene, calculate center
 	var avg_pos = Vector3.ZERO
 	for p in initial_pos:
 		var v = Vector3(p[0], p[1], p[2])
@@ -31,6 +31,7 @@ func _ready() -> void:
 		
 	avg_pos /= len(initial_pos)
 	
+	# position the camera so it can see all points
 	camera.op = avg_pos
 	var points_not_in_frame = true
 	while points_not_in_frame:
@@ -41,6 +42,7 @@ func _ready() -> void:
 			if not camera.is_position_in_frustum(p):
 				points_not_in_frame = true
 				break
+	# prepare the optimizer
 	optimizer.set_points(pos)
 
 
@@ -58,6 +60,7 @@ func _process(_delta: float) -> void:
 		else:
 			optimizer.disable_optimizer()
 	
+	# update physics simulation
 	if curve != null:
 		anim.visible = true
 		physics.step(curve)
@@ -67,6 +70,7 @@ func _process(_delta: float) -> void:
 		else:
 			anim.visible = false
 
+	# generate mesh for curves between control points
 	var curve_points = optimizer.as_segment_points();
 	if len(curve_points) > 1:
 		var m = basic_lines.mesh;
@@ -77,8 +81,8 @@ func _process(_delta: float) -> void:
 				
 		m.surface_end();
 	
+	# update ui
 	var format_values;
-	
 	if physics != null:
 		format_values = [
 			optimizer.cost(),
@@ -100,4 +104,23 @@ func _process(_delta: float) -> void:
 	label.text = "Cost: %.3f\n\nSpeed: %.3f\nAccel: %.3f\nGs: %.3f\nMax Gs: %.3f\nCost: %.3f" % format_values
 			
 		
-	
+var lr_revert_txt = ""
+var mass_revert_txt = ""
+var gravity_revert_txt
+
+
+func _on_lr_edit_text_submitted(new_text: String) -> void:
+	var this = $VBoxContainer/HBoxContainer/LREdit
+	this.tex
+
+
+func _on_mass_edit_text_submitted(new_text: String) -> void:
+	var this = $VBoxContainer/HBoxContainer2/MassEdit
+
+
+func _on_gravity_edit_text_submitted(new_text: String) -> void:
+	var this = $VBoxContainer/HBoxContainer3/GravityEdit
+
+
+func _on_friction_edit_text_submitted(new_text: String) -> void:
+	var this = $VBoxContainer/HBoxContainer4/FrictionEdit

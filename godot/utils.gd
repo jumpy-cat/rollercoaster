@@ -1,6 +1,6 @@
 extends Node
 
-
+## Adds 3d lines between [points] with the given [radius]
 static func cylinder_line(m, points, radius):
 	if len(points) > 1:
 		for i in range(1, len(points)):
@@ -34,10 +34,14 @@ static func cylinder_line(m, points, radius):
 				)
 
 
+## Adds a quad to ImmediateMesh
+## CCW winding order
 static func add_quad(m, p1, p2, p3, p4, n1, n2, n3, n4):
 	add_tri(m, p1, p2, p3, n1, n2, n3)
 	add_tri(m, p3, p4, p1, n3, n4, n1)
 
+## Adds a triangle to ImmediateMesh
+## CCW winding order
 static func add_tri(m, p1, p2, p3, n1, n2, n3):
 	m.surface_set_normal(n1)
 	m.surface_add_vertex(p1)

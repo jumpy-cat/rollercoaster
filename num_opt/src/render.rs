@@ -1,3 +1,6 @@
+/// These functions are used only in the old app
+/// You likely won't need to edit any of this
+
 use nannou::{color::{GRAY, LIME, PURPLE, RED, SKYBLUE, TEAL, WHITE}, glam::{Vec2, Vec3, Vec3Swizzles}, Draw};
 use num_traits::AsPrimitive;
 

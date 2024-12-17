@@ -2,6 +2,8 @@ use godot::global::godot_print;
 
 use crate::{hermite, physics, point};
 
+/// Given initial state and curve, calculates the total cost of the curve
+/// This requires a physics simulation be run
 fn cost(initial: physics::PhysicsState, curve: &hermite::Spline) -> Option<f64> {
     let mut phys = initial;
     while let Some((dx, dy, dz)) = curve.curve_1st_derivative_at(phys.u()) {
@@ -14,6 +16,8 @@ fn cost(initial: physics::PhysicsState, curve: &hermite::Spline) -> Option<f64> 
     }
 }
 
+/// Performs one step of GD (gradients calculated using secant approximation)
+/// Returns: the original cost, or `None` if this calculation failed
 pub fn optimize(
     initial: &physics::PhysicsState,
     curve: &hermite::Spline,
