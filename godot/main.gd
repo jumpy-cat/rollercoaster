@@ -1,18 +1,33 @@
 extends Node3D
 
+# Used to show control points
 @export var control_point_scene: PackedScene
+
+# Relevant child nodes
 @onready var camera: Camera3D = $PanOrbitCamera;
 @onready var basic_lines: MeshInstance3D = $BasicLines;
 @onready var optimizer: Optimizer = $Optimizer;
 @onready var anim: Node3D = $Anim;
 @onready var label: Label = $VBoxContainer/MainStats;
+@onready var lr_edit: LineEdit = $VBoxContainer/HBoxContainer/LREdit
+@onready var mass_edit: LineEdit = $VBoxContainer/HBoxContainer2/MassEdit
+@onready var gravity_edit: LineEdit = $VBoxContainer/HBoxContainer3/GravityEdit
+@onready var friction_edit: LineEdit = $VBoxContainer/HBoxContainer4/FrictionEdit
 
 const utils = preload("res://utils.gd")
 
-var optimize = false
+var optimize: bool = false
 var pos: Array[Vector3] = []
 var curve: CoasterCurve
 var physics: CoasterPhysics
+
+# default parameter values
+var learning_rate: float = 1.0
+var mass: float = 1.00
+var gravity: float = -0.01
+var friction: float = 0.05
+
+# paste in points from outside source here
 var initial_pos = [[30, 24, 1], [21, 6, 1], [19, 12, 1], [21, 18, 3],
 [25, 16, 2], [23, 9, 4], [20, 13, 4], [16, 2, 6], [15, 7, 4],
 [17, 7, 1], [14, 3, 2], [12, 5, 0], [7, 6, 6], [6, 8, 12],
@@ -44,14 +59,22 @@ func _ready() -> void:
 				break
 	# prepare the optimizer
 	optimizer.set_points(pos)
+	optimizer.set_mass_gravity(mass, gravity)
+
+	# setup inital ui state
+	lr_edit.text = String.num(learning_rate)
+	mass_edit.text = String.num(mass)
+	gravity_edit.text = String.num(gravity)
+	friction_edit.text = String.num(friction)
 
 
 func _process(_delta: float) -> void:
+	# handle key input
 	if Input.is_action_just_pressed("reset_curve"):
 		optimizer.set_points(pos)
 	if Input.is_action_just_pressed("run_simulation"):
 		curve = optimizer.get_curve()
-		physics = CoasterPhysics.create(1.0, -0.01)
+		physics = CoasterPhysics.create(mass, gravity)
 			
 	if Input.is_action_just_pressed("toggle_optimizer"):
 		optimize = !optimize
@@ -103,24 +126,47 @@ func _process(_delta: float) -> void:
 		]
 	label.text = "Cost: %.3f\n\nSpeed: %.3f\nAccel: %.3f\nGs: %.3f\nMax Gs: %.3f\nCost: %.3f" % format_values
 			
-		
+
+# if input can't be parsed into float, revert to previous value 
 var lr_revert_txt = ""
 var mass_revert_txt = ""
-var gravity_revert_txt
+var gravity_revert_txt = ""
+var friction_revert_txt = ""
 
 
 func _on_lr_edit_text_submitted(new_text: String) -> void:
-	var this = $VBoxContainer/HBoxContainer/LREdit
-	this.tex
+	if new_text.is_valid_float():
+		lr_revert_txt = new_text
+		learning_rate = new_text.to_float()
+	else:
+		lr_edit.text = lr_revert_txt
+	lr_edit.release_focus()
 
 
 func _on_mass_edit_text_submitted(new_text: String) -> void:
-	var this = $VBoxContainer/HBoxContainer2/MassEdit
+	if new_text.is_valid_float():
+		mass_revert_txt = new_text
+		mass = new_text.to_float()
+		optimizer.set_mass_gravity(mass, gravity)
+	else:
+		mass_edit.text = mass_revert_txt
+	mass_edit.release_focus()
 
 
 func _on_gravity_edit_text_submitted(new_text: String) -> void:
-	var this = $VBoxContainer/HBoxContainer3/GravityEdit
+	if new_text.is_valid_float():
+		gravity_revert_txt = new_text
+		gravity = new_text.to_float()
+		optimizer.set_mass_gravity(mass, gravity)
+	else:
+		gravity_edit.text = gravity_revert_txt
+	gravity_edit.release_focus()
 
 
 func _on_friction_edit_text_submitted(new_text: String) -> void:
-	var this = $VBoxContainer/HBoxContainer4/FrictionEdit
+	if new_text.is_valid_float():
+		friction_revert_txt = new_text
+		friction = new_text.to_float()
+	else:
+		friction_edit.text = friction_revert_txt
+	friction_edit.release_focus()

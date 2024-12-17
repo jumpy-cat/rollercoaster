@@ -26,6 +26,8 @@ enum ToWorker {
     Enable,
     Disable,
     SetPoints(Vec<point::Point<f64>>),
+    SetMass(f64),
+    SetGravity(f64),
 }
 
 /// Messages gotten by an `Optimizer` from its worker thread
@@ -62,6 +64,8 @@ impl INode for Optimizer {
             let mut active = false;
             let mut points = vec![];
             let mut curve = Default::default();
+            let mut mass = 1.0;
+            let mut gravity = -0.01;
             loop {
                 let msg = if active {
                     worker_inbox.try_recv().map_err(|e| match e {
@@ -79,13 +83,15 @@ impl INode for Optimizer {
                             points = vec;
                             hermite::set_derivatives_using_catmull_rom(&mut points);
                             curve = hermite::Spline::new(&points);
-                        }
+                        },
+                        ToWorker::SetMass(v) => mass = v,
+                        ToWorker::SetGravity(v) => gravity = v
                     },
                     Err(_) => {},
                 }
                 if active {
                     let prev_cost = optimizer::optimize(
-                        &physics::PhysicsState::new(1.0, -0.01),
+                        &physics::PhysicsState::new(mass, gravity),
                         &curve,
                         &mut points,
                     );
@@ -136,6 +142,13 @@ impl INode for Optimizer {
 
 #[godot_api]
 impl Optimizer {
+    /// Sets the values of mass and gravity to be used in physics
+    #[func]
+    fn set_mass_gravity(&mut self, mass: f64, gravity: f64) {
+        self.to_worker.send(ToWorker::SetMass(mass)).unwrap();
+        self.to_worker.send(ToWorker::SetGravity(gravity)).unwrap();
+    }
+
     /// Sets the points to be optimized.\
     /// No derivative information is given, so derivatives
     /// are initialized with recursive catmull rom
@@ -249,7 +262,7 @@ impl CoasterPhysics {
         if let Some(phys) = &self.inner && let Some(v) = curve.bind().inner.curve_at(phys.u()) {
             Variant::from(Vector3::new(v.0 as f32, v.1 as f32, v.2 as f32))
         } else {
-            godot_error!("pos called on empty Physics, or u out of range");
+            //godot_error!("pos called on empty Physics, or u out of range");
             Variant::nil()
         }
     }
