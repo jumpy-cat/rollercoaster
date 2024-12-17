@@ -4,6 +4,10 @@ extends Node3D
 @onready var camera: Camera3D = $PanOrbitCamera;
 @onready var basic_lines: MeshInstance3D = $BasicLines;
 @onready var optimizer: Optimizer = $Optimizer;
+@onready var anim: Node3D = $Anim;
+@onready var label: Label = $Label;
+
+const utils = preload("res://utils.gd")
 
 var optimize = false
 var pos: Array[Vector3] = []
@@ -46,7 +50,7 @@ func _process(_delta: float) -> void:
 	if Input.is_action_just_pressed("run_simulation"):
 		curve = optimizer.get_curve()
 		physics = CoasterPhysics.create(1.0, -0.01)
-		
+			
 	if Input.is_action_just_pressed("toggle_optimizer"):
 		optimize = !optimize
 		if optimize:
@@ -55,63 +59,45 @@ func _process(_delta: float) -> void:
 			optimizer.disable_optimizer()
 	
 	if curve != null:
-		pass
+		anim.visible = true
+		physics.step(curve)
+		var anim_pos = physics.pos(curve)
+		if anim_pos != null:
+			anim.position = anim_pos
+		else:
+			anim.visible = false
 
-	var m = basic_lines.mesh;
-	m.clear_surfaces();
-	m.surface_begin(Mesh.PRIMITIVE_TRIANGLES);
+	var curve_points = optimizer.as_segment_points();
+	if len(curve_points) > 1:
+		var m = basic_lines.mesh;
+		m.clear_surfaces();
+		m.surface_begin(Mesh.PRIMITIVE_TRIANGLES);
+
+		utils.cylinder_line(m, optimizer.as_segment_points(), 0.2)
+				
+		m.surface_end();
 	
-	#cylinder_line(m, pos, 0.01)
-
-	#print(optimizer.as_segment_points())
-
-	cylinder_line(m, optimizer.as_segment_points(), 0.2)
+	var format_values;
+	
+	if physics != null:
+		format_values = [
+			optimizer.cost(),
+			physics.speed(),
+			physics.accel(),
+			physics.g_force(),
+			physics.max_g_force(),
+			physics.cost()
+		]
+	else:
+		format_values = [
+			optimizer.cost(),
+			0.0,
+			0.0,
+			0.0,
+			0.0,
+			0.0,
+		]
+	label.text = "Cost: %.3f\n\nSpeed: %.3f\nAccel: %.3f\nGs: %.3f\nMax Gs: %.3f\nCost: %.3f" % format_values
 			
-	m.surface_end();
-
-func cylinder_line(m, points, radius):
-	if len(points) > 1:
-		for i in range(1, len(points)):
-			# create cylinder
-			const NUM_QUADS = 10
-			var p = points[i-1]
-			var q = points[i]
-			var pq: Vector3 = q - p
-			var rot = Quaternion(pq.normalized(), Vector3.UP)
-			
-			for j in range(NUM_QUADS):
-				var theta0 = 2*PI * j / NUM_QUADS
-				var theta1 = 2*PI * (j+1) / NUM_QUADS
-				var offset0 = (Vector3(1, 0, 0) * Quaternion(Vector3.UP, theta0)) * rot
-				var offset1 = (Vector3(1, 0, 0) * Quaternion(Vector3.UP, theta1)) * rot
-				var quad = [
-					p + radius * (offset1),
-					q + radius * (offset1),
-					q + radius * (offset0),
-					p + radius * (offset0),
-					
-					offset1,
-					offset1,
-					offset0,
-					offset0,
-				]
-				add_quad(
-					m,
-					quad[0], quad[1], quad[2], quad[3],
-					quad[4], quad[5], quad[6], quad[7]
-				)
-
-
-func add_quad(m, p1, p2, p3, p4, n1, n2, n3, n4):
-	add_tri(m, p1, p2, p3, n1, n2, n3)
-	add_tri(m, p3, p4, p1, n3, n4, n1)
-
-func add_tri(m, p1, p2, p3, n1, n2, n3):
-	m.surface_set_normal(n1)
-	m.surface_add_vertex(p1)
-	m.surface_set_normal(n2)
-	m.surface_add_vertex(p2)
-	m.surface_set_normal(n3)
-	m.surface_add_vertex(p3)
-
+		
 	

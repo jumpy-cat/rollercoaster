@@ -72,8 +72,8 @@ pub fn draw_cart(draw: &Draw, camera: &Camera, curve: &hermite::Spline, phys: &p
             }
             draw.ellipse().xy(p.xy()).radius(10.0 * p.z).color(RED);
             draw.text(&format!(
-                "vel: {:.2} ({:.2}, {:.2}, {:.2})\naccel: {:.4}\nc: {:.2}\ngs: {:.2}\nmax-gs: {:.2}",
-                phys.velocity(), phys.vx(), phys.vy(), phys.vz(), phys.a(), phys.cost(), phys.a() / phys.gravity().abs(), phys.max_g_force()
+                "vel: {:.2} ({:.2})\naccel: {:.4}\nc: {:.2}\ngs: {:.2}\nmax-gs: {:.2}",
+                phys.speed(), phys.v(), phys.a(), phys.cost(), phys.a() / phys.gravity().abs(), phys.max_g_force()
             ))
             .left_justify()
             .xy(p.xy())

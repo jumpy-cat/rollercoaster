@@ -1,3 +1,5 @@
+use godot::global::godot_print;
+
 use crate::{hermite, physics, point};
 
 fn cost(initial: physics::PhysicsState, curve: &hermite::Spline) -> Option<f64> {
@@ -12,10 +14,13 @@ fn cost(initial: physics::PhysicsState, curve: &hermite::Spline) -> Option<f64> 
     }
 }
 
-pub fn optimize(initial: &physics::PhysicsState, curve: &hermite::Spline, points: &mut[point::Point<f64>]) {
-    const NUDGE_DIST: f64 = 0.01;
+pub fn optimize(
+    initial: &physics::PhysicsState,
+    curve: &hermite::Spline,
+    points: &mut [point::Point<f64>],
+) -> Option<f64> {
+    const NUDGE_DIST: f64 = 0.001;
     if let Some(curr) = cost(initial.clone(), curve) {
-        println!("{}", curr);
         let mut deriv = vec![];
         let mut controls = points.to_vec();
         for i in 1..controls.len() {
@@ -24,7 +29,7 @@ pub fn optimize(initial: &physics::PhysicsState, curve: &hermite::Spline, points
             let mut sublist = vec![];
             for np in nudged {
                 controls[i] = np;
-                let params = hermite::Spline::new(&controls) ;
+                let params = hermite::Spline::new(&controls);
                 let new_cost = cost(initial.clone(), &params);
                 sublist.push(new_cost.map(|c| {
                     let v = (c - curr) / NUDGE_DIST;
@@ -44,16 +49,23 @@ pub fn optimize(initial: &physics::PhysicsState, curve: &hermite::Spline, points
                 }
             }
         }
-        for dlist in &mut deriv {
-            for d in dlist {
-                *d = d.map(|inner| inner / max_deriv_mag);
+        if max_deriv_mag > 1.0 {
+            for dlist in &mut deriv {
+                for d in dlist {
+                    *d = d.map(|inner| inner / max_deriv_mag);
+                }
             }
         }
         const LR: f64 = 1.0;
         let mut iter = points.iter_mut();
         iter.next();
         for (p, d) in iter.zip(deriv) {
+            
             p.descend_derivatives(&d, LR);
         }
+        Some(curr)
+    } else {
+        None
     }
+    
 }

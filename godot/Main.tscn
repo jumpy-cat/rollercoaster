@@ -1,8 +1,9 @@
-[gd_scene load_steps=6 format=3 uid="uid://br738eihq2cus"]
+[gd_scene load_steps=7 format=3 uid="uid://br738eihq2cus"]
 
 [ext_resource type="Script" path="res://main.gd" id="1_w5dqp"]
 [ext_resource type="PackedScene" uid="uid://c3vuka4b0smhh" path="res://control_point.tscn" id="2_o72i1"]
 [ext_resource type="Script" path="res://camera_3d.gd" id="3_l1r6g"]
+[ext_resource type="PackedScene" uid="uid://dp1iulbnn6wvy" path="res://anim.tscn" id="4_s6s4g"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pnvk0"]
 diffuse_mode = 2
@@ -31,3 +32,17 @@ material_override = SubResource("StandardMaterial3D_pnvk0")
 mesh = SubResource("ImmediateMesh_hneuq")
 
 [node name="Optimizer" type="Optimizer" parent="."]
+
+[node name="Anim" parent="." instance=ExtResource("4_s6s4g")]
+visible = false
+
+[node name="Label" type="Label" parent="."]
+offset_right = 98.0
+offset_bottom = 153.0
+scale = Vector2(3, 3)
+text = "Cost: 556756
+
+Speed: 44
+Accel: 444
+Gs: 5
+Max Gs: 40"

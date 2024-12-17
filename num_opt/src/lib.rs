@@ -28,7 +28,7 @@ enum ToWorker {
 }
 
 enum FromWorker {
-    NewPoints(Vec<point::Point<f64>>),
+    NewPoints((Vec<point::Point<f64>>, Option<f64>)),
 }
 
 #[derive(GodotClass)]
@@ -39,6 +39,7 @@ struct Optimizer {
     segment_points_cache: Option<Vec<Vector3>>,
     from_worker: Mutex<mpsc::Receiver<FromWorker>>,
     to_worker: mpsc::Sender<ToWorker>,
+    most_recent_cost: f64,
 }
 
 #[godot_api]
@@ -78,15 +79,18 @@ impl INode for Optimizer {
                     Err(_) => {},
                 }
                 if active {
-                    optimizer::optimize(
+                    let prev_cost = optimizer::optimize(
                         &physics::PhysicsState::new(1.0, -0.01),
                         &curve,
                         &mut points,
                     );
                     curve = hermite::Spline::new(&points);
-                    worker_outbox
-                        .send(FromWorker::NewPoints(points.clone()))
+                    if prev_cost.is_some() {
+                        worker_outbox
+                        .send(FromWorker::NewPoints((points.clone(), prev_cost)))
                         .unwrap();
+                    }
+                   
                 } else {
                     sleep(Duration::from_secs(1));
                 }
@@ -99,18 +103,22 @@ impl INode for Optimizer {
             segment_points_cache: None,
             from_worker: Mutex::new(to_main_rx),
             to_worker: to_worker_tx,
+            most_recent_cost: 0.0,
         }
     }
 
     fn process(&mut self, delta: f64) {
         match self.from_worker.try_lock() {
             Ok(recv) => {
-                if let Ok(msg) = recv.try_recv() {
-                    godot_print!("HI");
+                while let Ok(msg) = recv.try_recv() {
                     match msg {
                         FromWorker::NewPoints(vec) => {
+                            godot_print!("new points!");
                             self.segment_points_cache = None;
-                            self.points = vec;
+                            self.points = vec.0;
+                            if let Some(c) = vec.1 {
+                                self.most_recent_cost = c;
+                            }
                         }
                     }
                 }
@@ -132,7 +140,6 @@ impl INode for Optimizer {
 impl Optimizer {
     #[func]
     fn set_points(&mut self, points: Array<Vector3>) {
-
         self.to_worker
             .send(ToWorker::SetPoints(
                 (points
@@ -185,6 +192,11 @@ impl Optimizer {
             inner: self.curve.clone()
         })
     }
+
+    #[func]
+    fn cost(&self) -> f64 {
+        self.most_recent_cost
+    }
 }
 
 
@@ -224,12 +236,57 @@ impl CoasterPhysics {
     }
 
     #[func]
-    fn pos(&self, curve: Gd<CoasterCurve>) -> Vector3 {
+    fn pos(&self, curve: Gd<CoasterCurve>) -> Variant {
         if let Some(phys) = &self.inner && let Some(v) = curve.bind().inner.curve_at(phys.u()) {
-            Vector3::new(v.0 as f32, v.1 as f32, v.2 as f32)
+            Variant::from(Vector3::new(v.0 as f32, v.1 as f32, v.2 as f32))
         } else {
             godot_error!("pos called on empty Physics, or u out of range");
-            Vector3::new(0.0, 0.0, 0.0)
+            Variant::nil()
+        }
+    }
+
+    #[func]
+    fn speed(&self) -> Variant {
+        if let Some(phys) = &self.inner {
+            Variant::from(phys.speed())
+        } else {
+            Variant::nil()
+        }
+    }
+
+    #[func]
+    fn accel(&self) -> Variant {
+        if let Some(phys) = &self.inner {
+            Variant::from(phys.a())
+        } else {
+            Variant::nil()
+        }
+    }
+
+    #[func]
+    fn g_force(&self) -> Variant {
+        if let Some(phys) = &self.inner {
+            Variant::from(-phys.a() / phys.gravity())
+        } else {
+            Variant::nil()
+        }
+    }
+
+    #[func]
+    fn max_g_force(&self) -> Variant {
+        if let Some(phys) = &self.inner {
+            Variant::from(phys.max_g_force())
+        } else {
+            Variant::nil()
+        }
+    }
+
+    #[func]
+    fn cost(&self) -> Variant {
+        if let Some(phys) = &self.inner {
+            Variant::from(phys.cost())
+        } else {
+            Variant::nil()
         }
     }
 }
