@@ -77,7 +77,7 @@ impl PhysicsState {
             StepBehavior::Distance => (1.0 / ds_du).min(0.01),
             StepBehavior::Time => (0.1 * self.speed / ds_du).max(0.00001),
         };
-        // Arc length is 
+        // Arc length is ds.du * delta u(stepsize). 
 
         let fg = self.gravity * self.mass;
         //let forward_force = fg * dydu / s;
@@ -121,7 +121,7 @@ impl PhysicsState {
         // change in time 
         // (m/s^2)
         self.a = delta_v / delta_t;
-        // declare the accelreation
+        // declare the acceleration
 
         // Net force, F = ma
         let net_f = (new_v - self.v) * self.mass / delta_t;
