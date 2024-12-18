@@ -66,16 +66,16 @@ impl PhysicsState {
     pub fn step(&mut self, dxdu: f64, dydu: f64, dzdu: f64, behavior: StepBehavior) {
         let drdu = na::Vector3::new(dxdu, dydu, dzdu);
         // drdu means tangent value of 3D components
-        let raw_arc_len = drdu.magnitude();
+        let raw_ds_du = drdu.magnitude();
         // arc length becomes the magnitude of drdu
-        self.total_len += raw_arc_len;
-        let arc_len = raw_arc_len.max(0.01);
+        self.total_len += raw_ds_du;
+        let ds_du = raw_ds_du.max(0.01);
         // In order to keep the continuity, set length not becomes the zero.
 
         let step = match behavior {
             StepBehavior::Constant => 0.01,
-            StepBehavior::Distance => (1.0 / arc_len).min(0.01),
-            StepBehavior::Time => (0.1 * self.speed / arc_len).max(0.00001),
+            StepBehavior::Distance => (1.0 / ds_du).min(0.01),
+            StepBehavior::Time => (0.1 * self.speed / ds_du).max(0.00001),
         };
         // Arc length is 
 
@@ -109,7 +109,7 @@ impl PhysicsState {
         let new_u = self.u + step;
 // set new u to original value of u and add the self.u there
         // (m/s)
-        let new_v = na::Vector3::new(new_vel * dxdu / arc_len, new_vel * dydu / arc_len, new_vel * dzdu / arc_len);
+        let new_v = na::Vector3::new(new_vel * dxdu / ds_du, new_vel * dydu / ds_du, new_vel * dzdu / ds_du);
     // set new net velocity
         // (m/s)
         let delta_v =
@@ -117,7 +117,7 @@ impl PhysicsState {
                 .sqrt();
         // change in net velocity 
         // (s)
-        let delta_t = step * arc_len / self.speed;
+        let delta_t = step * ds_du / self.speed;
         // change in time 
         // (m/s^2)
         self.a = delta_v / delta_t;
