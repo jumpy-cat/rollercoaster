@@ -40,19 +40,24 @@ where
         pub fn pos(&self) -> Point3 {
             Point3::new(self.x.as_(), self.y.as_(), self.z.as_())
         }
+    // point itself
     
         pub fn vel(&self) -> Point3 {
             Point3::new(self.xp.as_(), self.yp.as_(), self.zp.as_())
         }
+    // 1st derivative
     
         pub fn accel(&self) -> Point3 {
             Point3::new(self.xpp.as_(), self.ypp.as_(), self.zpp.as_())
         }
-    
+
+    // 2nd derivative
         pub fn jerk(&self) -> Point3 {
             Point3::new(self.xppp.as_(), self.yppp.as_(), self.zppp.as_())
         }
     }
+
+// 3rd derivative
 
 impl<T> Point<T>
 where
