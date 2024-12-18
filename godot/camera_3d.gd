@@ -9,6 +9,13 @@ var ob: float = 0.0;
 var oe: float = 0.0;
 const OE_LIM: float = 60 * PI / 180;
 
+# input state
+var forward_input: bool = false
+var back_input: bool = false
+var left_input: bool = false
+var right_input: bool = false
+var up_input: bool = false
+var down_input: bool = false
 
 
 func _ready() -> void:
@@ -21,35 +28,35 @@ func _process(delta: float) -> void:
 	
 	const ZOOM_SPD: float = 1.0;
 	const ZOOM_SPD_MULT: float = 1.0;
-	
 	var pan_mult = PAN_SPD * delta * od;
-	if Input.is_action_pressed("camera_forward"):
-		op += pan_mult * Vector3(-cos(ob), 0, -sin(ob)) 
-	if Input.is_action_pressed("camera_back"):
-		op += pan_mult * Vector3(cos(ob), 0, sin(ob)) 
-	if Input.is_action_pressed("camera_left"):
-		op += pan_mult * Vector3(-sin(ob), 0, cos(ob))
-	if Input.is_action_pressed("camera_right"):
-		op += pan_mult * Vector3(sin(ob), 0, -cos(ob))
-	if Input.is_action_pressed("camera_up"):
-		op += pan_mult * Vector3.UP;
-	if Input.is_action_pressed("camera_down"):
-		op += pan_mult * Vector3.DOWN;
-	
-	if not Input.is_key_pressed(KEY_SHIFT):
-		if Input.is_action_pressed("zoom_in"):
+
+	if Input.is_key_pressed(KEY_SHIFT):
+		if forward_input:
+			op += pan_mult * Vector3(-cos(ob), 0, -sin(ob)) 
+		if back_input:
+			op += pan_mult * Vector3(cos(ob), 0, sin(ob)) 
+		if left_input:
+			op += pan_mult * Vector3(-sin(ob), 0, cos(ob))
+		if right_input:
+			op += pan_mult * Vector3(sin(ob), 0, -cos(ob))
+		if up_input:
+			op += pan_mult * Vector3.UP;
+		if down_input:
+			op += pan_mult * Vector3.DOWN;
+	else:
+		if forward_input:
 			od = max(od - ZOOM_SPD * delta, MIN_D);
 			od /= 1.0 + ZOOM_SPD_MULT * delta;
-		if Input.is_action_pressed("zoom_out"):
+		if back_input:
 			od += ZOOM_SPD * delta;
 			od *= 1.0 + ZOOM_SPD_MULT * delta;
-		if Input.is_action_pressed("orbit_left"):
+		if left_input:
 			ob += ORBIT_SPD * delta;
-		if Input.is_action_pressed("orbit_right"):
+		if right_input:
 			ob += -ORBIT_SPD * delta;
-		if Input.is_action_pressed("orbit_up"):
+		if up_input:
 			oe += -ORBIT_SPD * delta;
-		if Input.is_action_pressed("orbit_down"):
+		if down_input:
 			oe += ORBIT_SPD * delta;
 		oe = clamp(oe, -OE_LIM, OE_LIM)
 		
@@ -62,5 +69,33 @@ func recalculate_transform():
 	optc *= bquat;
 	optc *= Quaternion((Vector3(0, 0, 1) * bquat), oe);
 	look_at_from_position(op + optc * od, op)
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if event.is_action_pressed("zoom_out"):
+		back_input = true
+	if event.is_action_released("zoom_out"):
+		back_input = false
+	if event.is_action_pressed("zoom_in"):
+		forward_input = true
+	if event.is_action_released("zoom_in"):
+		forward_input = false
+	if event.is_action_pressed("orbit_left"):
+		left_input = true
+	if event.is_action_released("orbit_left"):
+		left_input = false
+	if event.is_action_pressed("orbit_right"):
+		right_input = true
+	if event.is_action_released("orbit_right"):
+		right_input = false
+	if event.is_action_pressed("orbit_up"):
+		up_input = true
+	if event.is_action_released("orbit_up"):
+		up_input = false
+	if event.is_action_pressed("orbit_down"):
+		down_input = true
+	if event.is_action_released("orbit_down"):
+		down_input = false
+	
 
 	
