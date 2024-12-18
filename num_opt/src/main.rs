@@ -1,6 +1,7 @@
 #![feature(array_windows)]
 #![feature(let_chains)]
 
+/// This file is used only in the old nannou app
 extern crate nalgebra as na;
 
 use std::{
@@ -11,7 +12,9 @@ use std::{
 
 use clap::Parser;
 use nannou::{
-    event::ModifiersState, glam::{self, Vec3Swizzles}, prelude::*
+    event::ModifiersState,
+    glam::{self, Vec3Swizzles},
+    prelude::*,
 };
 use point::Point;
 
@@ -116,7 +119,6 @@ impl Camera {
         }) {
             self.orbit_distance += 1.0;
         }
-
     }
 
     pub fn world_to_projection_space(&self, x: Vec3) -> Vec3 {
@@ -145,7 +147,7 @@ struct Model {
 
 impl Model {
     fn inital_physics_state(&self) -> physics::PhysicsState {
-        physics::PhysicsState::new(1.0, -0.01)
+        physics::PhysicsState::new(1.0, -0.01, 0.05)
     }
 
     fn start_interactive_simulation(&mut self) {
@@ -162,7 +164,12 @@ impl Model {
 
         if self.optimize {
             // replace with code
-            optimizer::optimize(&self.inital_physics_state(), &self.curve, &mut self.points);
+            optimizer::optimize(
+                &self.inital_physics_state(),
+                &self.curve,
+                &mut self.points,
+                1.0,
+            );
             self.recalculate_curve();
             self.recalculate_curve_points();
         }
@@ -222,15 +229,19 @@ fn model(app: &App) -> Model {
     let size = app.main_window().inner_size_points();
     let points = if let Some(path) = args.points_file {
         let v: serde_json::Value = serde_json::from_reader(File::open(path).unwrap()).unwrap();
-        v.as_array().unwrap().iter().map(|inner| {
-            let pos: Vec<_> = inner
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|inner_inner| inner_inner.as_f64().unwrap())
-                .collect();
-            Point::new(pos[0], pos[1], pos[2])
-        }).collect()
+        v.as_array()
+            .unwrap()
+            .iter()
+            .map(|inner| {
+                let pos: Vec<_> = inner
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|inner_inner| inner_inner.as_f64().unwrap())
+                    .collect();
+                Point::new(pos[0], pos[1], pos[2])
+            })
+            .collect()
     } else {
         vec![
             Point::new(0.0, 4.0, 0.0),
@@ -271,47 +282,73 @@ fn update(app: &App, model: &mut Model, _update: Update) {
             model.camera.orbit_distance = (model.camera.orbit_distance + 1.0).max(1.0);
         }
         if d.contains(&Key::A) {
-            model.camera.orbit_orient = model.camera.orbit_orient * glam::Quat::from_axis_angle(glam::Vec3::Y, -ROT);
+            model.camera.orbit_orient =
+                model.camera.orbit_orient * glam::Quat::from_axis_angle(glam::Vec3::Y, -ROT);
         }
         if d.contains(&Key::D) {
-            model.camera.orbit_orient = model.camera.orbit_orient * glam::Quat::from_axis_angle(glam::Vec3::Y, ROT);
+            model.camera.orbit_orient =
+                model.camera.orbit_orient * glam::Quat::from_axis_angle(glam::Vec3::Y, ROT);
         }
         if d.contains(&Key::Q) {
-            model.camera.orbit_orient = model.camera.orbit_orient * glam::Quat::from_axis_angle(glam::Vec3::X, ROT);
+            model.camera.orbit_orient =
+                model.camera.orbit_orient * glam::Quat::from_axis_angle(glam::Vec3::X, ROT);
         }
         if d.contains(&Key::E) {
-            model.camera.orbit_orient = model.camera.orbit_orient * glam::Quat::from_axis_angle(glam::Vec3::X, -ROT);
+            model.camera.orbit_orient =
+                model.camera.orbit_orient * glam::Quat::from_axis_angle(glam::Vec3::X, -ROT);
         }
         model.camera.orbit_orient = model.camera.orbit_orient.normalize()
     } else {
         // PAIN but its implemented already
         if d.contains(&Key::W) {
-            model.camera.orbit_pos -= model.camera.rotation().inverse().mul_vec3(Vec3::Z * PAN_MULT)
+            model.camera.orbit_pos -= model
+                .camera
+                .rotation()
+                .inverse()
+                .mul_vec3(Vec3::Z * PAN_MULT)
             //model.camera.position -= model.camera.rotation.inverse().mul_vec3(Vec3::Z * PAN_MULT);
         }
         if d.contains(&Key::S) {
-            model.camera.orbit_pos += model.camera.rotation().inverse().mul_vec3(Vec3::Z * PAN_MULT)
+            model.camera.orbit_pos += model
+                .camera
+                .rotation()
+                .inverse()
+                .mul_vec3(Vec3::Z * PAN_MULT)
             //model.camera.position += model.camera.rotation.inverse().mul_vec3(Vec3::Z * PAN_MULT);
         }
         if d.contains(&Key::A) {
-            model.camera.orbit_pos -= model.camera.rotation().inverse().mul_vec3(Vec3::X * PAN_MULT)
+            model.camera.orbit_pos -= model
+                .camera
+                .rotation()
+                .inverse()
+                .mul_vec3(Vec3::X * PAN_MULT)
             //model.camera.position -= model.camera.rotation.inverse().mul_vec3(Vec3::X * PAN_MULT);
         }
         if d.contains(&Key::D) {
-            model.camera.orbit_pos += model.camera.rotation().inverse().mul_vec3(Vec3::X * PAN_MULT)
+            model.camera.orbit_pos += model
+                .camera
+                .rotation()
+                .inverse()
+                .mul_vec3(Vec3::X * PAN_MULT)
             //model.camera.position += model.camera.rotation.inverse().mul_vec3(Vec3::X * PAN_MULT);
         }
         if d.contains(&Key::Q) {
-            model.camera.orbit_pos -= model.camera.rotation().inverse().mul_vec3(Vec3::Y * PAN_MULT)
+            model.camera.orbit_pos -= model
+                .camera
+                .rotation()
+                .inverse()
+                .mul_vec3(Vec3::Y * PAN_MULT)
             //model.camera.position += model.camera.rotation.inverse().mul_vec3(Vec3::Y * PAN_MULT);
         }
         if d.contains(&Key::E) {
-            model.camera.orbit_pos += model.camera.rotation().inverse().mul_vec3(Vec3::Y * PAN_MULT)
+            model.camera.orbit_pos += model
+                .camera
+                .rotation()
+                .inverse()
+                .mul_vec3(Vec3::Y * PAN_MULT)
             //model.camera.position -= model.camera.rotation.inverse().mul_vec3(Vec3::Y * PAN_MULT);
         }
     }
-
-    
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {

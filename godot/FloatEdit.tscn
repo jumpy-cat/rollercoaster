@@ -1,0 +1,18 @@
+[gd_scene load_steps=2 format=3 uid="uid://j0eftcg8cqve"]
+
+[ext_resource type="Script" path="res://float_edit.gd" id="1_3h0y4"]
+
+[node name="HBoxContainer" type="HBoxContainer"]
+offset_right = 40.0
+offset_bottom = 40.0
+script = ExtResource("1_3h0y4")
+
+[node name="Label" type="Label" parent="."]
+layout_mode = 2
+
+[node name="LineEdit" type="LineEdit" parent="."]
+layout_mode = 2
+text = "0"
+
+[connection signal="focus_exited" from="LineEdit" to="." method="_on_line_edit_focus_exited"]
+[connection signal="text_submitted" from="LineEdit" to="." method="_on_line_edit_text_submitted"]

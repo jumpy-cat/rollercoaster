@@ -9,10 +9,6 @@ extends Node3D
 @onready var optimizer: Optimizer = $Optimizer;
 @onready var anim: Node3D = $Anim;
 @onready var label: Label = $VBoxContainer/MainStats;
-@onready var lr_edit: LineEdit = $VBoxContainer/HBoxContainer/LREdit
-@onready var mass_edit: LineEdit = $VBoxContainer/HBoxContainer2/MassEdit
-@onready var gravity_edit: LineEdit = $VBoxContainer/HBoxContainer3/GravityEdit
-@onready var friction_edit: LineEdit = $VBoxContainer/HBoxContainer4/FrictionEdit
 
 const utils = preload("res://utils.gd")
 
@@ -59,13 +55,10 @@ func _ready() -> void:
 				break
 	# prepare the optimizer
 	optimizer.set_points(pos)
-	optimizer.set_mass_gravity(mass, gravity)
-
-	# setup inital ui state
-	lr_edit.text = String.num(learning_rate)
-	mass_edit.text = String.num(mass)
-	gravity_edit.text = String.num(gravity)
-	friction_edit.text = String.num(friction)
+	optimizer.set_mass(mass)
+	optimizer.set_gravity(gravity)
+	optimizer.set_mu(friction)
+	optimizer.set_lr(learning_rate)
 
 
 func _process(_delta: float) -> void:
@@ -74,7 +67,7 @@ func _process(_delta: float) -> void:
 		optimizer.set_points(pos)
 	if Input.is_action_just_pressed("run_simulation"):
 		curve = optimizer.get_curve()
-		physics = CoasterPhysics.create(mass, gravity)
+		physics = CoasterPhysics.create(mass, gravity, friction)
 			
 	if Input.is_action_just_pressed("toggle_optimizer"):
 		optimize = !optimize
@@ -127,46 +120,22 @@ func _process(_delta: float) -> void:
 	label.text = "Cost: %.3f\n\nSpeed: %.3f\nAccel: %.3f\nGs: %.3f\nMax Gs: %.3f\nCost: %.3f" % format_values
 			
 
-# if input can't be parsed into float, revert to previous value 
-var lr_revert_txt = ""
-var mass_revert_txt = ""
-var gravity_revert_txt = ""
-var friction_revert_txt = ""
+
+func _on_lr_edit_value_changed(value: float) -> void:
+	learning_rate = value
+	optimizer.set_lr(learning_rate)
 
 
-func _on_lr_edit_text_submitted(new_text: String) -> void:
-	if new_text.is_valid_float():
-		lr_revert_txt = new_text
-		learning_rate = new_text.to_float()
-	else:
-		lr_edit.text = lr_revert_txt
-	lr_edit.release_focus()
+func _on_mass_edit_value_changed(value: float) -> void:
+	mass = value
+	optimizer.set_mass(mass)
 
 
-func _on_mass_edit_text_submitted(new_text: String) -> void:
-	if new_text.is_valid_float():
-		mass_revert_txt = new_text
-		mass = new_text.to_float()
-		optimizer.set_mass_gravity(mass, gravity)
-	else:
-		mass_edit.text = mass_revert_txt
-	mass_edit.release_focus()
+func _on_gravity_edit_value_changed(value: float) -> void:
+	gravity = value
+	optimizer.set_gravity(gravity)
 
 
-func _on_gravity_edit_text_submitted(new_text: String) -> void:
-	if new_text.is_valid_float():
-		gravity_revert_txt = new_text
-		gravity = new_text.to_float()
-		optimizer.set_mass_gravity(mass, gravity)
-	else:
-		gravity_edit.text = gravity_revert_txt
-	gravity_edit.release_focus()
-
-
-func _on_friction_edit_text_submitted(new_text: String) -> void:
-	if new_text.is_valid_float():
-		friction_revert_txt = new_text
-		friction = new_text.to_float()
-	else:
-		friction_edit.text = friction_revert_txt
-	friction_edit.release_focus()
+func _on_friction_edit_value_changed(value: float) -> void:
+	friction = value
+	optimizer.set_mu(friction)

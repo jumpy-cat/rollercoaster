@@ -28,6 +28,8 @@ enum ToWorker {
     SetPoints(Vec<point::Point<f64>>),
     SetMass(f64),
     SetGravity(f64),
+    SetMu(f64),
+    SetLR(f64),
 }
 
 /// Messages gotten by an `Optimizer` from its worker thread
@@ -54,7 +56,7 @@ impl INode for Optimizer {
     fn init(_base: Base<Node>) -> Self {
         godot_print!("Hello from Optimizer!");
 
-        let (to_worker_tx, to_worker_rx) = channel();
+        let (to_worker_tx, to_worker_rx) = channel::<ToWorker>();
         let (to_main_tx, to_main_rx) = channel();
 
         let worker_outbox = to_main_tx;
@@ -64,46 +66,53 @@ impl INode for Optimizer {
             let mut active = false;
             let mut points = vec![];
             let mut curve = Default::default();
-            let mut mass = 1.0;
-            let mut gravity = -0.01;
+            let mut mass = None;
+            let mut gravity = None;
+            let mut mu = None;
+            let mut lr = None;
             loop {
-                let msg = if active {
+                while let Ok(msg) = if active {
+                    // avoid blocking if inactive
                     worker_inbox.try_recv().map_err(|e| match e {
                         mpsc::TryRecvError::Empty => (),
                         mpsc::TryRecvError::Disconnected => panic!(),
                     })
                 } else {
+                    // otherwise block
                     worker_inbox.recv().map_err(|_| panic!())
-                };
-                match msg {
-                    Ok(msg) => match msg {
+                } {
+                    match msg {
                         ToWorker::Enable => active = true,
                         ToWorker::Disable => active = false,
                         ToWorker::SetPoints(vec) => {
                             points = vec;
                             hermite::set_derivatives_using_catmull_rom(&mut points);
                             curve = hermite::Spline::new(&points);
-                        },
-                        ToWorker::SetMass(v) => mass = v,
-                        ToWorker::SetGravity(v) => gravity = v
-                    },
-                    Err(_) => {},
+                        }
+                        ToWorker::SetMass(v) => mass = Some(v),
+                        ToWorker::SetGravity(v) => gravity = Some(v),
+                        ToWorker::SetMu(v) => mu = Some(v),
+                        ToWorker::SetLR(v) => lr = Some(v)
+                    }
                 }
-                if active {
+                if active
+                    && let Some(mass) = mass
+                    && let Some(gravity) = gravity
+                    && let Some(mu) = mu
+                    && let Some(lr) = lr
+                {
                     let prev_cost = optimizer::optimize(
-                        &physics::PhysicsState::new(mass, gravity),
+                        &physics::PhysicsState::new(mass, gravity, mu),
                         &curve,
                         &mut points,
+                        lr
                     );
                     curve = hermite::Spline::new(&points);
                     if prev_cost.is_some() {
                         worker_outbox
-                        .send(FromWorker::NewPoints((points.clone(), prev_cost)))
-                        .unwrap();
+                            .send(FromWorker::NewPoints((points.clone(), prev_cost)))
+                            .unwrap();
                     }
-                   
-                } else {
-                    sleep(Duration::from_secs(1));
                 }
             }
         });
@@ -134,7 +143,7 @@ impl INode for Optimizer {
                         }
                     }
                 }
-            },
+            }
             Err(e) => godot_print!("{:?}", e),
         }
     }
@@ -142,11 +151,29 @@ impl INode for Optimizer {
 
 #[godot_api]
 impl Optimizer {
-    /// Sets the values of mass and gravity to be used in physics
+    /// Sets the mass
     #[func]
-    fn set_mass_gravity(&mut self, mass: f64, gravity: f64) {
+    fn set_mass(&mut self, mass: f64) {
         self.to_worker.send(ToWorker::SetMass(mass)).unwrap();
+    }
+
+    /// Sets the value of gravity (acceleration, should be negative)
+    #[func]
+    fn set_gravity(&mut self, gravity: f64) {
         self.to_worker.send(ToWorker::SetGravity(gravity)).unwrap();
+    }
+
+    /// Sets the friction coefficent between the coaster and the track
+    #[func]
+    fn set_mu(&mut self, mu: f64) {
+        self.to_worker.send(ToWorker::SetMu(mu)).unwrap();
+    }
+
+    /// Sets the learning rate. Also sets the max delta possible
+    /// since derivatives are normalized if they exceed 1 in magnitude
+    #[func]
+    fn set_lr(&mut self, lr: f64) {
+        self.to_worker.send(ToWorker::SetLR(lr)).unwrap();
     }
 
     /// Sets the points to be optimized.\
@@ -207,7 +234,7 @@ impl Optimizer {
     #[func]
     fn get_curve(&self) -> Gd<CoasterCurve> {
         Gd::from_object(CoasterCurve {
-            inner: self.curve.clone()
+            inner: self.curve.clone(),
         })
     }
 
@@ -218,13 +245,12 @@ impl Optimizer {
     }
 }
 
-
 /// Wrapper around hermite::Spline
 /// A handle opaque to GDScript
 #[derive(GodotClass)]
 #[class(init)]
 struct CoasterCurve {
-    inner: hermite::Spline
+    inner: hermite::Spline,
 }
 
 /// Wrapper around physics::PhysicsState
@@ -238,9 +264,9 @@ struct CoasterPhysics {
 impl CoasterPhysics {
     /// Initialize with mass and gravity
     #[func]
-    fn create(mass: f64, gravity: f64) -> Gd<Self> {
+    fn create(mass: f64, gravity: f64, mu: f64) -> Gd<Self> {
         Gd::from_object(Self {
-            inner: Some(physics::PhysicsState::new(mass, gravity))
+            inner: Some(physics::PhysicsState::new(mass, gravity, mu)),
         })
     }
 
@@ -259,7 +285,9 @@ impl CoasterPhysics {
     /// Current position
     #[func]
     fn pos(&self, curve: Gd<CoasterCurve>) -> Variant {
-        if let Some(phys) = &self.inner && let Some(v) = curve.bind().inner.curve_at(phys.u()) {
+        if let Some(phys) = &self.inner
+            && let Some(v) = curve.bind().inner.curve_at(phys.u())
+        {
             Variant::from(Vector3::new(v.0 as f32, v.1 as f32, v.2 as f32))
         } else {
             //godot_error!("pos called on empty Physics, or u out of range");

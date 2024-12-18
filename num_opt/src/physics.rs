@@ -39,11 +39,12 @@ pub struct PhysicsState {
     max_g_force: f64,
     normal_force: na::Vector3<f64>,
     friction_force: f64,
+    mu: f64,
 }
 
 impl PhysicsState {
-    /// Initialize, all values except `mass` and `gravity` are zeroed
-    pub fn new(mass: f64, gravity: f64) -> Self {
+    /// Initialize, all values except those provided are zeroed
+    pub fn new(mass: f64, gravity: f64, mu: f64) -> Self {
         Self {
             mass,
             gravity,
@@ -55,7 +56,8 @@ impl PhysicsState {
             total_len: 0.0,
             max_g_force: 0.0,
             friction_force: 0.0,
-            normal_force: Default::default()
+            normal_force: Default::default(),
+            mu
         }
     }
 
@@ -111,8 +113,8 @@ impl PhysicsState {
 
         // Net - Gravity (- Friction? TODO)
         self.normal_force = net_f - na::Vector3::new(0.0, fg, 0.0);
-        const FRICTION: f64 = 0.06;
-        let new_friction_force = FRICTION * self.normal_force.magnitude();
+        //const FRICTION: f64 = 0.06;
+        let new_friction_force = self.mu * self.normal_force.magnitude();
 
         let g_force = self.a / self.gravity.abs();
         self.max_g_force = self.max_g_force.max(g_force);

@@ -22,6 +22,7 @@ pub fn optimize(
     initial: &physics::PhysicsState,
     curve: &hermite::Spline,
     points: &mut [point::Point<f64>],
+    lr: f64,
 ) -> Option<f64> {
     const NUDGE_DIST: f64 = 0.001;
     if let Some(curr) = cost(initial.clone(), curve) {
@@ -60,12 +61,11 @@ pub fn optimize(
                 }
             }
         }
-        const LR: f64 = 1.0;
         let mut iter = points.iter_mut();
         iter.next();
         for (p, d) in iter.zip(deriv) {
             
-            p.descend_derivatives(&d, LR);
+            p.descend_derivatives(&d, lr);
         }
         Some(curr)
     } else {

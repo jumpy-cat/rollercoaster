@@ -1,9 +1,10 @@
-[gd_scene load_steps=7 format=3 uid="uid://br738eihq2cus"]
+[gd_scene load_steps=8 format=3 uid="uid://br738eihq2cus"]
 
 [ext_resource type="Script" path="res://main.gd" id="1_w5dqp"]
 [ext_resource type="PackedScene" uid="uid://c3vuka4b0smhh" path="res://control_point.tscn" id="2_o72i1"]
 [ext_resource type="Script" path="res://camera_3d.gd" id="3_l1r6g"]
 [ext_resource type="PackedScene" uid="uid://dp1iulbnn6wvy" path="res://anim.tscn" id="4_s6s4g"]
+[ext_resource type="PackedScene" uid="uid://j0eftcg8cqve" path="res://FloatEdit.tscn" id="5_svsvn"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pnvk0"]
 diffuse_mode = 2
@@ -60,47 +61,27 @@ text = "Optimizer"
 layout_mode = 2
 text = "-- iter/s"
 
-[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
+[node name="LREdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
 layout_mode = 2
+_name = "LR:"
+value = 1.0
 
-[node name="Label" type="Label" parent="VBoxContainer/HBoxContainer"]
+[node name="MassEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
 layout_mode = 2
-text = "LR:"
+_name = "m:"
+value = 1.0
 
-[node name="LREdit" type="LineEdit" parent="VBoxContainer/HBoxContainer"]
+[node name="GravityEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
 layout_mode = 2
+_name = "g:"
+value = -0.01
 
-[node name="HBoxContainer2" type="HBoxContainer" parent="VBoxContainer"]
+[node name="FrictionEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
 layout_mode = 2
+_name = "μ"
+value = 0.05
 
-[node name="Label" type="Label" parent="VBoxContainer/HBoxContainer2"]
-layout_mode = 2
-text = "m:"
-
-[node name="MassEdit" type="LineEdit" parent="VBoxContainer/HBoxContainer2"]
-layout_mode = 2
-
-[node name="HBoxContainer3" type="HBoxContainer" parent="VBoxContainer"]
-layout_mode = 2
-
-[node name="Label" type="Label" parent="VBoxContainer/HBoxContainer3"]
-layout_mode = 2
-text = "g:"
-
-[node name="GravityEdit" type="LineEdit" parent="VBoxContainer/HBoxContainer3"]
-layout_mode = 2
-
-[node name="HBoxContainer4" type="HBoxContainer" parent="VBoxContainer"]
-layout_mode = 2
-
-[node name="Label" type="Label" parent="VBoxContainer/HBoxContainer4"]
-layout_mode = 2
-text = "μ:"
-
-[node name="FrictionEdit" type="LineEdit" parent="VBoxContainer/HBoxContainer4"]
-layout_mode = 2
-
-[connection signal="text_submitted" from="VBoxContainer/HBoxContainer/LREdit" to="." method="_on_lr_edit_text_submitted"]
-[connection signal="text_submitted" from="VBoxContainer/HBoxContainer2/MassEdit" to="." method="_on_mass_edit_text_submitted"]
-[connection signal="text_submitted" from="VBoxContainer/HBoxContainer3/GravityEdit" to="." method="_on_gravity_edit_text_submitted"]
-[connection signal="text_submitted" from="VBoxContainer/HBoxContainer4/FrictionEdit" to="." method="_on_friction_edit_text_submitted"]
+[connection signal="value_changed" from="VBoxContainer/LREdit" to="." method="_on_lr_edit_value_changed"]
+[connection signal="value_changed" from="VBoxContainer/MassEdit" to="." method="_on_mass_edit_value_changed"]
+[connection signal="value_changed" from="VBoxContainer/GravityEdit" to="." method="_on_gravity_edit_value_changed"]
+[connection signal="value_changed" from="VBoxContainer/FrictionEdit" to="." method="_on_friction_edit_value_changed"]
