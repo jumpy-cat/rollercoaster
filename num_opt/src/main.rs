@@ -7,7 +7,7 @@ extern crate nalgebra as na;
 use std::{
     fs::File,
     num::NonZero,
-    sync::{mpsc, Arc, LazyLock, Mutex},
+    sync::{LazyLock, Mutex},
 };
 
 use clap::Parser;
@@ -44,15 +44,6 @@ fn main() {
         .event(event)
         .simple_window(view)
         .run();
-}
-
-#[derive(Debug)]
-enum PlaceMode {
-    Add,
-    Pos,
-    Vel,
-    Accel,
-    Jerk,
 }
 
 #[derive(Debug)]
@@ -137,7 +128,6 @@ struct Model {
     curve: hermite::Spline,
     curve_points: Vec<Vec<Point3>>,
     sel_index: Option<usize>,
-    place_mode: PlaceMode,
     param_mode: ParameterMode,
     phys_state: Option<physics::PhysicsState>,
     step_mode: physics::StepBehavior,
@@ -173,32 +163,6 @@ impl Model {
             self.recalculate_curve();
             self.recalculate_curve_points();
         }
-    }
-
-    fn select_next_index(&mut self) {
-        if self.points.is_empty() {
-            self.sel_index = None;
-            return;
-        }
-        self.sel_index = match self.sel_index {
-            Some(i) => Some((i + 1) % self.points.len()),
-            None => Some(0),
-        };
-    }
-
-    fn select_prev_index(&mut self) {
-        if self.points.is_empty() {
-            self.sel_index = None;
-            return;
-        }
-        self.sel_index = match self.sel_index {
-            Some(i) => Some(if i == 0 { self.points.len() - 1 } else { i - 1 }),
-            None => Some(self.points.len() - 1),
-        }
-    }
-
-    fn selected(&mut self) -> Option<&mut Point<f64>> {
-        self.sel_index.map(|i| &mut self.points[i])
     }
 
     fn recalculate_curve(&mut self) {
@@ -255,7 +219,6 @@ fn model(app: &App) -> Model {
     Model {
         points,
         sel_index: Some(0),
-        place_mode: PlaceMode::Add,
         param_mode: ParameterMode::CatmullRom,
         curve: Default::default(),
         curve_points: vec![],
@@ -274,7 +237,7 @@ fn update(app: &App, model: &mut Model, _update: Update) {
 
     if app.keys.mods.contains(ModifiersState::SHIFT) {
         const ROT: f32 = 0.05;
-        // PAIN
+        // orbit
         if d.contains(&Key::W) {
             model.camera.orbit_distance = (model.camera.orbit_distance - 1.0).max(1.0);
         }
@@ -299,14 +262,13 @@ fn update(app: &App, model: &mut Model, _update: Update) {
         }
         model.camera.orbit_orient = model.camera.orbit_orient.normalize()
     } else {
-        // PAIN but its implemented already
+        // pan
         if d.contains(&Key::W) {
             model.camera.orbit_pos -= model
                 .camera
                 .rotation()
                 .inverse()
                 .mul_vec3(Vec3::Z * PAN_MULT)
-            //model.camera.position -= model.camera.rotation.inverse().mul_vec3(Vec3::Z * PAN_MULT);
         }
         if d.contains(&Key::S) {
             model.camera.orbit_pos += model
@@ -314,7 +276,6 @@ fn update(app: &App, model: &mut Model, _update: Update) {
                 .rotation()
                 .inverse()
                 .mul_vec3(Vec3::Z * PAN_MULT)
-            //model.camera.position += model.camera.rotation.inverse().mul_vec3(Vec3::Z * PAN_MULT);
         }
         if d.contains(&Key::A) {
             model.camera.orbit_pos -= model
@@ -322,7 +283,6 @@ fn update(app: &App, model: &mut Model, _update: Update) {
                 .rotation()
                 .inverse()
                 .mul_vec3(Vec3::X * PAN_MULT)
-            //model.camera.position -= model.camera.rotation.inverse().mul_vec3(Vec3::X * PAN_MULT);
         }
         if d.contains(&Key::D) {
             model.camera.orbit_pos += model
@@ -330,7 +290,6 @@ fn update(app: &App, model: &mut Model, _update: Update) {
                 .rotation()
                 .inverse()
                 .mul_vec3(Vec3::X * PAN_MULT)
-            //model.camera.position += model.camera.rotation.inverse().mul_vec3(Vec3::X * PAN_MULT);
         }
         if d.contains(&Key::Q) {
             model.camera.orbit_pos -= model
@@ -338,7 +297,6 @@ fn update(app: &App, model: &mut Model, _update: Update) {
                 .rotation()
                 .inverse()
                 .mul_vec3(Vec3::Y * PAN_MULT)
-            //model.camera.position += model.camera.rotation.inverse().mul_vec3(Vec3::Y * PAN_MULT);
         }
         if d.contains(&Key::E) {
             model.camera.orbit_pos += model
@@ -346,7 +304,6 @@ fn update(app: &App, model: &mut Model, _update: Update) {
                 .rotation()
                 .inverse()
                 .mul_vec3(Vec3::Y * PAN_MULT)
-            //model.camera.position -= model.camera.rotation.inverse().mul_vec3(Vec3::Y * PAN_MULT);
         }
     }
 }
@@ -371,9 +328,6 @@ fn view(app: &App, model: &Model, frame: Frame) {
     if let Some(phys) = &model.phys_state {
         render::draw_cart(&draw, &model.camera, &model.curve, phys);
     }
-    draw.text(&format!("{:?}", model.place_mode))
-        .xy(Vec2::new(0.0, 0.0))
-        .color(WHITE);
     draw.text(&format!("{:?}", model.param_mode))
         .xy(Vec2::new(0.0, -15.0))
         .color(WHITE);
@@ -383,7 +337,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
     draw.to_frame(app, &frame).unwrap();
 }
 
-fn event(app: &App, model: &mut Model, evt: Event) {
+fn event(_app: &App, model: &mut Model, evt: Event) {
     let evt = match evt {
         Event::WindowEvent { id: _, simple } => simple,
         _ => None,
@@ -395,39 +349,6 @@ fn event(app: &App, model: &mut Model, evt: Event) {
         WindowEvent::MousePressed(btn) => match btn {
             MouseButton::Left => {
                 return;
-                let mx = app.mouse.x.into();
-                let my = app.mouse.y.into();
-                println!("{:?}", (mx, my));
-                match model.place_mode {
-                    PlaceMode::Add => {
-                        model.points.push(Point::new_2d(mx, my));
-                        model.sel_index = Some(model.points.len() - 1);
-                    }
-                    PlaceMode::Pos => {
-                        model.selected().map(|p| {
-                            p.x = mx;
-                            p.y = my;
-                        });
-                    }
-                    PlaceMode::Vel => {
-                        model.selected().map(|p| {
-                            p.xp = mx - p.x;
-                            p.yp = my - p.y;
-                        });
-                    }
-                    PlaceMode::Accel => {
-                        model.selected().map(|p| {
-                            p.xpp = mx - p.xp - p.x;
-                            p.ypp = my - p.yp - p.y;
-                        });
-                    }
-                    PlaceMode::Jerk => {
-                        model.selected().map(|p| {
-                            p.xppp = mx - p.xpp - p.xp - p.x;
-                            p.yppp = my - p.ypp - p.yp - p.y;
-                        });
-                    }
-                }
             }
             _ => {}
         },
@@ -437,12 +358,6 @@ fn event(app: &App, model: &mut Model, evt: Event) {
             }
             Key::R => {
                 model.start_interactive_simulation();
-            }
-            Key::P => {
-                model.select_prev_index();
-            }
-            Key::N => {
-                model.select_next_index();
             }
             Key::O => {
                 model.optimize = !model.optimize;
@@ -466,24 +381,6 @@ fn event(app: &App, model: &mut Model, evt: Event) {
             }
             Key::M => {
                 model.param_mode = model.param_mode.next();
-            }
-            Key::Comma => {
-                model.step_mode = model.step_mode.next();
-            }
-            Key::Key1 => {
-                model.place_mode = PlaceMode::Add;
-            }
-            Key::Key2 => {
-                model.place_mode = PlaceMode::Pos;
-            }
-            Key::Key3 => {
-                model.place_mode = PlaceMode::Vel;
-            }
-            Key::Key4 => {
-                model.place_mode = PlaceMode::Accel;
-            }
-            Key::Key5 => {
-                model.place_mode = PlaceMode::Jerk;
             }
             _ => (),
         },

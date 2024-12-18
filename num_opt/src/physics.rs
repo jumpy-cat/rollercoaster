@@ -1,4 +1,3 @@
-use nannou::glam;
 
 /// Possible ways for the physics system to take a step
 /// Steps are in `u`, the (0,1) parameterization of hermite curves
@@ -11,18 +10,7 @@ pub enum StepBehavior {
     /// Advances `u` while trying to keep time-step constant
     Time,
 }
-// 
 
-impl StepBehavior {
-    /// Cycle through step behaviors
-    pub fn next(&self) -> Self {
-        match self {
-            Self::Constant => Self::Distance,
-            Self::Distance => Self::Time,
-            Self::Time => Self::Constant,
-        }
-    }
-}
 
 /// Physics solver
 #[derive(Debug, Clone, getset::CopyGetters)]

@@ -5,8 +5,7 @@ extern crate nalgebra as na;
 use std::num::NonZero;
 use std::sync::mpsc::{self, channel};
 use std::sync::Mutex;
-use std::thread::{self, sleep};
-use std::time::Duration;
+use std::thread;
 
 use godot::classes::Node;
 use godot::prelude::*;
@@ -128,7 +127,7 @@ impl INode for Optimizer {
     }
 
     /// Checks for results from worker thread
-    fn process(&mut self, delta: f64) {
+    fn process(&mut self, _delta: f64) {
         match self.from_worker.try_lock() {
             Ok(recv) => {
                 while let Ok(msg) = recv.try_recv() {

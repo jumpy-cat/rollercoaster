@@ -1,4 +1,3 @@
-use godot::global::godot_print;
 
 use crate::{hermite, physics, point};
 
