@@ -121,7 +121,7 @@ impl PhysicsState {
         // change in time 
         // (m/s^2)
         self.a = delta_v / delta_t;
-        // declare the accelreation
+        // declare the acceleration
 
         // Net force, F = ma
         let net_f = (new_v - self.v) * self.mass / delta_t;
