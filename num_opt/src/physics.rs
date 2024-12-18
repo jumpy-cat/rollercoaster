@@ -11,6 +11,7 @@ pub enum StepBehavior {
     /// Advances `u` while trying to keep time-step constant
     Time,
 }
+// 
 
 impl StepBehavior {
     /// Cycle through step behaviors
@@ -64,18 +65,23 @@ impl PhysicsState {
     /// Solve the physics given the current tangent of the curve
     pub fn step(&mut self, dxdu: f64, dydu: f64, dzdu: f64, behavior: StepBehavior) {
         let drdu = na::Vector3::new(dxdu, dydu, dzdu);
+        // drdu means tangent value of 3D components
         let raw_arc_len = drdu.magnitude();
+        // arc length becomes the magnitude of drdu
         self.total_len += raw_arc_len;
         let arc_len = raw_arc_len.max(0.01);
+        // In order to keep the continuity, set length not becomes the zero.
 
         let step = match behavior {
             StepBehavior::Constant => 0.01,
             StepBehavior::Distance => (1.0 / arc_len).min(0.01),
             StepBehavior::Time => (0.1 * self.speed / arc_len).max(0.00001),
         };
+        // Arc length is 
 
         let fg = self.gravity * self.mass;
         //let forward_force = fg * dydu / s;
+        // direction of gravity is always -y direction.
 
         // SI units used for clarity 
 
@@ -89,24 +95,33 @@ impl PhysicsState {
         // then add friction...
         let dkdu = fg * dydu - self.friction_force;
         let delta_k = step * dkdu;
-
+        // dkdu is net work for this roller coaster.
+        // delta k measures how much rollercoaster should be moved.
+        
         // Net Force = Force of Gravity + Normal Force (TODO: + Friction)
         // Force = dVdt
 
-        let new_vel = self.vel_from_k(self.k() + delta_k);
-        let new_u = self.u + step;
+        
 
+        
+        let new_vel = self.vel_from_k(self.k() + delta_k);
+// set new velocity to the point at distance k
+        let new_u = self.u + step;
+// set new u to original value of u and add the self.u there
         // (m/s)
         let new_v = na::Vector3::new(new_vel * dxdu / arc_len, new_vel * dydu / arc_len, new_vel * dzdu / arc_len);
-
+    // set new net velocity
         // (m/s)
         let delta_v =
             ((self.v.x - new_v.x).powi(2) + (self.v.y - new_v.y).powi(2) + (self.v.z - new_v.z).powi(2))
                 .sqrt();
+        // change in net velocity 
         // (s)
         let delta_t = step * arc_len / self.speed;
+        // change in time 
         // (m/s^2)
         self.a = delta_v / delta_t;
+        // declare the accelreation
 
         // Net force, F = ma
         let net_f = (new_v - self.v) * self.mass / delta_t;
@@ -114,11 +129,15 @@ impl PhysicsState {
         // Net - Gravity (- Friction? TODO)
         self.normal_force = net_f - na::Vector3::new(0.0, fg, 0.0);
         //const FRICTION: f64 = 0.06;
+        // coefficient of friction constant
         let new_friction_force = self.mu * self.normal_force.magnitude();
+
+        //declare the friction force
 
         let g_force = self.a / self.gravity.abs();
         self.max_g_force = self.max_g_force.max(g_force);
-
+// 
+        
         self.u = new_u;
         self.speed = new_vel;
 
