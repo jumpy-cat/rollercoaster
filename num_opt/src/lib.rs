@@ -6,6 +6,7 @@ use std::num::NonZero;
 use std::sync::mpsc::{self, channel};
 use std::sync::Mutex;
 use std::thread;
+use std::time::Instant;
 
 use godot::classes::Node;
 use godot::prelude::*;
@@ -47,6 +48,8 @@ struct Optimizer {
     from_worker: Mutex<mpsc::Receiver<FromWorker>>,
     to_worker: mpsc::Sender<ToWorker>,
     most_recent_cost: f64,
+    num_iters: u64,
+    start_time: Option<std::time::Instant>,
 }
 
 #[godot_api]
@@ -123,6 +126,8 @@ impl INode for Optimizer {
             from_worker: Mutex::new(to_main_rx),
             to_worker: to_worker_tx,
             most_recent_cost: 0.0,
+            num_iters: 0,
+            start_time: None
         }
     }
 
@@ -139,6 +144,7 @@ impl INode for Optimizer {
                             if let Some(c) = vec.1 {
                                 self.most_recent_cost = c;
                             }
+                            self.num_iters += 1;
                         }
                     }
                 }
@@ -193,6 +199,8 @@ impl Optimizer {
     /// Enable the optimizer
     #[func]
     fn enable_optimizer(&mut self) {
+        self.start_time = Some(Instant::now());
+        self.num_iters = 0;
         self.to_worker.send(ToWorker::Enable).unwrap();
     }
 
@@ -241,6 +249,16 @@ impl Optimizer {
     #[func]
     fn cost(&self) -> f64 {
         self.most_recent_cost
+    }
+
+    /// Get the iterations per second from the most recent optimizer start
+    #[func]
+    fn iters_per_second(&self) -> Variant {
+        if let Some(st) = self.start_time {
+            Variant::from(self.num_iters as f64 / st.elapsed().as_secs_f64())
+        } else {
+            Variant::nil()
+        }
     }
 }
 

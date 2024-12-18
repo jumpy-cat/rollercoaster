@@ -9,6 +9,7 @@ extends Node3D
 @onready var optimizer: Optimizer = $Optimizer;
 @onready var anim: Node3D = $Anim;
 @onready var label: Label = $VBoxContainer/MainStats;
+@onready var optimizer_speed_label: Label = $VBoxContainer/OptimizerSpdLabel
 
 const utils = preload("res://utils.gd")
 
@@ -118,6 +119,11 @@ func _process(_delta: float) -> void:
 			0.0,
 		]
 	label.text = "Cost: %.3f\n\nSpeed: %.3f\nAccel: %.3f\nGs: %.3f\nMax Gs: %.3f\nCost: %.3f" % format_values
+	var ips = optimizer.iters_per_second()
+	if ips == null:
+		optimizer_speed_label.text = "-- iter/s"
+	else:
+		optimizer_speed_label.text = "%.1f iter/s" % optimizer.iters_per_second()
 			
 
 
