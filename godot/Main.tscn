@@ -81,6 +81,7 @@ layout_mode = 2
 _name = "μ"
 value = 0.05
 
+[connection signal="toggled" from="VBoxContainer/CheckButton" to="." method="_on_check_button_toggled"]
 [connection signal="value_changed" from="VBoxContainer/LREdit" to="." method="_on_lr_edit_value_changed"]
 [connection signal="value_changed" from="VBoxContainer/MassEdit" to="." method="_on_mass_edit_value_changed"]
 [connection signal="value_changed" from="VBoxContainer/GravityEdit" to="." method="_on_gravity_edit_value_changed"]

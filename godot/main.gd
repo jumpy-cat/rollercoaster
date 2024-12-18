@@ -139,3 +139,10 @@ func _on_gravity_edit_value_changed(value: float) -> void:
 func _on_friction_edit_value_changed(value: float) -> void:
 	friction = value
 	optimizer.set_mu(friction)
+
+
+func _on_check_button_toggled(toggled_on: bool) -> void:
+	if toggled_on:
+		optimizer.enable_optimizer()
+	else:
+		optimizer.disable_optimizer()
