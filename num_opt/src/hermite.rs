@@ -102,9 +102,9 @@ impl Spline {
 /// A single hermite curve
 #[derive(Clone)]
 pub struct CurveParams {
-    x: [f64; 8],
-    y: [f64; 8],
-    z: [f64; 8],
+    x: [f64; 8],   // x(t) = x[0] * t^7 + x[1] * t^6 + ... + x[7] * t^0
+    y: [f64; 8],   // y(t) = y[0] * t^7 + y[1] * t^6 + ... + y[7] * t^0
+    z: [f64; 8],   // z(t) = z[0] * t^7 + z[1] * t^6 + ... + z[7] * t^0
 }
 
 impl CurveParams {
@@ -174,6 +174,7 @@ pub fn curve_points(params: &CurveParams, segments: NonZeroU32) -> Vec<nannou::g
             let x = params.x_d0(t);
             let y = params.y_d0(t);
             let z = params.z_d0(t);
+            // just get points on the curve 
 
             Vec3::new(x.as_(), y.as_(), z.as_())
         })
@@ -213,6 +214,8 @@ pub fn catmull_rom_recursive(values: &Vec<f64>, coeff: f64, depth: u32) -> Vec<V
 }
 
 /// Sets the first three derivatives using recursive cardinal curves
+/// This is needed to get reasonable starting values for the derivatives.
+/// That way the optimization can proceed smoothly.
 pub fn set_derivatives_using_catmull_rom(points: &mut Vec<point::Point<f64>>) {
     const SCALE: f64 = 0.5;
 

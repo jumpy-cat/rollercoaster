@@ -78,6 +78,7 @@ where
     }
 
     /// Descends derivatives specified in `v`  
+    /// Used by the optimizer to adjust the parameters of each point
     /// Format is xp, xpp, xppp, yp, ypp, ypp, ...
     pub fn descend_derivatives(&mut self, v: &[Option<T>], lr: T) {
         assert_eq!(v.len(), 9);
