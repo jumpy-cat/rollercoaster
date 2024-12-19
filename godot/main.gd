@@ -10,11 +10,13 @@ extends Node3D
 @onready var anim: Node3D = $Anim;
 @onready var label: Label = $VBoxContainer/MainStats;
 @onready var optimizer_speed_label: Label = $VBoxContainer/OptimizerSpdLabel
+@onready var optimizer_checkbox: CheckButton = $VBoxContainer/CheckButton
 
 const utils = preload("res://utils.gd")
 
 var optimize: bool = false
-var pos: Array[Vector3] = []
+var control_points: Array[ControlPoint]
+
 var curve: CoasterCurve
 var physics: CoasterPhysics
 
@@ -25,21 +27,21 @@ var gravity: float = -0.01
 var friction: float = 0.05
 
 # paste in points from outside source here
+# this is NOT updated when positions are changed
 var initial_pos = [[30, 24, 1], [21, 6, 1], [19, 12, 1], [21, 18, 3],
 [25, 16, 2], [23, 9, 4], [20, 13, 4], [16, 2, 6], [15, 7, 4],
 [17, 7, 1], [14, 3, 2], [12, 5, 0], [7, 6, 6], [6, 8, 12],
 [11, 9, 3], [8, 13, 3], [2, 5, 3], [0, 0, 0], [47, 0, 1], [43, 0, 1]]
 
 func _ready() -> void:
-	# create list of position vectors, add points to scene, calculate center
+	# create list of position vectors, calculate center
 	var avg_pos = Vector3.ZERO
 	for p in initial_pos:
 		var v = Vector3(p[0], p[1], p[2])
-		pos.push_back(v)
 		avg_pos += v
 		var control_point = control_point_scene.instantiate();
 		control_point.initialize(v)
-		add_child(control_point)
+		control_points.push_back(control_point)
 		
 	avg_pos /= len(initial_pos)
 	
@@ -50,12 +52,22 @@ func _ready() -> void:
 		camera.recalculate_transform()
 		camera.od += 1
 		points_not_in_frame = false
-		for p in pos:
+		for cp in control_points:
+			var p = cp.position
 			if not camera.is_position_in_frustum(p):
 				points_not_in_frame = true
 				break
+
+	# add points to scene
+	for cp in control_points:
+		add_child(cp)
+
+	var positions: Array[Vector3] = []
+	for cp in control_points:
+		positions.push_back(cp.position)
+
 	# prepare the optimizer
-	optimizer.set_points(pos)
+	optimizer.set_points(positions)
 	optimizer.set_mass(mass)
 	optimizer.set_gravity(gravity)
 	optimizer.set_mu(friction)
@@ -65,17 +77,13 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	# handle key input
 	if Input.is_action_just_pressed("reset_curve"):
-		optimizer.set_points(pos)
+		var positions: Array[Vector3] = []
+		for cp in control_points:
+			positions.push_back(cp.position)
+		optimizer.set_points(positions)
 	if Input.is_action_just_pressed("run_simulation"):
 		curve = optimizer.get_curve()
-		physics = CoasterPhysics.create(mass, gravity, friction)
-			
-	if Input.is_action_just_pressed("toggle_optimizer"):
-		optimize = !optimize
-		if optimize:
-			optimizer.enable_optimizer()
-		else:
-			optimizer.disable_optimizer()
+		physics = CoasterPhysics.create(mass, gravity, friction)		
 	
 	# update physics simulation
 	if curve != null:
@@ -124,7 +132,16 @@ func _process(_delta: float) -> void:
 		optimizer_speed_label.text = "-- iter/s"
 	else:
 		optimizer_speed_label.text = "%.1f iter/s" % optimizer.iters_per_second()
-			
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if event.is_action_pressed("toggle_optimizer"):
+		optimize = !optimize
+		if optimize:
+			optimizer.enable_optimizer()
+		else:
+			optimizer.disable_optimizer()
+	optimizer_checkbox.button_pressed = optimize
 
 
 func _on_lr_edit_value_changed(value: float) -> void:
