@@ -2,11 +2,12 @@
 /// Initializing their derivatives using Catmull-Rom
 /// Getting position and derivative values of the splines
 use std::num::NonZeroU32;
-
+// ensure segments for curve sampling are not zero
 use nannou::glam::Vec3;
 use num_traits::AsPrimitive;
 
 use crate::point;
+// Refer to a custom modue that define a Point struct used in splines.
 
 #[rustfmt::skip]
 fn get_matrix() -> na::SMatrix<f64, 8,8> {
@@ -22,6 +23,9 @@ fn get_matrix() -> na::SMatrix<f64, 8,8> {
     ])
 }
 
+// create an 8X8 matrix to interplolate Hermie splines.
+// this matrix reansforms given points, tangents, and higher derivatives into polynomial coefficients(x(t),y(t),z(t)).
+
 macro_rules! curve_params_getter {
     ($name:ident, $c:expr, $v:ident) => {
         pub fn $name(&self, u: f64) -> f64 {
@@ -32,8 +36,10 @@ macro_rules! curve_params_getter {
         }
     };
 }
+// Simplify defining functions to calculate position(x,y,z) or derivatives from the coefficients.
+// USe a polynomial representation
 
-/// A hermite spline
+/// A hermite spline, each parameterized by CurveParms.
 #[derive(Clone)]
 pub struct Spline {
     params: Vec<CurveParams>,
@@ -50,6 +56,8 @@ impl Default for Spline {
 
 impl Spline {
     /// Creates a spline from the given points
+    // For each pair of points, we need to find a Hermite polynomial that smoothly interpolates between them. 
+    // It inolves solving for the coefficients of the Hermite polynomial.
     pub fn new(points: &[point::Point<f64>]) -> Self {
         let mut params = vec![];
         for [p, q] in points.array_windows::<2>() {
@@ -60,12 +68,18 @@ impl Spline {
         }
     }
 
+    //Creates splines between every consecutive pair of points
+    //Uses the solve function to compute Hermite coefficients for each segment.
+
     /// Iterate through the hermite curves of the spline
     pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a CurveParams> + use<'a> {
         self.params.iter()
     }
 
     /// Find the position of the spline at `u`
+    // A value of u=0 gives us the starting point of the spline, while u=1 corresponds to the end of the curve.
+    // This method evaluates the position by calculating the position by calculating the value of spline at u based on the coefficients of the Hermite polynomials 
+    // for the segment.
     pub fn curve_at(&self, u: f64) -> Option<(f64, f64, f64)> {
         let i = u.floor();
         let rem = u - i;
@@ -105,6 +119,8 @@ pub struct CurveParams {
     z: [f64; 8], // z(t) = z[0] * t^7 + z[1] * t^6 + ... + z[7] * t^0
 }
 
+// Stores polynomial coefficients for x(t), y(t), z(t), each up to t7.
+
 impl CurveParams {
     // coefficents and power
     const D0: [(f64, i32); 8] = [
@@ -117,6 +133,7 @@ impl CurveParams {
         (1.0, 1),
         (1.0, 0),
     ];
+    // position
     const D1: [(f64, i32); 7] = [
         (7.0, 6),
         (6.0, 5),
@@ -126,6 +143,7 @@ impl CurveParams {
         (2.0, 1),
         (1.0, 0),
     ];
+    // velocity
 
     // getters for position and 1st derivative
     curve_params_getter!(x_d0, Self::D0, x);
@@ -136,7 +154,8 @@ impl CurveParams {
     curve_params_getter!(z_d1, Self::D1, z);
 }
 
-/// Given two points, finds a hermite curve interpolating them
+/// Given two points, finds a hermite curve interpolating them. This step constructs the coefficients of the Hermite polynomial that interpolates two points,
+// ensuring that the curve satisfies conditions for position, velocity, accerlation, and jerk continuity
 pub fn solve(p: &point::Point<f64>, q: &point::Point<f64>) -> CurveParams {
     let m = get_matrix();
     type SMatrix8x1 = na::SMatrix<f64, 8, 1>;
@@ -181,6 +200,8 @@ pub fn curve_points(params: &CurveParams, segments: NonZeroU32) -> Vec<nannou::g
 
 /// Uses Catmull-Rom to calculate derivatives  
 /// `coeff` = 0.5 -> cardinal curve
+// Catmull-Rom is a cardinal spline that ensures smooth transitions between points by computing tangents based on neighboring points. 
+// This calculates the first, second , third derivatives recursivly, for the smoothe curve.
 pub fn catmull_rom(values: &Vec<f64>, coeff: f64) -> Vec<f64> {
     if values.len() < 2 {
         return vec![0.0; values.len()];
