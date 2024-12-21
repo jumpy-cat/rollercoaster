@@ -19,8 +19,6 @@ extends Node3D
 var selected_index;
 var selected_point;
 
-const utils = preload("res://utils.gd")
-
 var optimize: bool = false
 var control_points: Array[ControlPoint]
 
@@ -113,7 +111,7 @@ func _process(_delta: float) -> void:
 		m.clear_surfaces();
 		m.surface_begin(Mesh.PRIMITIVE_TRIANGLES);
 
-		utils.cylinder_line(m, optimizer.as_segment_points(), 0.2)
+		Utils.cylinder_line(m, optimizer.as_segment_points(), 0.2)
 				
 		m.surface_end();
 	

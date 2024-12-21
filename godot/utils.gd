@@ -1,5 +1,7 @@
 extends Node
 
+class_name Utils
+
 ## Adds 3d lines between [points] with the given [radius]
 static func cylinder_line(m, points, radius):
 	if len(points) > 1:
