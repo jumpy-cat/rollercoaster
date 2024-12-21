@@ -4,6 +4,7 @@
 #[derive(Debug, Clone, Copy)]
 pub enum StepBehavior {
     /// Advance by changing `u` to `u + k` where k is a constant
+    #[allow(dead_code)]
     Constant,
     /// Advances `u` while trying to keep the arc length traveled constant
     Distance,
@@ -135,7 +136,7 @@ impl PhysicsState {
 
         const MIN_VEL: f64 = 0.01;
         const MIN_VEL_MULT: f64 = 1.0;
-        const MAX_G: f64 = 3.0;
+        //const MAX_G: f64 = 3.0;
 
         if delta_t.is_finite() {
             // smoothing term

@@ -36,7 +36,6 @@ macro_rules! curve_params_getter {
 /// A hermite spline
 #[derive(Clone)]
 pub struct Spline {
-    param_points: Vec<(point::Point<f64>, point::Point<f64>)>,
     params: Vec<CurveParams>,
 }
 
@@ -45,7 +44,6 @@ impl Default for Spline {
     fn default() -> Self {
         Self {
             params: vec![],
-            param_points: vec![],
         }
     }
 }
@@ -54,51 +52,17 @@ impl Spline {
     /// Creates a spline from the given points
     pub fn new(points: &[point::Point<f64>]) -> Self {
         let mut params = vec![];
-        let mut param_points = vec![];
         for [p, q] in points.array_windows::<2>() {
             params.push(solve(p, q));
-            param_points.push((p.clone(), q.clone()));
         }
         Self {
             params,
-            param_points,
         }
     }
 
     /// Iterate through the hermite curves of the spline
     pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a CurveParams> + use<'a> {
         self.params.iter()
-    }
-
-    /// Index into the spline
-    pub fn sub_curve(&self, i: usize) -> (&CurveParams, &(point::Point<f64>, point::Point<f64>)) {
-        (&self.params[i], &self.param_points[i])
-    }
-
-    /// Get the point at index `i`
-    pub fn get_point(&self, i: usize) -> &point::Point<f64> {
-        assert!(i <= self.param_points.len());
-        if i == self.param_points.len() {
-            return &self.param_points[i - 1].1;
-        }
-        &self.param_points[i].0
-    }
-
-    /// Set the point at index `i`
-    /// Requires solving for new parameters
-    /// Precondition: `0 <= i <= self.param_points.len()`
-    pub fn set_point(&mut self, i: usize, p: point::Point<f64>) {
-        let curve_index_left = if i == 0 { None } else { Some(i - 1) };
-        let curve_index_right = if i == self.param_points.len() { None } else { Some(i) };
-
-        if let Some(index) = curve_index_left {
-            self.params[index] = solve(&self.param_points[index].0, &p);
-            self.param_points[index].1 = p.clone();
-        }
-        if let Some(index) = curve_index_right {
-            self.params[index] = solve(&p, &self.param_points[index].1);
-            self.param_points[index].0 = p;
-        }
     }
 
     /// Find the position of the spline at `u`
@@ -130,10 +94,6 @@ impl Spline {
             self.params[i].y_d1(rem),
             self.params[i].z_d1(rem),
         ))
-    }
-
-    pub fn num_sub_curves(&self) -> usize {
-        self.params.len()
     }
 }
 

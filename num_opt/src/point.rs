@@ -1,8 +1,6 @@
-use std::ops::{AddAssign, Mul, SubAssign};
+use std::ops::{AddAssign, SubAssign};
 
-use nannou::geom::Point3;
 use num_traits::{AsPrimitive, Float};
-use godot::prelude::Vector3;
 
 macro_rules! nudge {
     ($to_nudge:expr, $amount:expr, $out:expr, $s:expr) => {
@@ -37,45 +35,12 @@ pub struct Point<T> {
 
 impl<T> Point<T>
 where
-    T: AsPrimitive<f32> {
-        pub fn pos(&self) -> Point3 {
-            Point3::new(self.x.as_(), self.y.as_(), self.z.as_())
-        }
-    // point itself
-    
-        pub fn vel(&self) -> Point3 {
-            Point3::new(self.xp.as_(), self.yp.as_(), self.zp.as_())
-        }
-    // 1st derivative
-    
-        pub fn accel(&self) -> Point3 {
-            Point3::new(self.xpp.as_(), self.ypp.as_(), self.zpp.as_())
-        }
-
-    // 2nd derivative
-        pub fn jerk(&self) -> Point3 {
-            Point3::new(self.xppp.as_(), self.yppp.as_(), self.zppp.as_())
-        }
-    }
-
-// 3rd derivative
-
-impl<T> Point<T>
-where
     T: Default + Copy + AsPrimitive<f32> + AddAssign + SubAssign + Float,
 {
 
     pub fn new(x: T, y: T, z: T) -> Self {
         Self {
             x, y, z, ..Default::default()
-        }
-    }
-
-    pub fn new_2d(x: T, y: T) -> Self {
-        Self {
-            x,
-            y,
-            ..Default::default()
         }
     }
 
@@ -111,11 +76,6 @@ where
         nudge!(s.zppp, amount, out, s);
 
         out
-    }
-
-    /// Convert Point to a Vector3
-    pub fn to_gd_vec3(&self) -> Vector3 {
-        Vector3::new(self.x.as_(), self.y.as_(), self.z.as_())
     }
 }
 
