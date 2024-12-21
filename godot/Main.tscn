@@ -81,8 +81,23 @@ layout_mode = 2
 _name = "μ"
 value = 0.05
 
+[node name="XEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
+layout_mode = 2
+_name = "x:"
+
+[node name="YEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
+layout_mode = 2
+_name = "y:"
+
+[node name="ZEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
+layout_mode = 2
+_name = "z:"
+
 [connection signal="toggled" from="VBoxContainer/CheckButton" to="." method="_on_check_button_toggled"]
 [connection signal="value_changed" from="VBoxContainer/LREdit" to="." method="_on_lr_edit_value_changed"]
 [connection signal="value_changed" from="VBoxContainer/MassEdit" to="." method="_on_mass_edit_value_changed"]
 [connection signal="value_changed" from="VBoxContainer/GravityEdit" to="." method="_on_gravity_edit_value_changed"]
 [connection signal="value_changed" from="VBoxContainer/FrictionEdit" to="." method="_on_friction_edit_value_changed"]
+[connection signal="value_changed" from="VBoxContainer/XEdit" to="." method="_on_x_edit_value_changed"]
+[connection signal="value_changed" from="VBoxContainer/YEdit" to="." method="_on_y_edit_value_changed"]
+[connection signal="value_changed" from="VBoxContainer/ZEdit" to="." method="_on_z_edit_value_changed"]

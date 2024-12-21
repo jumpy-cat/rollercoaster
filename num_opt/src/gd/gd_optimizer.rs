@@ -1,15 +1,25 @@
-use std::{num::NonZero, sync::{mpsc, Mutex}, time::Instant};
+use std::{
+    num::NonZero,
+    sync::{mpsc, Mutex},
+    time::Instant,
+};
 
-use godot::prelude::*;
 use crate::{hermite, optimizer, physics, point};
+use godot::prelude::*;
 
-use super::gd_coaster_curve::CoasterCurve;
+use super::{gd_coaster_curve::CoasterCurve, gd_coaster_point::CoasterPoint};
+
+#[derive(PartialEq)]
+enum Derivatives {
+    Keep,
+    Ignore
+}
 
 /// Messages sent from an `Optimizer` to its worker thread
 enum ToWorker {
     Enable,
     Disable,
-    SetPoints(Vec<point::Point<f64>>),
+    SetPoints(Vec<point::Point<f64>>, Derivatives),
     SetMass(f64),
     SetGravity(f64),
     SetMu(f64),
@@ -70,15 +80,17 @@ impl INode for Optimizer {
                     match msg {
                         ToWorker::Enable => active = true,
                         ToWorker::Disable => active = false,
-                        ToWorker::SetPoints(vec) => {
+                        ToWorker::SetPoints(vec, deriv) => {
                             points = vec;
-                            hermite::set_derivatives_using_catmull_rom(&mut points);
+                            if deriv == Derivatives::Ignore {
+                                hermite::set_derivatives_using_catmull_rom(&mut points);
+                            }
                             curve = hermite::Spline::new(&points);
                         }
                         ToWorker::SetMass(v) => mass = Some(v),
                         ToWorker::SetGravity(v) => gravity = Some(v),
                         ToWorker::SetMu(v) => mu = Some(v),
-                        ToWorker::SetLR(v) => lr = Some(v)
+                        ToWorker::SetLR(v) => lr = Some(v),
                     }
                 }
                 if active
@@ -91,7 +103,7 @@ impl INode for Optimizer {
                         &physics::PhysicsState::new(mass, gravity, mu),
                         &curve,
                         &mut points,
-                        lr
+                        lr,
                     );
                     curve = hermite::Spline::new(&points);
                     if prev_cost.is_some() {
@@ -111,7 +123,7 @@ impl INode for Optimizer {
             to_worker: to_worker_tx,
             most_recent_cost: 0.0,
             num_iters: 0,
-            start_time: None
+            start_time: None,
         }
     }
 
@@ -121,11 +133,11 @@ impl INode for Optimizer {
             Ok(recv) => {
                 while let Ok(msg) = recv.try_recv() {
                     match msg {
-                        FromWorker::NewPoints(vec) => {
+                        FromWorker::NewPoints((points, cost)) => {
                             //godot_print!("new points!");
                             self.segment_points_cache = None;
-                            self.points = vec.0;
-                            if let Some(c) = vec.1 {
+                            self.points = points;
+                            if let Some(c) = cost {
                                 self.most_recent_cost = c;
                             }
                             self.num_iters += 1;
@@ -171,18 +183,31 @@ impl Optimizer {
     #[func]
     fn set_points(&mut self, points: Array<Vector3>) {
         godot_print!("set_points: {}", points);
-        let _ = self.to_worker
-            .send(ToWorker::SetPoints(
-                points
-                    .iter_shared()
-                    .map(|p| point::Point::new(p.x.as_f64(), p.y.as_f64(), p.z.as_f64()))
-                    .collect(),
-            ))
+        self.points = points
+            .iter_shared()
+            .map(|p| point::Point::new(p.x.as_f64(), p.y.as_f64(), p.z.as_f64()))
+            .collect();
+        let _ = self
+            .to_worker
+            .send(ToWorker::SetPoints(self.points.clone(), Derivatives::Ignore))
             .map_err(|e| godot_error!("{:#?}", e));
     }
 
+    /// Get a point by index
     #[func]
-    fn get_point(&self) {}
+    fn get_point(&self, i: i32) -> Gd<CoasterPoint> {
+        Gd::from_object(CoasterPoint::new(self.points[i as usize].clone()))
+    }
+
+    /// Set a point by index\
+    /// Point is passed by value (copied)
+    #[func]
+    fn set_point(&mut self, i: i32, point: Gd<CoasterPoint>) {
+        self.points[i as usize] = point.bind().inner().clone();
+        self.to_worker
+            .send(ToWorker::SetPoints(self.points.clone(), Derivatives::Keep))
+            .unwrap();
+    }
 
     /// Enable the optimizer
     #[func]

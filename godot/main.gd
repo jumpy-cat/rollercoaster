@@ -12,6 +12,13 @@ extends Node3D
 @onready var optimizer_speed_label: Label = $VBoxContainer/OptimizerSpdLabel
 @onready var optimizer_checkbox: CheckButton = $VBoxContainer/CheckButton
 
+# Point editing
+@onready var x_edit: FloatEdit = $VBoxContainer/XEdit
+@onready var y_edit: FloatEdit = $VBoxContainer/YEdit
+@onready var z_edit: FloatEdit = $VBoxContainer/ZEdit
+var selected_index;
+var selected_point;
+
 const utils = preload("res://utils.gd")
 
 var optimize: bool = false
@@ -28,19 +35,23 @@ var friction: float = 0.05
 
 # paste in points from outside source here
 # this is NOT updated when positions are changed
-var initial_pos = [[30, 24, 1], [21, 6, 1], [19, 12, 1], [21, 18, 3],
+var initial_pos: Array[Variant] = [[30, 24, 1], [21, 6, 1], [19, 12, 1], [21, 18, 3],
 [25, 16, 2], [23, 9, 4], [20, 13, 4], [16, 2, 6], [15, 7, 4],
 [17, 7, 1], [14, 3, 2], [12, 5, 0], [7, 6, 6], [6, 8, 12],
 [11, 9, 3], [8, 13, 3], [2, 5, 3], [0, 0, 0], [47, 0, 1], [43, 0, 1]]
 
+## This function is called when the node is added to the scene.
+## Initializes control points, positions the camera, and prepares the optimizer.
 func _ready() -> void:
 	# create list of position vectors, calculate center
 	var avg_pos = Vector3.ZERO
-	for p in initial_pos:
+	for i in range(len(initial_pos)):
+		var p = initial_pos[i]
 		var v = Vector3(p[0], p[1], p[2])
 		avg_pos += v
-		var control_point = control_point_scene.instantiate();
-		control_point.initialize(v)
+		var control_point: ControlPoint = control_point_scene.instantiate();
+		control_point.initialize(v, i)
+		control_point.connect("clicked", Callable(self, "_on_control_point_clicked"))
 		control_points.push_back(control_point)
 		
 	avg_pos /= len(initial_pos)
@@ -145,6 +156,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 
 func _on_lr_edit_value_changed(value: float) -> void:
+	print(value)
 	learning_rate = value
 	optimizer.set_lr(learning_rate)
 
@@ -169,3 +181,33 @@ func _on_check_button_toggled(toggled_on: bool) -> void:
 		optimizer.enable_optimizer()
 	else:
 		optimizer.disable_optimizer()
+
+
+func _on_control_point_clicked(index: int) -> void:
+	selected_index = index
+	selected_point = optimizer.get_point(index)
+	x_edit.set_value(selected_point.get_x())
+	y_edit.set_value(selected_point.get_y())
+	z_edit.set_value(selected_point.get_z())
+
+	# update selected point
+	for i in range(control_points.size()):
+		control_points[i].selected = (i == index)
+
+
+func _on_x_edit_value_changed(value: float) -> void:
+	selected_point.set_x(value)
+	control_points[selected_index].position.x = value
+	optimizer.set_point(selected_index, selected_point)
+
+
+func _on_y_edit_value_changed(value: float) -> void:
+	selected_point.set_y(value)
+	control_points[selected_index].position.y = value
+	optimizer.set_point(selected_index, selected_point)
+
+
+func _on_z_edit_value_changed(value: float) -> void:
+	selected_point.set_z(value)
+	control_points[selected_index].position.z = value
+	optimizer.set_point(selected_index, selected_point)

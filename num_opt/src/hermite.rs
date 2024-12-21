@@ -1,7 +1,6 @@
 /// Creating hermite splines
 /// Initializing their derivatives using Catmull-Rom
 /// Getting position and derivative values of the splines
-
 use std::num::NonZeroU32;
 
 use nannou::glam::Vec3;
@@ -37,13 +36,17 @@ macro_rules! curve_params_getter {
 /// A hermite spline
 #[derive(Clone)]
 pub struct Spline {
-    params: Vec<CurveParams>
+    param_points: Vec<(point::Point<f64>, point::Point<f64>)>,
+    params: Vec<CurveParams>,
 }
 
 impl Default for Spline {
     /// Creates an empty spline
     fn default() -> Self {
-        Self { params: Default::default() }
+        Self {
+            params: vec![],
+            param_points: vec![],
+        }
     }
 }
 
@@ -51,10 +54,15 @@ impl Spline {
     /// Creates a spline from the given points
     pub fn new(points: &[point::Point<f64>]) -> Self {
         let mut params = vec![];
+        let mut param_points = vec![];
         for [p, q] in points.array_windows::<2>() {
             params.push(solve(p, q));
+            param_points.push((p.clone(), q.clone()));
         }
-        Self {params}
+        Self {
+            params,
+            param_points,
+        }
     }
 
     /// Iterate through the hermite curves of the spline
@@ -63,8 +71,34 @@ impl Spline {
     }
 
     /// Index into the spline
-    pub fn sub_curve(&self, i: usize) -> &CurveParams {
-        &self.params[i]
+    pub fn sub_curve(&self, i: usize) -> (&CurveParams, &(point::Point<f64>, point::Point<f64>)) {
+        (&self.params[i], &self.param_points[i])
+    }
+
+    /// Get the point at index `i`
+    pub fn get_point(&self, i: usize) -> &point::Point<f64> {
+        assert!(i <= self.param_points.len());
+        if i == self.param_points.len() {
+            return &self.param_points[i - 1].1;
+        }
+        &self.param_points[i].0
+    }
+
+    /// Set the point at index `i`
+    /// Requires solving for new parameters
+    /// Precondition: `0 <= i <= self.param_points.len()`
+    pub fn set_point(&mut self, i: usize, p: point::Point<f64>) {
+        let curve_index_left = if i == 0 { None } else { Some(i - 1) };
+        let curve_index_right = if i == self.param_points.len() { None } else { Some(i) };
+
+        if let Some(index) = curve_index_left {
+            self.params[index] = solve(&self.param_points[index].0, &p);
+            self.param_points[index].1 = p.clone();
+        }
+        if let Some(index) = curve_index_right {
+            self.params[index] = solve(&p, &self.param_points[index].1);
+            self.param_points[index].0 = p;
+        }
     }
 
     /// Find the position of the spline at `u`
@@ -97,14 +131,18 @@ impl Spline {
             self.params[i].z_d1(rem),
         ))
     }
+
+    pub fn num_sub_curves(&self) -> usize {
+        self.params.len()
+    }
 }
 
 /// A single hermite curve
 #[derive(Clone)]
 pub struct CurveParams {
-    x: [f64; 8],   // x(t) = x[0] * t^7 + x[1] * t^6 + ... + x[7] * t^0
-    y: [f64; 8],   // y(t) = y[0] * t^7 + y[1] * t^6 + ... + y[7] * t^0
-    z: [f64; 8],   // z(t) = z[0] * t^7 + z[1] * t^6 + ... + z[7] * t^0
+    x: [f64; 8], // x(t) = x[0] * t^7 + x[1] * t^6 + ... + x[7] * t^0
+    y: [f64; 8], // y(t) = y[0] * t^7 + y[1] * t^6 + ... + y[7] * t^0
+    z: [f64; 8], // z(t) = z[0] * t^7 + z[1] * t^6 + ... + z[7] * t^0
 }
 
 impl CurveParams {
@@ -174,7 +212,7 @@ pub fn curve_points(params: &CurveParams, segments: NonZeroU32) -> Vec<nannou::g
             let x = params.x_d0(t);
             let y = params.y_d0(t);
             let z = params.z_d0(t);
-            // just get points on the curve 
+            // just get points on the curve
 
             Vec3::new(x.as_(), y.as_(), z.as_())
         })

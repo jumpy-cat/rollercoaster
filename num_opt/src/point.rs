@@ -2,6 +2,7 @@ use std::ops::{AddAssign, Mul, SubAssign};
 
 use nannou::geom::Point3;
 use num_traits::{AsPrimitive, Float};
+use godot::prelude::Vector3;
 
 macro_rules! nudge {
     ($to_nudge:expr, $amount:expr, $out:expr, $s:expr) => {
@@ -63,6 +64,7 @@ impl<T> Point<T>
 where
     T: Default + Copy + AsPrimitive<f32> + AddAssign + SubAssign + Float,
 {
+
     pub fn new(x: T, y: T, z: T) -> Self {
         Self {
             x, y, z, ..Default::default()
@@ -109,6 +111,11 @@ where
         nudge!(s.zppp, amount, out, s);
 
         out
+    }
+
+    /// Convert Point to a Vector3
+    pub fn to_gd_vec3(&self) -> Vector3 {
+        Vector3::new(self.x.as_(), self.y.as_(), self.z.as_())
     }
 }
 

@@ -1,4 +1,3 @@
-
 use crate::{hermite, physics, point};
 
 /// Given initial state and curve, calculates the total cost of the curve
@@ -63,12 +62,10 @@ pub fn optimize(
         let mut iter = points.iter_mut();
         iter.next();
         for (p, d) in iter.zip(deriv) {
-            
             p.descend_derivatives(&d, lr);
         }
         Some(curr)
     } else {
         None
     }
-    
 }
