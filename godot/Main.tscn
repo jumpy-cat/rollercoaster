@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://br738eihq2cus"]
+[gd_scene load_steps=11 format=3 uid="uid://br738eihq2cus"]
 
 [ext_resource type="Script" path="res://main.gd" id="1_w5dqp"]
 [ext_resource type="PackedScene" uid="uid://c3vuka4b0smhh" path="res://control_point.tscn" id="2_o72i1"]
@@ -11,6 +11,14 @@ diffuse_mode = 2
 emission = Color(0.120418, 0.120418, 0.120418, 1)
 
 [sub_resource type="ImmediateMesh" id="ImmediateMesh_hneuq"]
+
+[sub_resource type="Theme" id="Theme_p2p34"]
+Label/colors/font_color = Color(1, 1, 1, 1)
+LineEdit/colors/font_color = Color(0.875, 0.875, 0.875, 1)
+
+[sub_resource type="Theme" id="Theme_kxmhj"]
+
+[sub_resource type="Theme" id="Theme_b8h1k"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1_w5dqp")
@@ -83,14 +91,17 @@ value = 0.05
 
 [node name="XEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
 layout_mode = 2
+theme = SubResource("Theme_p2p34")
 _name = "x:"
 
 [node name="YEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
 layout_mode = 2
+theme = SubResource("Theme_kxmhj")
 _name = "y:"
 
 [node name="ZEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
 layout_mode = 2
+theme = SubResource("Theme_b8h1k")
 _name = "z:"
 
 [connection signal="toggled" from="VBoxContainer/CheckButton" to="." method="_on_check_button_toggled"]

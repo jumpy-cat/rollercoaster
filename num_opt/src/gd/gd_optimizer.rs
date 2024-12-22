@@ -12,7 +12,7 @@ use super::{gd_coaster_curve::CoasterCurve, gd_coaster_point::CoasterPoint};
 #[derive(PartialEq)]
 enum Derivatives {
     Keep,
-    Ignore
+    Ignore,
 }
 
 /// Messages sent from an `Optimizer` to its worker thread
@@ -189,7 +189,10 @@ impl Optimizer {
             .collect();
         let _ = self
             .to_worker
-            .send(ToWorker::SetPoints(self.points.clone(), Derivatives::Ignore))
+            .send(ToWorker::SetPoints(
+                self.points.clone(),
+                Derivatives::Ignore,
+            ))
             .map_err(|e| godot_error!("{:#?}", e));
     }
 
