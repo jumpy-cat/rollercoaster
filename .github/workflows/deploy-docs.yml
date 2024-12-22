@@ -14,9 +14,9 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Set up Rust
-        uses: actions/setup-rust@v1
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          toolchain: stable
+          toolchain: nightly
 
       - name: Build documentation
         run: cargo doc --document-private-items
