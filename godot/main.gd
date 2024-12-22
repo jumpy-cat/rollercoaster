@@ -82,6 +82,14 @@ func _ready() -> void:
 	optimizer.set_mu(friction)
 	optimizer.set_lr(learning_rate)
 
+	# ui setup
+	x_edit.theme.set_color("font_color", "Label", Color.RED)
+	x_edit.theme.set_color("font_color", "LineEdit", Color.RED)
+	y_edit.theme.set_color("font_color", "Label", Color.GREEN)
+	y_edit.theme.set_color("font_color", "LineEdit", Color.GREEN)
+	z_edit.theme.set_color("font_color", "Label", Color.SKY_BLUE)
+	z_edit.theme.set_color("font_color", "LineEdit", Color.SKY_BLUE)
+
 
 func _process(_delta: float) -> void:
 	# handle key input
@@ -143,8 +151,21 @@ func _process(_delta: float) -> void:
 		optimizer_speed_label.text = "%.1f iter/s" % optimizer.iters_per_second()
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton\
+		and event.button_index == MOUSE_BUTTON_LEFT\
+		and event.is_pressed()\
+	:
+		event.accept_event()
+		selected_index = null
+		selected_point = null
+		for cp in control_points:
+			cp.selected = false
+
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_optimizer"):
+		event.accept_event()
 		optimize = !optimize
 		if optimize:
 			optimizer.enable_optimizer()

@@ -11,7 +11,32 @@ signal clicked(index)
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
-    pass
+    var mat: StandardMaterial3D = StandardMaterial3D.new()
+    mat.vertex_color_use_as_albedo = true
+    mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    axes.material_override = mat
+    var m: ImmediateMesh = axes.mesh
+    m.clear_surfaces()
+    #m.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+
+    m.surface_begin(Mesh.PRIMITIVE_LINES)
+
+    m.surface_set_color(Color.RED)
+    m.surface_add_vertex(Vector3.ZERO)
+    m.surface_set_color(Color.RED)
+    m.surface_add_vertex(Vector3(100, 0, 0))
+
+    m.surface_set_color(Color.GREEN)
+    m.surface_add_vertex(Vector3.ZERO)
+    m.surface_set_color(Color.GREEN)
+    m.surface_add_vertex(Vector3(0, 100, 0))
+
+    m.surface_set_color(Color.SKY_BLUE)
+    m.surface_add_vertex(Vector3.ZERO)
+    m.surface_set_color(Color.SKY_BLUE)
+    m.surface_add_vertex(Vector3(0, 0, 100))
+
+    m.surface_end()
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(_delta: float) -> void:
@@ -19,15 +44,7 @@ func _process(_delta: float) -> void:
         scale = Vector3(2.0, 2.0, 2.0)
     else:
         scale = Vector3.ONE
-
-    var m: ImmediateMesh = axes.mesh
-    m.clear_surfaces()
-    if selected:
-        m.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
-        Utils.cylinder_line(m, [Vector3.ZERO, Vector3(0, 100, 0)], 0.2)
-        Utils.cylinder_line(m, [Vector3.ZERO, Vector3(0, 0, 100)], 0.2)
-        Utils.cylinder_line(m, [Vector3.ZERO, Vector3(100, 0, 0)], 0.2)
-        m.surface_end()
+    axes.visible = selected 
 
 
 func initialize(pos: Vector3, index_: int) -> void:
