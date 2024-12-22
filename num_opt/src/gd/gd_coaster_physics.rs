@@ -95,4 +95,32 @@ impl CoasterPhysics {
             Variant::nil()
         }
     }
+
+    /// Velocity vector
+    #[func]
+    fn velocity(&self) -> Variant {
+        if let Some(phys) = &self.inner {
+            Variant::from(Vector3::new(
+                phys.v().x as f32,
+                phys.v().y as f32,
+                phys.v().z as f32,
+            ))
+        } else {
+            Variant::nil()
+        }
+    }
+
+    /// Normal force vector
+    #[func]
+    fn normal_force(&self) -> Variant {
+        if let Some(phys) = &self.inner {
+            Variant::from(Vector3::new(
+                phys.normal_force().x as f32,
+                phys.normal_force().y as f32,
+                phys.normal_force().z as f32,
+            ))
+        } else {
+            Variant::nil()
+        }
+    }
 }

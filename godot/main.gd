@@ -114,8 +114,12 @@ func _process(_delta: float) -> void:
 		anim.visible = true
 		physics.step(curve)
 		var anim_pos = physics.pos(curve)
+		var anim_vel = physics.velocity()
+		var anim_up = physics.normal_force()
 		if anim_pos != null:
-			anim.position = anim_pos
+			anim.look_at_from_position(anim_pos, anim_pos + anim_vel, anim_up)
+			#anim.position = anim_pos
+			#anim. = Quaternion(anim_up, Vector3.UP).get_euler()
 		else:
 			anim.visible = false
 
@@ -133,13 +137,18 @@ func _process(_delta: float) -> void:
 	# update ui
 	var format_values;
 	if physics != null:
+		var v = physics.velocity()
+		var n = physics.normal_force()
 		format_values = [
 			optimizer.cost(),
 			physics.speed(),
 			physics.accel(),
 			physics.g_force(),
 			physics.max_g_force(),
-			physics.cost()
+			physics.cost(),
+			v,
+			n,
+			90 - rad_to_deg(v.signed_angle_to(n, v.cross(n)))
 		]
 	else:
 		format_values = [
@@ -149,8 +158,20 @@ func _process(_delta: float) -> void:
 			0.0,
 			0.0,
 			0.0,
+			Vector3.ZERO,
+			Vector3.ZERO,
+			0.0
 		]
-	label.text = "Cost: %.3f\n\nSpeed: %.3f\nAccel: %.3f\nGs: %.3f\nMax Gs: %.3f\nCost: %.3f" % format_values
+	label.text = """Cost: %.3f
+
+		Speed: %.3f
+		Accel: %.3f
+		Gs: %.3f
+		Max Gs: %.3f
+		Cost: %.3f
+		Velocity: %.3v
+		Normal Force: %.3v
+		Angle Error: %.3f""" % format_values
 	var ips = optimizer.iters_per_second()
 	if ips == null:
 		optimizer_speed_label.text = "-- iter/s"
@@ -249,6 +270,7 @@ func _on_save_dialogue_file_selected(path: String) -> void:
 	print(path)
 
 	var file = FileAccess.open(path, FileAccess.WRITE)
+	print(FileAccess.get_open_error())
 
 	var diag = AcceptDialog.new()
 	diag.content_scale_factor = 2
@@ -266,6 +288,9 @@ func _on_save_dialogue_file_selected(path: String) -> void:
 			"\t"
 		)
 	)
+	print(file.get_error())
+	file.close()
+	print(file.get_error())
 
 
 func _on_load_dialogue_file_selected(path: String) -> void:
@@ -300,6 +325,7 @@ func _on_load_dialogue_file_selected(path: String) -> void:
 
 	var pts = json.map(func(i): return Vector3(i[0], i[1], i[2]))
 	set_points(pts)
+	file.close()
 
 
 func _on_save_dialogue_confirmed() -> void:
