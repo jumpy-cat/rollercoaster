@@ -156,7 +156,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		and event.button_index == MOUSE_BUTTON_LEFT\
 		and event.is_pressed()\
 	:
-		event.accept_event()
 		selected_index = null
 		selected_point = null
 		for cp in control_points:
