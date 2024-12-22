@@ -184,10 +184,12 @@ impl Optimizer {
     #[func]
     fn set_points(&mut self, points: Array<Vector3>) {
         godot_print!("set_points: {}", points);
+        self.segment_points_cache = None;
         self.points = points
             .iter_shared()
             .map(|p| point::Point::new(p.x.as_f64(), p.y.as_f64(), p.z.as_f64()))
             .collect();
+        self.curve = hermite::Spline::new(&self.points);
         let _ = self
             .to_worker
             .send(ToWorker::SetPoints(

@@ -12,6 +12,8 @@ use crate::{hermite, physics, point};
 /// can't be computed
 /// - happens when the coaster gets stuck
 /// 
+/// ### Implementation Details
+/// 
 /// `let mut phys = initial;` copies the initial physical state into a mutable
 /// variable phys, which evolves as the simulation progresses
 /// 
