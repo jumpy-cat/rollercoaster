@@ -1,10 +1,9 @@
-/// Creating hermite splines
-/// Initializing their derivatives using Catmull-Rom
-/// Getting position and derivative values of the splines
-use std::num::NonZeroU32;
+//! Creating hermite splines  
+//! Initializing their derivatives using Catmull-Rom  
+//! Getting position and derivative values of the splines
+
 // ensure segments for curve sampling are not zero
-use nannou::glam::Vec3;
-use num_traits::AsPrimitive;
+use std::num::NonZeroU32;
 
 // Refer to a custom module that defines a Point struct used in splines.
 use crate::point;
@@ -52,9 +51,7 @@ pub struct Spline {
 impl Default for Spline {
     /// Creates an empty spline
     fn default() -> Self {
-        Self {
-            params: vec![],
-        }
+        Self { params: vec![] }
     }
 }
 
@@ -62,7 +59,7 @@ impl Spline {
     /// Creates a spline from the given points  
     /// For each pair of points, we need to find a Hermite polynomial  
     /// that smoothly interpolates between them.
-    /// 
+    ///
     /// Creates a segment between every consecutive pair of points, and
     /// uses the solve function to compute Hermite coefficients for each segment.
     pub fn new(points: &[point::Point<f64>]) -> Self {
@@ -70,9 +67,7 @@ impl Spline {
         for [p, q] in points.array_windows::<2>() {
             params.push(solve(p, q));
         }
-        Self {
-            params,
-        }
+        Self { params }
     }
 
     /// Iterate through the hermite curves of the spline
@@ -81,7 +76,7 @@ impl Spline {
     }
 
     /// Find the position of the spline at `u`.
-    /// 
+    ///
     /// A value of `u = 0` gives us the starting point of the spline,
     /// while `u = 1` corresponds to the end of the first curve.
     /// This method evaluates the position by taking the `floor(u)`-th curve
@@ -191,7 +186,7 @@ pub fn solve(p: &point::Point<f64>, q: &point::Point<f64>) -> CurveParams {
 
 /// Samples a hermite curve, splitting it into `segments` segments
 /// The segments are __not__ equal in length
-pub fn curve_points(params: &CurveParams, segments: NonZeroU32) -> Vec<nannou::glam::Vec3> {
+pub fn curve_points(params: &CurveParams, segments: NonZeroU32) -> Vec<(f64, f64, f64)> {
     (0..segments.get() + 1)
         .map(|t| {
             let t: f64 = t as f64 / segments.get() as f64;
@@ -200,17 +195,17 @@ pub fn curve_points(params: &CurveParams, segments: NonZeroU32) -> Vec<nannou::g
             let z = params.z_d0(t);
             // just get points on the curve
 
-            Vec3::new(x.as_(), y.as_(), z.as_())
+            (x, y, z)
         })
         .collect()
 }
 
 /// Uses Catmull-Rom to calculate derivatives  
-/// 
+///
 /// Catmull-Rom creates a cardinal spline with good overall shape,
 /// ensuring smooth transitions between points by computing
-/// tangents based on neighboring points. 
-/// 
+/// tangents based on neighboring points.
+///
 /// Returns a vector the derivatives.
 pub fn catmull_rom(values: &Vec<f64>, coeff: f64) -> Vec<f64> {
     if values.len() < 2 {

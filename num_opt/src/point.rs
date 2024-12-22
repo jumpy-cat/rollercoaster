@@ -1,3 +1,5 @@
+//! Point in 3D space with 3 derivatives
+
 use std::ops::{AddAssign, SubAssign};
 
 use num_traits::{AsPrimitive, Float};

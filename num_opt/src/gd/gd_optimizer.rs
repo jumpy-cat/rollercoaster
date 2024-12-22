@@ -6,8 +6,9 @@ use std::{
 
 use crate::{hermite, optimizer, physics, point};
 use godot::prelude::*;
+use num_traits::AsPrimitive;
 
-use super::{gd_coaster_curve::CoasterCurve, gd_coaster_point::CoasterPoint};
+use super::{CoasterCurve, CoasterPoint};
 
 #[derive(PartialEq)]
 enum Derivatives {
@@ -35,7 +36,7 @@ enum FromWorker {
 /// Makes the functionality in optimizer::optimize avaliable to Godot
 #[derive(GodotClass)]
 #[class(base=Node)]
-struct Optimizer {
+pub struct Optimizer {
     points: Vec<point::Point<f64>>,
     curve: hermite::Spline,
     segment_points_cache: Option<Vec<Vector3>>,
@@ -243,7 +244,7 @@ impl Optimizer {
                 .map(|params| {
                     let pts = hermite::curve_points(params, NonZero::new(10).unwrap());
                     pts.iter()
-                        .map(|p| Vector3::new(p.x, p.y, p.z))
+                        .map(|(x,y,z)| Vector3::new(x.as_(), y.as_(), z.as_()))
                         .collect::<Vec<_>>()
                 })
                 .flatten()

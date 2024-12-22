@@ -1,3 +1,4 @@
+//! Physics solver and cost function
 
 /// Possible ways for the physics system to take a step  
 /// Steps are in `u`, the (0,1) parameterization of hermite curves

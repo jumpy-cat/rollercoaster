@@ -2,12 +2,12 @@ use godot::prelude::*;
 
 use crate::physics;
 
-use super::gd_coaster_curve::CoasterCurve;
+use super::CoasterCurve;
 
 /// Wrapper around physics::PhysicsState
 #[derive(GodotClass)]
 #[class(init)]
-struct CoasterPhysics {
+pub struct CoasterPhysics {
     inner: Option<physics::PhysicsState>,
 }
 

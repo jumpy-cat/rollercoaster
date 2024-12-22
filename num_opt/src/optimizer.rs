@@ -1,3 +1,5 @@
+//! Calculates the cost of a curve, and performs gradient descent to optimize it
+
 use crate::{hermite, physics, point};
 
 /// Given initial state and curve, calculates the total cost of the curve
