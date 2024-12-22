@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3 uid="uid://c3vuka4b0smhh"]
+[gd_scene load_steps=6 format=3 uid="uid://c3vuka4b0smhh"]
 
 [ext_resource type="Script" path="res://control_point.gd" id="1_3n11d"]
 
@@ -9,10 +9,12 @@ diffuse_mode = 2
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_udoqp"]
 
+[sub_resource type="ImmediateMesh" id="ImmediateMesh_8yr7i"]
+
 [node name="ControlPoint" type="Node3D"]
 script = ExtResource("1_3n11d")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+[node name="Body" type="MeshInstance3D" parent="."]
 mesh = SubResource("SphereMesh_ecjtu")
 surface_material_override/0 = SubResource("StandardMaterial3D_yd73w")
 
@@ -20,6 +22,9 @@ surface_material_override/0 = SubResource("StandardMaterial3D_yd73w")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D"]
 shape = SubResource("SphereShape3D_udoqp")
+
+[node name="Axes" type="MeshInstance3D" parent="."]
+mesh = SubResource("ImmediateMesh_8yr7i")
 
 [connection signal="input_event" from="StaticBody3D" to="." method="_on_static_body_3d_input_event"]
 [connection signal="mouse_entered" from="StaticBody3D" to="." method="_on_static_body_3d_mouse_entered"]
