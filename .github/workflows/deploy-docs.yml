@@ -21,8 +21,12 @@ jobs:
       - name: Build documentation
         run: cargo doc --document-private-items
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: target/doc
+          publish-dir: target/doc
+          production-deploy: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
