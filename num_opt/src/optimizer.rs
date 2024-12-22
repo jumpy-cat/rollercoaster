@@ -1,20 +1,32 @@
 use crate::{hermite, physics, point};
 
 /// Given initial state and curve, calculates the total cost of the curve
-/// This requires a physics simulation be run
-// starting physical state of the object, including properties like position, velocity, and other parameters.
-// Return a valid cost as a f64,or return return None if the cost can't be computed
-// (ex, due to invalid physicao behvaior)
-//  let mut phys = initial; copies the initial physical state into a mutable variable phys, which evolves
-// as the simulation progresses
-// while let Some((dx, dy, dz)) = curve.curve_1st_derivative_at(phys.u()) this part calculates
-// the first derivatives of the spline(dx,dy,dz) at the current position u (a parameterized value along the spline).
-// if derivatives are valid, loop goes on, if not it exits.
-//  phys.step(dx, dy, dz, physics::StepBehavior::Distance); this updates the physical state based on the curve's derivatives 
-// and the current position. 
-// StepBehavior::Distance specifies that the simulation is stepping forward based on distance travelled.
-// phys.step(dx, dy, dz, physics::StepBehavior::Distance modifies the object's internal parameters
-//phys.cost() computes the total cost of the curve, if cost is Nan, it returns None to indicate an invalid calculation
+/// 
+/// This requires a physics simulation be run, with the paramer `inital` being
+/// the starting physical state of the object, including properties like
+/// position, velocity, and other parameters.
+/// 
+/// Return a valid cost as a `Option<f64>`, or return `None` if the cost
+/// can't be computed
+/// - happens when the coaster gets stuck
+/// 
+/// `let mut phys = initial;` copies the initial physical state into a mutable
+/// variable phys, which evolves as the simulation progresses
+/// 
+/// `while let Some((dx, dy, dz)) = curve.curve_1st_derivative_at(phys.u())`
+/// calculates the first derivatives of the spline `(dx,dy,dz)` at the current
+/// position `u` (a parameterized value along the spline). If derivatives are
+/// valid, the loop goes on, if not, it exits.
+/// 
+/// `phys.step(dx, dy, dz, physics::StepBehavior::Distance);` updates the
+/// physics state based on the curve's derivatives and the current state,
+/// modifying the object's internal parameters
+/// 
+/// `StepBehavior::Distance` specifies that the simulation is stepping forward 
+/// based on distance travelled.
+///
+/// `phys.cost()` computes the total cost of the curve, if cost is `Nan`, it
+/// returns `None` to indicate an invalid calculation
 fn cost(initial: physics::PhysicsState, curve: &hermite::Spline) -> Option<f64> {
     let mut phys = initial;
     while let Some((dx, dy, dz)) = curve.curve_1st_derivative_at(phys.u()) {
