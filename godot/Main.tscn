@@ -104,11 +104,15 @@ layout_mode = 2
 theme = SubResource("Theme_b8h1k")
 _name = "z:"
 
-[node name="Button" type="Button" parent="VBoxContainer"]
+[node name="LoadButton" type="Button" parent="VBoxContainer"]
 layout_mode = 2
 text = "Load Points"
 
-[node name="FileDialog" type="FileDialog" parent="."]
+[node name="SaveButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Save Points"
+
+[node name="LoadDialogue" type="FileDialog" parent="."]
 title = "Open a File"
 initial_position = 1
 size = Vector2i(600, 400)
@@ -119,6 +123,11 @@ access = 2
 filters = PackedStringArray("*.json")
 use_native_dialog = true
 
+[node name="SaveDialogue" type="FileDialog" parent="."]
+size = Vector2i(303, 180)
+access = 2
+use_native_dialog = true
+
 [connection signal="toggled" from="VBoxContainer/CheckButton" to="." method="_on_check_button_toggled"]
 [connection signal="value_changed" from="VBoxContainer/LREdit" to="." method="_on_lr_edit_value_changed"]
 [connection signal="value_changed" from="VBoxContainer/MassEdit" to="." method="_on_mass_edit_value_changed"]
@@ -127,5 +136,10 @@ use_native_dialog = true
 [connection signal="value_changed" from="VBoxContainer/XEdit" to="." method="_on_x_edit_value_changed"]
 [connection signal="value_changed" from="VBoxContainer/YEdit" to="." method="_on_y_edit_value_changed"]
 [connection signal="value_changed" from="VBoxContainer/ZEdit" to="." method="_on_z_edit_value_changed"]
-[connection signal="pressed" from="VBoxContainer/Button" to="." method="_on_button_pressed"]
-[connection signal="file_selected" from="FileDialog" to="." method="_on_file_dialog_file_selected"]
+[connection signal="pressed" from="VBoxContainer/LoadButton" to="." method="_on_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/LoadButton" to="." method="_on_load_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/SaveButton" to="." method="_on_save_button_pressed"]
+[connection signal="file_selected" from="LoadDialogue" to="." method="_on_file_dialog_file_selected"]
+[connection signal="file_selected" from="LoadDialogue" to="." method="_on_load_dialogue_file_selected"]
+[connection signal="confirmed" from="SaveDialogue" to="." method="_on_save_dialogue_confirmed"]
+[connection signal="file_selected" from="SaveDialogue" to="." method="_on_save_dialogue_file_selected"]

@@ -11,7 +11,8 @@ extends Node3D
 @onready var label: Label = $VBoxContainer/MainStats;
 @onready var optimizer_speed_label: Label = $VBoxContainer/OptimizerSpdLabel
 @onready var optimizer_checkbox: CheckButton = $VBoxContainer/CheckButton
-@onready var file_dialog: FileDialog = $FileDialog
+@onready var load_file_dialog: FileDialog = $LoadDialogue
+@onready var save_file_dialog: FileDialog = $SaveDialogue
 
 # Point editing
 @onready var x_edit: FloatEdit = $VBoxContainer/XEdit
@@ -79,8 +80,8 @@ func set_points(points: Variant) -> void:
 ## This function is called when the node is added to the scene.
 ## Initializes control points, positions the camera, and prepares the optimizer.
 func _ready() -> void:
-	file_dialog.use_native_dialog = true
-	file_dialog.popup()
+	load_file_dialog.use_native_dialog = true
+	load_file_dialog.popup()
 
 	# prepare the optimizer
 	optimizer.set_mass(mass)
@@ -120,7 +121,6 @@ func _process(_delta: float) -> void:
 
 	# generate mesh for curves between control points
 	var curve_points = optimizer.as_segment_points();
-	print(curve_points)
 	if len(curve_points) > 1:
 		var m = basic_lines.mesh;
 		m.clear_surfaces();
@@ -237,9 +237,38 @@ func _on_z_edit_value_changed(value: float) -> void:
 	optimizer.set_point(selected_index, selected_point)
 
 
-func _on_file_dialog_file_selected(path: String) -> void:
-	print("file selected: " + path)
+func _on_load_button_pressed() -> void:
+	load_file_dialog.popup()
 
+
+func _on_save_button_pressed() -> void:
+	save_file_dialog.popup()
+
+
+func _on_save_dialogue_file_selected(path: String) -> void:
+	print(path)
+
+	var file = FileAccess.open(path, FileAccess.WRITE)
+
+	var diag = AcceptDialog.new()
+	diag.content_scale_factor = 2
+	diag.dialog_text = "Failed to write file"
+
+	if file == null:
+		add_child(diag)
+		diag.popup_centered_ratio()
+		return
+	
+	file.store_string(
+		JSON.stringify(
+			control_points\
+				.map(func(cp): return [cp.position.x, cp.position.y, cp.position.z]),
+			"\t"
+		)
+	)
+
+
+func _on_load_dialogue_file_selected(path: String) -> void:
 	var file = FileAccess.open(path, FileAccess.READ)
 
 	var diag = AcceptDialog.new()
@@ -273,5 +302,5 @@ func _on_file_dialog_file_selected(path: String) -> void:
 	set_points(pts)
 
 
-func _on_button_pressed() -> void:
-	file_dialog.popup()
+func _on_save_dialogue_confirmed() -> void:
+	print("confirmed")
