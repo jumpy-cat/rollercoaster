@@ -11,6 +11,8 @@ extends Node3D
 @onready var label: Label = $VBoxContainer/MainStats;
 @onready var optimizer_speed_label: Label = $VBoxContainer/OptimizerSpdLabel
 @onready var optimizer_checkbox: CheckButton = $VBoxContainer/CheckButton
+@onready var load_file_dialog: FileDialog = $LoadDialogue
+@onready var save_file_dialog: FileDialog = $SaveDialogue
 
 # Point editing
 @onready var x_edit: FloatEdit = $VBoxContainer/XEdit
@@ -31,20 +33,16 @@ var mass: float = 1.00
 var gravity: float = -0.01
 var friction: float = 0.05
 
-# paste in points from outside source here
-# this is NOT updated when positions are changed
-var initial_pos: Array[Variant] = [[30, 24, 1], [21, 6, 1], [19, 12, 1], [21, 18, 3],
-[25, 16, 2], [23, 9, 4], [20, 13, 4], [16, 2, 6], [15, 7, 4],
-[17, 7, 1], [14, 3, 2], [12, 5, 0], [7, 6, 6], [6, 8, 12],
-[11, 9, 3], [8, 13, 3], [2, 5, 3], [0, 0, 0], [47, 0, 1], [43, 0, 1]]
-
-## This function is called when the node is added to the scene.
-## Initializes control points, positions the camera, and prepares the optimizer.
-func _ready() -> void:
+## Input is an array of Vector3
+func set_points(points: Variant) -> void:
+	# remove old control points
+	for cp in control_points:
+		cp.queue_free()
+	control_points = []
 	# create list of position vectors, calculate center
 	var avg_pos = Vector3.ZERO
-	for i in range(len(initial_pos)):
-		var p = initial_pos[i]
+	for i in range(len(points)):
+		var p = points[i]
 		var v = Vector3(p[0], p[1], p[2])
 		avg_pos += v
 		var control_point: ControlPoint = control_point_scene.instantiate();
@@ -52,7 +50,7 @@ func _ready() -> void:
 		control_point.connect("clicked", Callable(self, "_on_control_point_clicked"))
 		control_points.push_back(control_point)
 		
-	avg_pos /= len(initial_pos)
+	avg_pos /= len(points)
 	
 	# position the camera so it can see all points
 	camera.op = avg_pos
@@ -74,9 +72,18 @@ func _ready() -> void:
 	var positions: Array[Vector3] = []
 	for cp in control_points:
 		positions.push_back(cp.position)
+	
+	# update optimizer
+	optimizer.set_points(positions)
+
+
+## This function is called when the node is added to the scene.
+## Initializes control points, positions the camera, and prepares the optimizer.
+func _ready() -> void:
+	load_file_dialog.use_native_dialog = true
+	load_file_dialog.popup()
 
 	# prepare the optimizer
-	optimizer.set_points(positions)
 	optimizer.set_mass(mass)
 	optimizer.set_gravity(gravity)
 	optimizer.set_mu(friction)
@@ -228,3 +235,72 @@ func _on_z_edit_value_changed(value: float) -> void:
 	selected_point.set_z(value)
 	control_points[selected_index].position.z = value
 	optimizer.set_point(selected_index, selected_point)
+
+
+func _on_load_button_pressed() -> void:
+	load_file_dialog.popup()
+
+
+func _on_save_button_pressed() -> void:
+	save_file_dialog.popup()
+
+
+func _on_save_dialogue_file_selected(path: String) -> void:
+	print(path)
+
+	var file = FileAccess.open(path, FileAccess.WRITE)
+
+	var diag = AcceptDialog.new()
+	diag.content_scale_factor = 2
+	diag.dialog_text = "Failed to write file"
+
+	if file == null:
+		add_child(diag)
+		diag.popup_centered_ratio()
+		return
+	
+	file.store_string(
+		JSON.stringify(
+			control_points\
+				.map(func(cp): return [cp.position.x, cp.position.y, cp.position.z]),
+			"\t"
+		)
+	)
+
+
+func _on_load_dialogue_file_selected(path: String) -> void:
+	var file = FileAccess.open(path, FileAccess.READ)
+
+	var diag = AcceptDialog.new()
+	diag.content_scale_factor = 2
+	diag.dialog_text = "Failed to open file"
+
+	if file == null:
+		add_child(diag)
+		diag.popup()
+		return
+
+	var json = JSON.parse_string(file.get_as_text())
+	if json is not Array:
+		add_child(diag)
+		diag.popup_centered_ratio()
+
+		return
+	
+	for item in json:
+		if item is not Array\
+			or len(item) != 3\
+			or item[0] is not float\
+			or item[1] is not float\
+			or item[2] is not float\
+		:
+			add_child(diag)
+			diag.popup_centered_ratio()
+			return
+
+	var pts = json.map(func(i): return Vector3(i[0], i[1], i[2]))
+	set_points(pts)
+
+
+func _on_save_dialogue_confirmed() -> void:
+	print("confirmed")

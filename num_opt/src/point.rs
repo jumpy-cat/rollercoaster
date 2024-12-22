@@ -4,10 +4,10 @@ use std::ops::{AddAssign, SubAssign};
 
 use num_traits::{AsPrimitive, Float};
 
-/// macro ensures consistency of code
-/// 
-/// we use nudge to explore the effect of small changes to each derivative while
+/// We use nudge to explore the effect of small changes to each derivative while
 /// keeping the position(x,y,z) fixed
+/// 
+/// macro ensures consistency of code
 macro_rules! nudge {
     ($to_nudge:expr, $amount:expr, $out:expr, $s:expr) => {
         $to_nudge += $amount;
