@@ -1,5 +1,5 @@
 
-/// Possible ways for the physics system to take a step
+/// Possible ways for the physics system to take a step  
 /// Steps are in `u`, the (0,1) parameterization of hermite curves
 #[derive(Debug, Clone, Copy)]
 pub enum StepBehavior {
