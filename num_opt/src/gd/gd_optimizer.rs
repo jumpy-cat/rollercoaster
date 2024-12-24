@@ -25,6 +25,7 @@ enum ToWorker {
     SetGravity(f64),
     SetMu(f64),
     SetLR(f64),
+    SetComOffsetMag(f64),
 }
 
 /// Messages gotten by an `Optimizer` from its worker thread
@@ -67,6 +68,7 @@ impl INode for Optimizer {
             let mut gravity = None;
             let mut mu = None;
             let mut lr = None;
+            let mut com_offset_mag = None;
             loop {
                 while let Ok(msg) = if active {
                     // avoid blocking if inactive
@@ -92,6 +94,7 @@ impl INode for Optimizer {
                         ToWorker::SetGravity(v) => gravity = Some(v),
                         ToWorker::SetMu(v) => mu = Some(v),
                         ToWorker::SetLR(v) => lr = Some(v),
+                        ToWorker::SetComOffsetMag(v) => com_offset_mag = Some(v)
                     }
                 }
                 if active
@@ -99,9 +102,10 @@ impl INode for Optimizer {
                     && let Some(gravity) = gravity
                     && let Some(mu) = mu
                     && let Some(lr) = lr
+                    && let Some(com_offset_mag) = com_offset_mag
                 {
                     let prev_cost = optimizer::optimize(
-                        &physics::PhysicsState::new(mass, gravity, mu),
+                        &physics::PhysicsState::new(mass, gravity, mu, com_offset_mag),
                         &curve,
                         &mut points,
                         lr,
@@ -215,6 +219,13 @@ impl Optimizer {
             .unwrap();
     }
 
+    #[func]
+    fn set_com_offset_mag(&mut self, mag: f64) {
+        self.to_worker
+            .send(ToWorker::SetComOffsetMag(mag))
+            .unwrap();
+    }
+
     /// Enable the optimizer
     #[func]
     fn enable_optimizer(&mut self) {
@@ -246,7 +257,7 @@ impl Optimizer {
                 .map(|params| {
                     let pts = hermite::curve_points(params, NonZero::new(10).unwrap());
                     pts.iter()
-                        .map(|(x,y,z)| Vector3::new(x.as_(), y.as_(), z.as_()))
+                        .map(|(x, y, z)| Vector3::new(x.as_(), y.as_(), z.as_()))
                         .collect::<Vec<_>>()
                 })
                 .flatten()

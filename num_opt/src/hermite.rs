@@ -81,14 +81,14 @@ impl Spline {
     /// while `u = 1` corresponds to the end of the first curve.
     /// This method evaluates the position by taking the `floor(u)`-th curve
     /// in the spline, and taking its position at `u - floor(u)`.
-    pub fn curve_at(&self, u: f64) -> Option<(f64, f64, f64)> {
+    pub fn curve_at(&self, u: f64) -> Option<na::Vector3<f64>> {
         let i = u.floor();
         let rem = u - i;
         let i = i as usize;
         if i >= self.params.len() {
             return None;
         }
-        Some((
+        Some(na::Vector3::new(
             self.params[i].x_d0(rem),
             self.params[i].y_d0(rem),
             self.params[i].z_d0(rem),

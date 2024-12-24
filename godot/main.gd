@@ -25,13 +25,15 @@ var optimize: bool = false
 var control_points: Array[ControlPoint]
 
 var curve: CoasterCurve
-var physics: CoasterPhysics
+var physics: CoasterPhysicsV2
 
 # default parameter values
 var learning_rate: float = 1.0
 var mass: float = 1.00
 var gravity: float = -0.01
 var friction: float = 0.05
+var animation_step_size: float = 0.01
+var com_offset_mag: float = 1.0
 
 ## Input is an array of Vector3
 func set_points(points: Variant) -> void:
@@ -88,6 +90,7 @@ func _ready() -> void:
 	optimizer.set_gravity(gravity)
 	optimizer.set_mu(friction)
 	optimizer.set_lr(learning_rate)
+	optimizer.set_com_offset_mag(com_offset_mag)
 
 	# ui setup
 	x_edit.theme.set_color("font_color", "Label", Color.RED)
@@ -107,15 +110,16 @@ func _process(_delta: float) -> void:
 		optimizer.set_points(positions)
 	if Input.is_action_just_pressed("run_simulation"):
 		curve = optimizer.get_curve()
-		physics = CoasterPhysics.create(mass, gravity, friction)		
+		physics = CoasterPhysicsV2.create(mass, gravity, com_offset_mag)		
 	
 	# update physics simulation
 	if curve != null:
 		anim.visible = true
-		physics.step(curve)
+		physics.step(curve, animation_step_size)
 		var anim_pos = physics.pos(curve)
 		var anim_vel = physics.velocity()
-		var anim_up = physics.normal_force()
+		print(anim_vel)
+		var anim_up = physics.hl_normal()
 		if anim_pos != null:
 			anim.look_at_from_position(anim_pos, anim_pos + anim_vel, anim_up)
 			#anim.position = anim_pos
@@ -138,7 +142,7 @@ func _process(_delta: float) -> void:
 	var format_values;
 	if physics != null:
 		var v = physics.velocity()
-		var n = physics.normal_force()
+		var n = physics.hl_normal()
 		format_values = [
 			optimizer.cost(),
 			physics.speed(),
@@ -330,3 +334,7 @@ func _on_load_dialogue_file_selected(path: String) -> void:
 
 func _on_save_dialogue_confirmed() -> void:
 	print("confirmed")
+
+
+func _on_anim_step_edit_value_changed(value: float) -> void:
+	animation_step_size = value
