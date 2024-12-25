@@ -26,6 +26,11 @@ pub enum StepBehavior {
 }
 
 /// Physics solver v3
+
+// Store simulation parameters(m,g)
+//Track the state of the partice(position, velocity, u(curve parameter))
+// Compute intermediate values like delta_x(displacement),F_N(force), and delta_t(time step).
+// Use a quardratic equation to determine the correcr time step(roots).
 #[derive(Debug)]
 pub struct PhysicsStateV3 {
     // params
@@ -60,6 +65,8 @@ pub struct PhysicsStateV3 {
     torque_: na::Vector3<f64>,
 }
 
+// Initialize the physics state: m mass, g Gravity vector,
+// curve.curve_at(0.0): Starting position of the curve at u=0
 impl PhysicsStateV3 {
     pub fn new(m: f64, g: na::Vector3<f64>, curve: &hermite::Spline, o: f64) -> Self {
         let hl_pos = curve.curve_at(0.0).unwrap();
@@ -98,6 +105,10 @@ impl PhysicsStateV3 {
         }
     }
 
+    // StopBehavior:: Constant: USe a fixed step size step.
+    // StopBehavior:: Distance: Adjust delta_u to keep the traveld arc length constant
+    // StopBehavior:: Time: Adjust delta_u based on both velocity and arc length.
+    // if dsdu is zero, a fallback step size is used
     pub fn step(
         &mut self,
         step: f64,
@@ -127,6 +138,9 @@ impl PhysicsStateV3 {
                 }
             }
         };
+
+        // Advance the parametric value u by delta_u and calculate the new position along the curve.
+        // The displacement vector delta_x is the difference btetween the new position and the current position.
         let new_u = self.u + self.delta_u_;
         //self.delta_x = curve.curve_at(new_u)? - self.x;
         let ag = self.hl_accel - self.g;
@@ -138,7 +152,8 @@ impl PhysicsStateV3 {
         //let new_hl_normal =maybe_new_hl_normal2;
         //self.delta_x = curve.curve_at(new_u)? - self.o * new_hl_normal - self.x;
         self.delta_x_ = curve.curve_at(new_u)? - self.o * self.hl_normal - self.x;
-
+        // delta_t is computed based on g,v, delta_X
+        // Find the positivie root of the quadratic equation
         self.a_ = self.g.dot(&self.delta_x_) / self.delta_x_.magnitude_squared();
         self.b_ = self.v.dot(&self.delta_x_) / self.delta_x_.magnitude_squared();
         self.c_ = -1.0;
@@ -170,6 +185,10 @@ impl PhysicsStateV3 {
             _ => panic!(),
         };
 
+        // Normal Force: Derived from displacement, velocity, and gravity.
+        // v: semi implicit Euler integration
+        // Position(x): Advance based on velocity
+        // u: A Advances to the next point.
         self.F_N_ =
             self.m * (self.delta_x_ / self.delta_t_.powi(2) - self.v / self.delta_t_ - self.g);
         #[allow(non_snake_case)]
