@@ -1,6 +1,5 @@
 //! Physics solver and cost function
 
-
 use godot::global::godot_print;
 use roots::Roots;
 
@@ -42,10 +41,11 @@ pub struct PhysicsStateV3 {
     // heart line
     hl_normal: na::Vector3<f64>,
     hl_pos: na::Vector3<f64>,
-    hl_velocity: na::Vector3<f64>,
+    hl_vel: na::Vector3<f64>,
+    hl_accel: na::Vector3<f64>,
     // rotation
-    w: na::Vector3<f64>,  // angular velocity
-    I: f64,  // moment of inertia
+    w: na::Vector3<f64>, // angular velocity
+    I: f64,              // moment of inertia
 
     // stats, info, persisted intermediate values
     delta_t: f64,
@@ -77,7 +77,9 @@ impl PhysicsStateV3 {
             // heart line
             hl_pos,
             hl_normal,
-            hl_velocity: Default::default(),
+            hl_vel: Default::default(),
+            hl_accel: Default::default(),
+            // rotation
             w: Default::default(),
             // stats, info, persisted intermediate values
             delta_x: Default::default(),
@@ -119,7 +121,11 @@ impl PhysicsStateV3 {
             }
         };
         let new_u = self.u + delta_u;
-        self.delta_x = curve.curve_at(new_u)? - self.x;
+        //self.delta_x = curve.curve_at(new_u)? - self.x;
+        let ag = self.hl_accel - self.g;
+        let new_hl_normal =
+            (ag - vector_projection(ag, curve.curve_1st_derivative_at(new_u)?)).normalize();
+        self.delta_x = curve.curve_at(new_u)? - self.o * new_hl_normal - self.x;
 
         self.a = self.g.dot(&self.delta_x) / self.delta_x.magnitude_squared();
         self.b = self.v.dot(&self.delta_x) / self.delta_x.magnitude_squared();
@@ -141,10 +147,22 @@ impl PhysicsStateV3 {
         #[allow(non_snake_case)]
         let F = self.F_N + self.g * self.m;
 
+        // hl values
+        let new_hl_vel = (curve.curve_at(new_u)? - curve.curve_at(self.u)?) / self.delta_t;
+        self.hl_accel = (new_hl_vel - self.hl_vel) / self.delta_t;
+
+        // rotation
+
+
         // semi-implicit euler update rule
         self.v = self.v + self.delta_t * F / self.m;
         self.x = self.x + self.delta_t * self.v;
         self.u = new_u;
+
+        self.hl_normal = self.hl_normal;
+
+        // updates
+        self.hl_vel = new_hl_vel;
 
         Some(())
     }
