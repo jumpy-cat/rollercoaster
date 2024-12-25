@@ -105,7 +105,7 @@ impl INode for Optimizer {
                     && let Some(com_offset_mag) = com_offset_mag
                 {
                     let prev_cost = optimizer::optimize(
-                        &physics::PhysicsState::new(mass, gravity, mu, com_offset_mag),
+                        &physics::legacy::PhysicsState::new(mass, gravity, mu, com_offset_mag),
                         &curve,
                         &mut points,
                         lr,

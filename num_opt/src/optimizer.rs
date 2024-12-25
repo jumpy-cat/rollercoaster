@@ -31,7 +31,7 @@ use crate::{hermite, physics, point};
 ///
 /// `phys.cost()` computes the total cost of the curve, if cost is `Nan`, it
 /// returns `None` to indicate an invalid calculation
-fn cost(initial: physics::PhysicsState, curve: &hermite::Spline) -> Option<f64> {
+fn cost(initial: physics::legacy::PhysicsState, curve: &hermite::Spline) -> Option<f64> {
     let mut phys = initial;
     while let Some(drdu) = curve.curve_1st_derivative_at(phys.u()) {
         phys.step(drdu.x, drdu.y, drdu.z, physics::StepBehavior::Distance, 1.0);
@@ -51,7 +51,7 @@ fn cost(initial: physics::PhysicsState, curve: &hermite::Spline) -> Option<f64> 
 // points: Array of control points for the spline
 //LR: Determines the step size for gradient descent
 pub fn optimize(
-    initial: &physics::PhysicsState,
+    initial: &physics::legacy::PhysicsState,
     curve: &hermite::Spline,
     points: &mut [point::Point<f64>],
     lr: f64,

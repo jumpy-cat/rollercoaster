@@ -9,7 +9,7 @@ use super::{na_to_gd, CoasterCurve};
 #[class(init)]
 #[deprecated]
 pub struct CoasterPhysics {
-    inner: Option<physics::PhysicsState>,
+    inner: Option<physics::legacy::PhysicsState>,
 }
 
 #[godot_api]
@@ -18,7 +18,7 @@ impl CoasterPhysics {
     #[func]
     fn create(mass: f64, gravity: f64, mu: f64, com_offset_mag: f64) -> Gd<Self> {
         Gd::from_object(Self {
-            inner: Some(physics::PhysicsState::new(
+            inner: Some(physics::legacy::PhysicsState::new(
                 mass,
                 gravity,
                 mu,
@@ -127,7 +127,7 @@ impl CoasterPhysics {
 #[class(init)]
 #[deprecated]
 pub struct CoasterPhysicsV2 {
-    inner: Option<physics::PhysicsStateV2>,
+    inner: Option<physics::legacy::PhysicsStateV2>,
 }
 
 #[godot_api]
@@ -136,7 +136,7 @@ impl CoasterPhysicsV2 {
     #[func]
     fn create(mass: f64, gravity: f64, com_offset_mag: f64) -> Gd<Self> {
         Gd::from_object(Self {
-            inner: Some(physics::PhysicsStateV2::new(
+            inner: Some(physics::legacy::PhysicsStateV2::new(
                 mass,
                 na::Vector3::new(0.0,gravity,0.0),
                 com_offset_mag,
