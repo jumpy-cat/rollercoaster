@@ -267,7 +267,7 @@ impl CoasterPhysicsV3 {
     fn step(&mut self, curve: Gd<CoasterCurve>, step_size: f64) {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
-            phys.step(step_size, curve, physics::StepBehavior::Constant);
+            phys.step(step_size, curve, physics::StepBehavior::Time);
         }
     }
 
@@ -293,6 +293,15 @@ impl CoasterPhysicsV3 {
     fn vel(&self) -> Variant {
         if let Some(phys) = &self.inner {
             Variant::from(na_to_gd(phys.vel()))
+        } else {
+            Variant::nil()
+        }
+    }
+
+    #[func]
+    fn hl_normal(&self) -> Variant {
+        if let Some(phys) = &self.inner {
+            Variant::from(na_to_gd(phys.hl_normal()))
         } else {
             Variant::nil()
         }
