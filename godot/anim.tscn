@@ -17,6 +17,7 @@ diffuse_mode = 2
 
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_ncu23"]
 material = SubResource("StandardMaterial3D_q7vat")
+height = 5.0
 
 [node name="Anim" type="Node3D"]
 
@@ -29,5 +30,5 @@ mesh = SubResource("SphereMesh_su52i")
 shape = SubResource("SphereShape3D_r0wmb")
 
 [node name="MeshInstance3D2" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.19639, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.70093, 0)
 mesh = SubResource("CapsuleMesh_ncu23")

@@ -125,7 +125,7 @@ func _process(_delta: float) -> void:
 		optimizer.set_points(positions)
 	if Input.is_action_just_pressed("run_simulation"):
 		curve = optimizer.get_curve()
-		physics = CoasterPhysicsV3.create(mass, gravity, curve)		
+		physics = CoasterPhysicsV3.create(mass, gravity, curve, 5.0)		
 	
 	# update physics simulation
 	if curve != null && (!manual_physics || Input.is_action_just_pressed("step_physics")):
@@ -135,8 +135,8 @@ func _process(_delta: float) -> void:
 		var anim_pos = physics.pos()
 		#var anim_vel = physics.velocity()
 		var anim_vel = physics.vel()
-		#var anim_up = physics.hl_normal()
-		var anim_up = Vector3.UP
+		var anim_up = physics.hl_normal()
+		#var anim_up = Vector3.UP
 		if anim_pos != null:
 			anim.look_at_from_position(anim_pos, anim_pos + anim_vel, anim_up)
 			#anim.position = anim_pos
