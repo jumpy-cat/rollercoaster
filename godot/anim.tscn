@@ -17,6 +17,7 @@ diffuse_mode = 2
 
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_ncu23"]
 material = SubResource("StandardMaterial3D_q7vat")
+height = 5.0
 
 [node name="Anim" type="Node3D"]
 

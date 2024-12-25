@@ -373,6 +373,7 @@ impl PhysicsStateV3 {
     pub fn step(
         &mut self,
         step: f64,
+        max_curve_angle: f64,
         curve: &hermite::Spline,
         behavior: StepBehavior,
     ) -> Option<()> {
@@ -400,6 +401,11 @@ impl PhysicsStateV3 {
         };
         let new_u = self.u + delta_u;
         self.delta_x = curve.curve_at(new_u)? - self.x;
+        if self.delta_x.angle(&curve.curve_1st_derivative_at(self.u)?) > max_curve_angle {
+            self.step(step / 2.0, max_curve_angle, curve, behavior)?;
+            return self.step(step / 2.0, max_curve_angle, curve, behavior);
+        }
+        //
 
         self.a = self.g.dot(&self.delta_x) / self.delta_x.magnitude_squared();
         self.b = self.v.dot(&self.delta_x) / self.delta_x.magnitude_squared();
@@ -432,6 +438,7 @@ impl PhysicsStateV3 {
     pub fn description(&self) -> String {
         format!(
             "x: {:.3?}
+E: {:.3?}
 v: {:.3?}
 speed: {:.3}
 delta-x: {:.3?} ({:.3})
@@ -440,8 +447,9 @@ F_N err(deg): {:.3}
 a: {:.3}
 b: {:.3}
 c: {:.3}
-delta-t: {:.3} ({:.3?})\n",
+delta-t: {:.6} ({:.3?})\n",
             self.x,
+            0.5 * self.m * self.v.magnitude_squared() + self.m * self.g.magnitude() * self.x.y,
             self.v,
             self.v.magnitude(),
             self.delta_x,
