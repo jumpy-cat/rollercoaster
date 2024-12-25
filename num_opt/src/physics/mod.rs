@@ -22,6 +22,11 @@ pub enum StepBehavior {
 }
 
 /// Physics solver v3
+
+// Store simulation parameters(m,g)
+//Track the state of the partice(position, velocity, u(curve parameter))
+// Compute intermediate values like delta_x(displacement),F_N(force), and delta_t(time step).
+// Use a quardratic equation to determine the correcr time step(roots).
 #[derive(Debug)]
 pub struct PhysicsStateV3 {
     // params
@@ -43,6 +48,8 @@ pub struct PhysicsStateV3 {
     roots: Roots<f64>,
 }
 
+// Initialize the physics state: m mass, g Gravity vector,
+// curve.curve_at(0.0): Starting position of the curve at u=0
 impl PhysicsStateV3 {
     pub fn new(m: f64, g: na::Vector3<f64>, curve: &hermite::Spline) -> Self {
         Self {
@@ -61,6 +68,10 @@ impl PhysicsStateV3 {
         }
     }
 
+    // StopBehavior:: Constant: USe a fixed step size step.
+    // StopBehavior:: Distance: Adjust delta_u to keep the traveld arc length constant
+    // StopBehavior:: Time: Adjust delta_u based on both velocity and arc length.
+    // if dsdu is zero, a fallback step size is used
     pub fn step(
         &mut self,
         step: f64,
@@ -89,9 +100,12 @@ impl PhysicsStateV3 {
                 }
             }
         };
+        // Advance the parametric value u by delta_u and calculate the new position along the curve.
+        // The displacement vector delta_x is the difference btetween the new position and the current position.
         let new_u = self.u + delta_u;
         self.delta_x = curve.curve_at(new_u)? - self.x;
-
+        // delta_t is computed based on g,v, delta_X
+        // Find the positivie root of the quadratic equation
         self.a = self.g.dot(&self.delta_x) / self.delta_x.magnitude_squared();
         self.b = self.v.dot(&self.delta_x) / self.delta_x.magnitude_squared();
         self.c = -1.0;
@@ -107,7 +121,11 @@ impl PhysicsStateV3 {
                 .unwrap(),
             _ => panic!(),
         };
-
+// Normal Force : Derived from displacement, velocity, and gravity.
+// v: semi implicit Euler integration
+// Position(x): Advance based on velocity
+// u:A Advances to the next point.
+        
         self.F_N = self.m * (self.delta_x / self.delta_t.powi(2) - self.v / self.delta_t - self.g);
         #[allow(non_snake_case)]
         let F = self.F_N + self.g * self.m;
