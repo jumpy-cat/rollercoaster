@@ -96,7 +96,7 @@ impl Spline {
     }
 
     /// Find the 1st derivative ("velocity") of the spline at `u`
-    pub fn curve_1st_derivative_at(&self, u: f64) -> Option<(f64, f64, f64)> {
+    pub fn curve_1st_derivative_at(&self, u: f64) -> Option<na::Vector3<f64>> {
         let i = u.floor();
         let rem = u - i;
         let i = i as usize;
@@ -104,7 +104,7 @@ impl Spline {
             return None;
         }
 
-        Some((
+        Some(na::Vector3::new(
             self.params[i].x_d1(rem),
             self.params[i].y_d1(rem),
             self.params[i].z_d1(rem),

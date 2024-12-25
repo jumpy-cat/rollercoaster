@@ -7,6 +7,7 @@ use super::{na_to_gd, CoasterCurve};
 /// Wrapper around physics::PhysicsState
 #[derive(GodotClass)]
 #[class(init)]
+#[deprecated]
 pub struct CoasterPhysics {
     inner: Option<physics::PhysicsState>,
 }
@@ -32,8 +33,8 @@ impl CoasterPhysics {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
             let u = phys.u();
-            if let Some((dxdu, dydu, dzdu)) = curve.curve_1st_derivative_at(u) {
-                phys.step(dxdu, dydu, dzdu, physics::StepBehavior::Time, step_size);
+            if let Some(drdu) = curve.curve_1st_derivative_at(u) {
+                phys.step(drdu.x, drdu.y, drdu.z, physics::StepBehavior::Time, step_size);
             }
         }
     }
@@ -124,6 +125,7 @@ impl CoasterPhysics {
 /// Wrapper around physics::PhysicsStateV2
 #[derive(GodotClass)]
 #[class(init)]
+#[deprecated]
 pub struct CoasterPhysicsV2 {
     inner: Option<physics::PhysicsStateV2>,
 }
@@ -258,7 +260,7 @@ impl CoasterPhysicsV3 {
     fn step(&mut self, curve: Gd<CoasterCurve>, step_size: f64) {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
-            phys.step(step_size,curve);
+            phys.step(step_size, curve, physics::StepBehavior::Distance);
         }
     }
 

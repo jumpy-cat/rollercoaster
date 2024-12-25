@@ -33,8 +33,15 @@ var learning_rate: float = 1.0
 var mass: float = 1.00
 var gravity: float = -0.01
 var friction: float = 0.05
-var animation_step_size: float = 0.01
+var anim_step_size: float = 0.05
 var com_offset_mag: float = 1.0
+
+# parameter editing
+@onready var lr_edit: FloatEdit = $VBoxContainer/LREdit
+@onready var mass_edit: FloatEdit = $VBoxContainer/MassEdit
+@onready var gravity_edit: FloatEdit = $VBoxContainer/GravityEdit
+@onready var friction_edit: FloatEdit = $VBoxContainer/FrictionEdit
+@onready var anim_step_edit: FloatEdit = $VBoxContainer/AnimStepEdit
 
 ## Input is an array of Vector3
 func set_points(points: Variant) -> void:
@@ -101,6 +108,13 @@ func _ready() -> void:
 	z_edit.theme.set_color("font_color", "Label", Color.SKY_BLUE)
 	z_edit.theme.set_color("font_color", "LineEdit", Color.SKY_BLUE)
 
+	# more ui setup
+	lr_edit.set_value(learning_rate)
+	mass_edit.set_value(mass)
+	gravity_edit.set_value(gravity)
+	friction_edit.set_value(friction)
+	anim_step_edit.set_value(anim_step_size)
+
 
 func _process(_delta: float) -> void:
 	# handle key input
@@ -116,12 +130,11 @@ func _process(_delta: float) -> void:
 	# update physics simulation
 	if curve != null && (!manual_physics || Input.is_action_just_pressed("step_physics")):
 		anim.visible = true
-		physics.step(curve, animation_step_size)
+		physics.step(curve, anim_step_size)
 		#var anim_pos = physics.pos(curve)
 		var anim_pos = physics.pos()
 		#var anim_vel = physics.velocity()
 		var anim_vel = physics.vel()
-		print(anim_vel)
 		#var anim_up = physics.hl_normal()
 		var anim_up = Vector3.UP
 		if anim_pos != null:
@@ -345,7 +358,7 @@ func _on_save_dialogue_confirmed() -> void:
 
 
 func _on_anim_step_edit_value_changed(value: float) -> void:
-	animation_step_size = value
+	anim_step_size = value
 
 
 func _on_check_box_toggled(toggled_on: bool) -> void:

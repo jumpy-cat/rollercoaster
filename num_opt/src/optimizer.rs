@@ -33,8 +33,8 @@ use crate::{hermite, physics, point};
 /// returns `None` to indicate an invalid calculation
 fn cost(initial: physics::PhysicsState, curve: &hermite::Spline) -> Option<f64> {
     let mut phys = initial;
-    while let Some((dx, dy, dz)) = curve.curve_1st_derivative_at(phys.u()) {
-        phys.step(dx, dy, dz, physics::StepBehavior::Distance, 1.0);
+    while let Some(drdu) = curve.curve_1st_derivative_at(phys.u()) {
+        phys.step(drdu.x, drdu.y, drdu.z, physics::StepBehavior::Distance, 1.0);
     }
     if phys.cost().is_nan() {
         None
