@@ -2,7 +2,7 @@ use godot::prelude::*;
 
 use crate::physics;
 
-use super::CoasterCurve;
+use super::{na_to_gd, CoasterCurve};
 
 /// Wrapper around physics::PhysicsState
 #[derive(GodotClass)]
@@ -44,7 +44,7 @@ impl CoasterPhysics {
         if let Some(phys) = &self.inner
             && let Some(pos) = phys.com_pos(&curve.bind().inner)
         {
-            Variant::from(Vector3::new(pos.x as f32, pos.y as f32, pos.z as f32))
+            Variant::from(na_to_gd(pos))
         } else {
             Variant::nil()
         }
@@ -104,11 +104,7 @@ impl CoasterPhysics {
     #[func]
     fn velocity(&self) -> Variant {
         if let Some(phys) = &self.inner {
-            Variant::from(Vector3::new(
-                phys.v().x as f32,
-                phys.v().y as f32,
-                phys.v().z as f32,
-            ))
+            Variant::from(na_to_gd(phys.v()))
         } else {
             Variant::nil()
         }
@@ -118,11 +114,7 @@ impl CoasterPhysics {
     #[func]
     fn normal_force(&self) -> Variant {
         if let Some(phys) = &self.inner {
-            Variant::from(Vector3::new(
-                phys.normal_force().x as f32,
-                phys.normal_force().y as f32,
-                phys.normal_force().z as f32,
-            ))
+            Variant::from(na_to_gd(phys.normal_force()))
         } else {
             Variant::nil()
         }
@@ -165,7 +157,7 @@ impl CoasterPhysicsV2 {
         if let Some(phys) = &self.inner
             && let Some(pos) = phys.com_pos(&curve.bind().inner)
         {
-            Variant::from(Vector3::new(pos.x as f32, pos.y as f32, pos.z as f32))
+            Variant::from(na_to_gd(pos))
         } else {
             Variant::nil()
         }
@@ -225,11 +217,7 @@ impl CoasterPhysicsV2 {
     #[func]
     fn velocity(&self) -> Variant {
         if let Some(phys) = &self.inner {
-            Variant::from(Vector3::new(
-                phys.v().x as f32,
-                phys.v().y as f32,
-                phys.v().z as f32,
-            ))
+            Variant::from(na_to_gd(phys.v()))
         } else {
             Variant::nil()
         }
@@ -238,13 +226,66 @@ impl CoasterPhysicsV2 {
     #[func]
     fn hl_normal(&self) -> Variant {
         if let Some(phys) = &self.inner {
-            Variant::from(Vector3::new(
-                phys.hl_normal().x as f32,
-                phys.hl_normal().y as f32,
-                phys.hl_normal().z as f32,
-            ))
+            Variant::from(na_to_gd(phys.hl_normal()))
         } else {
             Variant::nil()
         }
     }
+}
+
+/// Wrapper around physics::PhysicsStateV3
+#[derive(GodotClass)]
+#[class(init)]
+pub struct CoasterPhysicsV3 {
+    inner: Option<physics::PhysicsStateV3>,
+}
+
+#[godot_api]
+impl CoasterPhysicsV3 {
+    /// Initialize with mass and gravity
+    #[func]
+    fn create(mass: f64, gravity: f64, curve: Gd<CoasterCurve>) -> Gd<Self> {
+        Gd::from_object(Self {
+            inner: Some(physics::PhysicsStateV3::new(
+                mass,
+                na::Vector3::new(0.0,gravity,0.0),
+                &curve.bind().inner,
+            )),
+        })
+    }
+
+    #[func]
+    fn step(&mut self, curve: Gd<CoasterCurve>, step_size: f64) {
+        if let Some(phys) = &mut self.inner {
+            let curve = &curve.bind().inner;
+            phys.step(step_size,curve);
+        }
+    }
+
+    #[func]
+    fn description(&self) -> String {
+        if let Some(phys) = &self.inner {
+            phys.description()
+        } else {
+            String::new()
+        }
+    }
+
+    #[func]
+    fn pos(&self) -> Variant {
+        if let Some(phys) = &self.inner {
+            Variant::from(na_to_gd(phys.pos()))
+        } else {
+            Variant::nil()
+        }
+    }
+
+    #[func]
+    fn vel(&self) -> Variant {
+        if let Some(phys) = &self.inner {
+            Variant::from(na_to_gd(phys.vel()))
+        } else {
+            Variant::nil()
+        }
+    }   
 }

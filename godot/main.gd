@@ -21,11 +21,12 @@ extends Node3D
 var selected_index;
 var selected_point;
 
+var manual_physics = false
 var optimize: bool = false
 var control_points: Array[ControlPoint]
 
 var curve: CoasterCurve
-var physics: CoasterPhysicsV2
+var physics: CoasterPhysicsV3
 
 # default parameter values
 var learning_rate: float = 1.0
@@ -110,16 +111,19 @@ func _process(_delta: float) -> void:
 		optimizer.set_points(positions)
 	if Input.is_action_just_pressed("run_simulation"):
 		curve = optimizer.get_curve()
-		physics = CoasterPhysicsV2.create(mass, gravity, com_offset_mag)		
+		physics = CoasterPhysicsV3.create(mass, gravity, curve)		
 	
 	# update physics simulation
-	if curve != null:
+	if curve != null && (!manual_physics || Input.is_action_just_pressed("step_physics")):
 		anim.visible = true
 		physics.step(curve, animation_step_size)
-		var anim_pos = physics.pos(curve)
-		var anim_vel = physics.velocity()
+		#var anim_pos = physics.pos(curve)
+		var anim_pos = physics.pos()
+		#var anim_vel = physics.velocity()
+		var anim_vel = physics.vel()
 		print(anim_vel)
-		var anim_up = physics.hl_normal()
+		#var anim_up = physics.hl_normal()
+		var anim_up = Vector3.UP
 		if anim_pos != null:
 			anim.look_at_from_position(anim_pos, anim_pos + anim_vel, anim_up)
 			#anim.position = anim_pos
@@ -139,43 +143,47 @@ func _process(_delta: float) -> void:
 		m.surface_end();
 	
 	# update ui
-	var format_values;
-	if physics != null:
-		var v = physics.velocity()
-		var n = physics.hl_normal()
-		format_values = [
-			optimizer.cost(),
-			physics.speed(),
-			physics.accel(),
-			physics.g_force(),
-			physics.max_g_force(),
-			physics.cost(),
-			v,
-			n,
-			90 - rad_to_deg(v.signed_angle_to(n, v.cross(n)))
-		]
+	#var format_values;
+	#if physics != null:
+	#	var v = physics.velocity()
+	#	var n = physics.hl_normal()
+	#	format_values = [
+	#		optimizer.cost(),
+	#		physics.speed(),
+	#		physics.accel(),
+	#		physics.g_force(),
+	#		physics.max_g_force(),
+	#		physics.cost(),
+	#		v,
+	#		n,
+	#		90 - rad_to_deg(v.signed_angle_to(n, v.cross(n)))
+	#	]
+	#else:
+	#	format_values = [
+	#		optimizer.cost(),
+	#		0.0,
+	#		0.0,
+	#		0.0,
+	#		0.0,
+	#		0.0,
+	#		Vector3.ZERO,
+	#		Vector3.ZERO,
+	#		0.0
+	#	]
+	#label.text = """Cost: %.3f
+		
+	#	Speed: %.3f
+	#	Accel: %.3f
+	#	Gs: %.3f
+	#	Max Gs: %.3f
+	#	Cost: %.3f
+	#	Velocity: %.3v
+	#	Normal Force: %.3v
+	#	Angle Error: %.3f""" % format_values
+	if physics == null:
+		label.text = "physics not initialized"
 	else:
-		format_values = [
-			optimizer.cost(),
-			0.0,
-			0.0,
-			0.0,
-			0.0,
-			0.0,
-			Vector3.ZERO,
-			Vector3.ZERO,
-			0.0
-		]
-	label.text = """Cost: %.3f
-
-		Speed: %.3f
-		Accel: %.3f
-		Gs: %.3f
-		Max Gs: %.3f
-		Cost: %.3f
-		Velocity: %.3v
-		Normal Force: %.3v
-		Angle Error: %.3f""" % format_values
+		label.text = physics.description()
 	var ips = optimizer.iters_per_second()
 	if ips == null:
 		optimizer_speed_label.text = "-- iter/s"
@@ -338,3 +346,7 @@ func _on_save_dialogue_confirmed() -> void:
 
 func _on_anim_step_edit_value_changed(value: float) -> void:
 	animation_step_size = value
+
+
+func _on_check_box_toggled(toggled_on: bool) -> void:
+	manual_physics = toggled_on

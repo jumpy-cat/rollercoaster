@@ -1,6 +1,7 @@
 //! Physics solver and cost function
 
 use godot::global::godot_print;
+use roots::Roots;
 
 use crate::hermite;
 
@@ -320,12 +321,106 @@ impl PhysicsStateV2 {
         self.cost
     }
 
-
     pub fn max_g_force(&self) -> f64 {
         self.max_g_force
     }
 
     pub fn hl_normal(&self) -> na::Vector3<f64> {
         self.n_hl
+    }
+}
+
+/// Physics solver v3
+#[derive(Debug)]
+pub struct PhysicsStateV3 {
+    // params
+    m: f64,
+    g: na::Vector3<f64>,
+
+    // simulation state
+    x: na::Vector3<f64>,
+    v: na::Vector3<f64>,
+    u: f64,
+
+    // stats, info, persisted intermediate values
+    delta_x: na::Vector3<f64>,
+    a: f64,
+    b: f64,
+    c: f64,
+    roots: Roots<f64>,
+}
+
+impl PhysicsStateV3 {
+    pub fn new(m: f64, g: na::Vector3<f64>, curve: &hermite::Spline) -> Self {
+        Self {
+            m,
+            g,
+            u: 0.0,
+            x: curve.curve_at(0.0).unwrap(),
+            v: Default::default(),
+            delta_x: Default::default(),
+            roots: Roots::No([]),
+            a: 0.0,
+            b: 0.0,
+            c: 0.0,
+        }
+    }
+
+    pub fn step(
+        &mut self,
+        step: f64,
+        curve: &hermite::Spline,
+        //behavior: StepBehavior,
+    ) -> Option<()> {
+        let delta_u = step;/*match behavior {
+            StepBehavior::Constant => step,
+            StepBehavior::Distance => todo!(),
+            StepBehavior::Time => todo!(),
+        };*/
+        let new_u = self.u + delta_u;
+        self.delta_x = curve.curve_at(new_u)? - self.x;
+
+        self.a = self.g.dot(&self.delta_x) / self.delta_x.magnitude_squared();
+        self.b = self.v.dot(&self.delta_x) / self.delta_x.magnitude_squared();
+        self.c = -1.0;
+
+        self.roots = roots::find_roots_quadratic(self.a, self.b, self.c);
+        let delta_t = match self.roots {
+            roots::Roots::No(_) => return None,
+            roots::Roots::One([r]) => r,
+            roots::Roots::Two(rs) => *rs
+                .iter()
+                .filter(|rs| **rs > 0.0)
+                .min_by(|a, b| a.partial_cmp(b).unwrap())
+                .unwrap(),
+            _ => panic!(),
+        };
+
+        #[allow(non_snake_case)]
+        let F_N = self.m * (self.delta_x / delta_t.powi(2) - self.v / delta_t - self.g);
+        #[allow(non_snake_case)]
+        let F = F_N + self.g * self.m;
+
+        // semi-implicit euler update rule
+        self.v = self.v + delta_t * F / self.m;
+        self.x = self.x + delta_t * self.v;
+        self.u = new_u;
+
+        Some(())
+    }
+
+    pub fn description(&self) -> String {
+        format!(
+            "x: {:.3?}\nv: {:.3?}\n\ndelta-x: {:.3?}\na: {:.3}\nb: {:.3}\nc: {:.3}\nroots: {:.3?}\n",
+            self.x, self.v, self.delta_x, self.a, self.b, self.c, self.roots
+        )
+    }
+
+    pub fn pos(&self) -> na::Vector3<f64> {
+        self.x
+    }
+
+    pub fn vel(&self) -> na::Vector3<f64> {
+        self.v
     }
 }

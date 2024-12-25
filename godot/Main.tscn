@@ -69,6 +69,10 @@ text = "Optimizer"
 layout_mode = 2
 text = "-- iter/s"
 
+[node name="CheckBox" type="CheckBox" parent="VBoxContainer"]
+layout_mode = 2
+text = "Manual Physics"
+
 [node name="AnimStepEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
 layout_mode = 2
 _name = "Anim Step:"
@@ -135,6 +139,7 @@ access = 2
 use_native_dialog = true
 
 [connection signal="toggled" from="VBoxContainer/CheckButton" to="." method="_on_check_button_toggled"]
+[connection signal="toggled" from="VBoxContainer/CheckBox" to="." method="_on_check_box_toggled"]
 [connection signal="value_changed" from="VBoxContainer/AnimStepEdit" to="." method="_on_anim_step_edit_value_changed"]
 [connection signal="value_changed" from="VBoxContainer/LREdit" to="." method="_on_lr_edit_value_changed"]
 [connection signal="value_changed" from="VBoxContainer/MassEdit" to="." method="_on_mass_edit_value_changed"]
