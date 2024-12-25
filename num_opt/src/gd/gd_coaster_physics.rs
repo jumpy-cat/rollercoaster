@@ -34,7 +34,13 @@ impl CoasterPhysics {
             let curve = &curve.bind().inner;
             let u = phys.u();
             if let Some(drdu) = curve.curve_1st_derivative_at(u) {
-                phys.step(drdu.x, drdu.y, drdu.z, physics::StepBehavior::Time, step_size);
+                phys.step(
+                    drdu.x,
+                    drdu.y,
+                    drdu.z,
+                    physics::StepBehavior::Time,
+                    step_size,
+                );
             }
         }
     }
@@ -138,7 +144,7 @@ impl CoasterPhysicsV2 {
         Gd::from_object(Self {
             inner: Some(physics::legacy::PhysicsStateV2::new(
                 mass,
-                na::Vector3::new(0.0,gravity,0.0),
+                na::Vector3::new(0.0, gravity, 0.0),
                 com_offset_mag,
             )),
         })
@@ -246,12 +252,13 @@ pub struct CoasterPhysicsV3 {
 impl CoasterPhysicsV3 {
     /// Initialize with mass and gravity
     #[func]
-    fn create(mass: f64, gravity: f64, curve: Gd<CoasterCurve>) -> Gd<Self> {
+    fn create(mass: f64, gravity: f64, curve: Gd<CoasterCurve>, o: f64) -> Gd<Self> {
         Gd::from_object(Self {
             inner: Some(physics::PhysicsStateV3::new(
                 mass,
-                na::Vector3::new(0.0,gravity,0.0),
+                na::Vector3::new(0.0, gravity, 0.0),
                 &curve.bind().inner,
+                o,
             )),
         })
     }
@@ -260,7 +267,7 @@ impl CoasterPhysicsV3 {
     fn step(&mut self, curve: Gd<CoasterCurve>, step_size: f64) {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
-            phys.step(step_size, curve, physics::StepBehavior::Distance);
+            phys.step(step_size, curve, physics::StepBehavior::Constant);
         }
     }
 
@@ -289,5 +296,5 @@ impl CoasterPhysicsV3 {
         } else {
             Variant::nil()
         }
-    }   
+    }
 }

@@ -8,6 +8,11 @@ use crate::hermite;
 
 pub mod legacy;
 
+/// Projects `a` onto `b`
+fn vector_projection(a: na::Vector3<f64>, b: na::Vector3<f64>) -> na::Vector3<f64> {
+    a.dot(&b) / b.magnitude_squared() * b
+}
+
 /// Possible ways for the physics system to take a step  
 /// Steps are in `u`, the (0,1) parameterization of hermite curves
 #[derive(Debug, Clone, Copy)]
@@ -27,11 +32,20 @@ pub struct PhysicsStateV3 {
     // params
     m: f64,
     g: na::Vector3<f64>,
+    o: f64,
 
     // simulation state
+    u: f64,
+    // center of mass
     x: na::Vector3<f64>,
     v: na::Vector3<f64>,
-    u: f64,
+    // heart line
+    hl_normal: na::Vector3<f64>,
+    hl_pos: na::Vector3<f64>,
+    hl_velocity: na::Vector3<f64>,
+    // rotation
+    w: na::Vector3<f64>,  // angular velocity
+    I: f64,  // moment of inertia
 
     // stats, info, persisted intermediate values
     delta_t: f64,
@@ -44,20 +58,35 @@ pub struct PhysicsStateV3 {
 }
 
 impl PhysicsStateV3 {
-    pub fn new(m: f64, g: na::Vector3<f64>, curve: &hermite::Spline) -> Self {
+    pub fn new(m: f64, g: na::Vector3<f64>, curve: &hermite::Spline, o: f64) -> Self {
+        let hl_pos = curve.curve_at(0.0).unwrap();
+        let hl_forward = curve.curve_1st_derivative_at(0.0).unwrap();
+        assert!(hl_forward.magnitude() > 0.0);
+        let hl_normal = (-g - vector_projection(-g, hl_forward)).normalize();
         Self {
+            // constants
             m,
+            I: 1.0,
             g,
+            o,
+            // simulation state
             u: 0.0,
-            x: curve.curve_at(0.0).unwrap(),
+            // center of mass
+            x: hl_pos - o * hl_normal,
             v: Default::default(),
+            // heart line
+            hl_pos,
+            hl_normal,
+            hl_velocity: Default::default(),
+            w: Default::default(),
+            // stats, info, persisted intermediate values
             delta_x: Default::default(),
             delta_t: 0.0,
             F_N: Default::default(),
-            roots: Roots::No([]),
             a: 0.0,
             b: 0.0,
             c: 0.0,
+            roots: Roots::No([]),
         }
     }
 
