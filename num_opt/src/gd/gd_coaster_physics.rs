@@ -267,7 +267,9 @@ impl CoasterPhysicsV3 {
     fn step(&mut self, curve: Gd<CoasterCurve>, step_size: f64) {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
-            phys.step(step_size, curve, physics::StepBehavior::Time);
+            if phys.step(step_size, curve, physics::StepBehavior::Time).is_none() {
+                godot_warn!("Simulation Stuck");
+            };
         }
     }
 

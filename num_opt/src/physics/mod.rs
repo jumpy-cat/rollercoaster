@@ -1,6 +1,6 @@
 //! Physics solver and cost function
 
-use godot::global::godot_print;
+use godot::global::{godot_print, godot_warn};
 use roots::Roots;
 
 use crate::hermite;
@@ -26,11 +26,11 @@ pub enum StepBehavior {
 }
 
 /// Physics solver v3
-
-// Store simulation parameters(m,g)
-//Track the state of the partice(position, velocity, u(curve parameter))
-// Compute intermediate values like delta_x(displacement),F_N(force), and delta_t(time step).
-// Use a quardratic equation to determine the correcr time step(roots).
+/// ### Overview
+/// Store simulation parameters (m,g)
+/// Track the state of the particle (position, velocity, u(curve parameter))
+/// Compute intermediate values like delta_x(displacement), F_N(force), and delta_t(time step).
+/// Use a quadratic equation to determine the correcr time step(roots).
 #[derive(Debug)]
 pub struct PhysicsStateV3 {
     // params
@@ -65,9 +65,9 @@ pub struct PhysicsStateV3 {
     torque_: na::Vector3<f64>,
 }
 
-// Initialize the physics state: m mass, g Gravity vector,
-// curve.curve_at(0.0): Starting position of the curve at u=0
 impl PhysicsStateV3 {
+    /// Initialize the physics state: `m` mass, `g` Gravity vector,
+    /// `curve.curve_at(0.0)`: Starting position of the curve at `u=0`
     pub fn new(m: f64, g: na::Vector3<f64>, curve: &hermite::Spline, o: f64) -> Self {
         let hl_pos = curve.curve_at(0.0).unwrap();
         let hl_forward = curve.curve_1st_derivative_at(0.0).unwrap();
@@ -105,21 +105,23 @@ impl PhysicsStateV3 {
         }
     }
 
-    // StopBehavior:: Constant: USe a fixed step size step.
-    // StopBehavior:: Distance: Adjust delta_u to keep the traveld arc length constant
-    // StopBehavior:: Time: Adjust delta_u based on both velocity and arc length.
-    // if dsdu is zero, a fallback step size is used
+    /// ### Step Sizes
+    /// `StepBehavior::Constant`: Use a fixed step size step.
+    /// `StepBehavior::Distance`: Adjust delta_u to keep the traveled arc length constant
+    /// `StepBehavior::Time`: Adjust delta_u based on both velocity and arc length.
+    /// if `dsdu` is zero, a fallback step size is used
     pub fn step(
         &mut self,
         step: f64,
         curve: &hermite::Spline,
         behavior: StepBehavior,
     ) -> Option<()> {
-        const FALLBACK_STEP: f64 = 0.0001;
+        godot_print!("Step for {}", self.u);
+        const FALLBACK_STEP: f64 = 0.001;
         self.delta_u_ = match behavior {
             StepBehavior::Constant => step,
             StepBehavior::Distance => {
-                let dsdu = curve.curve_1st_derivative_at(self.u)?.magnitude();
+                let dsdu = curve.curve_1st_derivative_at(self.u).unwrap().magnitude();
                 if dsdu == 0.0 {
                     // consider replacing with a numeric determination of step
                     FALLBACK_STEP
@@ -128,7 +130,7 @@ impl PhysicsStateV3 {
                 }
             }
             StepBehavior::Time => {
-                let dsdu = curve.curve_1st_derivative_at(self.u)?.magnitude();
+                let dsdu = curve.curve_1st_derivative_at(self.u).unwrap().magnitude();
                 let hl_spd = self.hl_vel.magnitude();
                 if dsdu == 0.0 || self.v.magnitude() == 0.0 || hl_spd < 0.001 {
                     // consider replacing with a numeric determination of step
@@ -147,11 +149,19 @@ impl PhysicsStateV3 {
         let new_hl_normal = if self.torque_exceeded {
             self.hl_normal
         } else {
-            (ag - vector_projection(ag, curve.curve_1st_derivative_at(new_u)?)).normalize()
+            (ag - vector_projection(ag, curve.curve_1st_derivative_at(new_u).unwrap())).normalize()
         };
         //let new_hl_normal =maybe_new_hl_normal2;
         //self.delta_x = curve.curve_at(new_u)? - self.o * new_hl_normal - self.x;
-        self.delta_x_ = curve.curve_at(new_u)? - self.o * self.hl_normal - self.x;
+        self.delta_x_ = curve.curve_at(new_u).unwrap() - self.o * self.hl_normal - self.x;
+        let max_curve_angle: f64 = 0.001;
+        const MIN_STEP: f64 = 0.001;
+        if self.v.angle(&self.delta_x_) > max_curve_angle && self.delta_u_ != FALLBACK_STEP && step > MIN_STEP {
+            godot_print!("Step half for {}", self.u);
+            self.step(step / 2.0, curve, behavior).unwrap();
+            self.step(step / 2.0, curve, behavior).unwrap();
+            return Some(())
+        }
         // delta_t is computed based on g,v, delta_X
         // Find the positivie root of the quadratic equation
         self.a_ = self.g.dot(&self.delta_x_) / self.delta_x_.magnitude_squared();
@@ -161,6 +171,7 @@ impl PhysicsStateV3 {
         self.roots_ = roots::find_roots_quadratic(self.a_, self.b_, self.c_);
         self.delta_t_ = match self.roots_ {
             roots::Roots::No(_) => {
+                godot_warn!("No root found");
                 if step < FALLBACK_STEP {
                     return None;
                 } else {
@@ -175,6 +186,7 @@ impl PhysicsStateV3 {
             {
                 Some(r) => *r,
                 None => {
+                    godot_warn!("No good roots found");
                     if step < FALLBACK_STEP {
                         return None;
                     } else {
@@ -202,14 +214,14 @@ impl PhysicsStateV3 {
         let delta_hl_normal =
             self.hl_normal.cross(&new_hl_normal) * self.hl_normal.angle(&new_hl_normal);
         if self.torque_exceeded {
-            self.torque_ = na::Vector3::zeros();
+            //self.torque_ = na::Vector3::zeros();
             self.w = na::Vector3::zeros();
         } else {
             self.torque_ =
                 self.I * (delta_hl_normal / self.delta_t_.powi(2) - self.w / self.delta_t_);
         }
         const MAX_TORQUE: f64 = 0.05;
-        if self.torque_.magnitude() > MAX_TORQUE {
+        if !self.torque_exceeded && self.torque_.magnitude() > MAX_TORQUE {
             self.torque_exceeded = true;
             return self.step(step, curve, behavior);
         }
@@ -222,7 +234,9 @@ impl PhysicsStateV3 {
         self.x = self.x + self.delta_t_ * self.v;
         self.u = new_u;
 
-        self.w = self.w + self.delta_t_ * self.torque_ / self.I;
+        if !self.torque_exceeded {
+            self.w = self.w + self.delta_t_ * self.torque_ / self.I;
+        }
         self.hl_normal =
             na::UnitQuaternion::from_scaled_axis(self.w * self.delta_t_) * self.hl_normal;
         // updates
@@ -240,7 +254,7 @@ speed: {:.3}
 hl speed: {}
 g force: {}
 hl normal: {:.3?}
-delta-x: {:.3?} ({:.3?})
+delta-x: {:.6?} ({:.3?})
 F_N: {:.3?}
 F_N err(deg): {:.3}
 T-Exceeded: {}
