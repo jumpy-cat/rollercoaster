@@ -403,26 +403,28 @@ impl PhysicsStateV3 {
         };
         let new_u = self.u + delta_u;
         self.delta_x = curve.curve_at(new_u)? - self.x;
+        // try smaller steps
         if self.delta_x.angle(&curve.curve_1st_derivative_at(self.u)?) > max_curve_angle {
             self.step(step / 2.0, max_curve_angle, curve, behavior)?;
             return self.step(step / 2.0, max_curve_angle, curve, behavior);
         }
-        //
 
-        self.a = self.g.dot(&self.delta_x) / self.delta_x.magnitude_squared();
-        self.b = self.v.dot(&self.delta_x) / self.delta_x.magnitude_squared();
-        self.c = -1.0;
+        self.delta_t = {
+            self.a = self.g.dot(&self.delta_x) / self.delta_x.magnitude_squared();
+            self.b = self.v.dot(&self.delta_x) / self.delta_x.magnitude_squared();
+            self.c = -1.0;
 
-        self.roots = roots::find_roots_quadratic(self.a, self.b, self.c);
-        self.delta_t = match self.roots {
-            roots::Roots::No(_) => return None,
-            roots::Roots::One([r]) => r,
-            roots::Roots::Two(rs) => *rs
-                .iter()
-                .filter(|rs| **rs > 0.0)
-                .min_by(|a, b| a.partial_cmp(b).unwrap())
-                .unwrap(),
-            _ => panic!(),
+            self.roots = roots::find_roots_quadratic(self.a, self.b, self.c);
+            match self.roots {
+                roots::Roots::No(_) => return None,
+                roots::Roots::One([r]) => r,
+                roots::Roots::Two(rs) => *rs
+                    .iter()
+                    .filter(|rs| **rs > 0.0)
+                    .min_by(|a, b| a.partial_cmp(b).unwrap())
+                    .unwrap(),
+                _ => panic!(),
+            }
         };
 
         self.F_N = self.m * (self.delta_x / self.delta_t.powi(2) - self.v / self.delta_t - self.g);
