@@ -21,6 +21,7 @@ pub enum StepBehavior {
 /// Physics solver
 #[derive(Debug, Clone, getset::CopyGetters)]
 #[getset(get_copy = "pub")]
+#[deprecated]
 
 pub struct PhysicsState {
     mass: f64,
@@ -187,6 +188,7 @@ impl PhysicsState {
 /// Physics solver v2
 /// See `Design: adding rotation to physics` in the doc
 #[derive(Debug, Clone)]
+#[deprecated]
 pub struct PhysicsStateV2 {
     m: f64,
     g: na::Vector3<f64>,

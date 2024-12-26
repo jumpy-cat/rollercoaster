@@ -260,7 +260,7 @@ impl CoasterPhysicsV3 {
     fn step(&mut self, curve: Gd<CoasterCurve>, step_size: f64) {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
-            phys.step(step_size, curve, physics::StepBehavior::Distance);
+            phys.step(step_size, 0.0001, curve, physics::StepBehavior::Distance);
         }
     }
 
