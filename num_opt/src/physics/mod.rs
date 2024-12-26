@@ -57,6 +57,7 @@ pub struct PhysicsStateV3 {
     delta_u_: f64,
     delta_t_: f64,
     delta_x_: na::Vector3<f64>,
+    delta_hl_normal_: na::Vector3<f64>,
     F_N_: na::Vector3<f64>,
     a_: f64,
     b_: f64,
@@ -96,6 +97,7 @@ impl PhysicsStateV3 {
             delta_u_: 0.0,
             delta_x_: Default::default(),
             delta_t_: 0.0,
+            delta_hl_normal_: Default::default(),
             F_N_: Default::default(),
             a_: 0.0,
             b_: 0.0,
@@ -116,6 +118,9 @@ impl PhysicsStateV3 {
         curve: &hermite::Spline,
         behavior: StepBehavior,
     ) -> Option<()> {
+        if self.torque_exceeded {
+            return None;
+        }
         godot_print!("Step for {}", self.u);
         const FALLBACK_STEP: f64 = 0.001;
         self.delta_u_ = match behavior {
@@ -151,16 +156,21 @@ impl PhysicsStateV3 {
         } else {
             (ag - vector_projection(ag, curve.curve_1st_derivative_at(new_u).unwrap())).normalize()
         };
-        //let new_hl_normal =maybe_new_hl_normal2;
+        //let new_hl_normal = maybe_new_hl_normal2;
         //self.delta_x = curve.curve_at(new_u)? - self.o * new_hl_normal - self.x;
         self.delta_x_ = curve.curve_at(new_u).unwrap() - self.o * self.hl_normal - self.x;
         let max_curve_angle: f64 = 0.001;
-        const MIN_STEP: f64 = 0.001;
-        if self.v.angle(&self.delta_x_) > max_curve_angle && self.delta_u_ != FALLBACK_STEP && step > MIN_STEP {
+        const MIN_STEP: f64 = 0.1;
+        const MIN_DELTA_X: f64 = 0.0001;
+        if self.v.angle(&self.delta_x_) > max_curve_angle
+            && self.delta_u_ != FALLBACK_STEP
+            && step > MIN_STEP
+            && self.delta_x_.magnitude() > MIN_DELTA_X
+        {
             godot_print!("Step half for {}", self.u);
             self.step(step / 2.0, curve, behavior).unwrap();
             self.step(step / 2.0, curve, behavior).unwrap();
-            return Some(())
+            return Some(());
         }
         // delta_t is computed based on g,v, delta_X
         // Find the positivie root of the quadratic equation
@@ -211,17 +221,26 @@ impl PhysicsStateV3 {
         self.hl_accel = (new_hl_vel - self.hl_vel) / self.delta_t_;
 
         // rotation
-        let delta_hl_normal =
+        self.delta_hl_normal_ =
             self.hl_normal.cross(&new_hl_normal) * self.hl_normal.angle(&new_hl_normal);
         if self.torque_exceeded {
             //self.torque_ = na::Vector3::zeros();
             self.w = na::Vector3::zeros();
         } else {
             self.torque_ =
-                self.I * (delta_hl_normal / self.delta_t_.powi(2) - self.w / self.delta_t_);
+                self.I * (self.delta_hl_normal_ / self.delta_t_.powi(2) - self.w / self.delta_t_);
+            godot_warn!(
+                "Torque: {} = {} / {} - {} / {}",
+                self.torque_.magnitude(),
+                self.delta_hl_normal_.magnitude(),
+                self.delta_t_.powi(2),
+                self.w.magnitude(),
+                self.delta_t_
+            );
         }
-        const MAX_TORQUE: f64 = 0.05;
-        if !self.torque_exceeded && self.torque_.magnitude() > MAX_TORQUE {
+        const MAX_TORQUE: f64 = 0.1;
+        const ALLOWED_ANGULAR_WIGGLE: f64 = 0.01;
+        if !self.torque_exceeded && self.torque_.magnitude() > MAX_TORQUE && self.delta_hl_normal_.magnitude() > ALLOWED_ANGULAR_WIGGLE {
             self.torque_exceeded = true;
             return self.step(step, curve, behavior);
         }
@@ -258,6 +277,8 @@ delta-x: {:.6?} ({:.3?})
 F_N: {:.3?}
 F_N err(deg): {:.3}
 T-Exceeded: {}
+w: {:.3?}
+delta-hl-norm: {:.3?}
 Torque: {:.4} ({:.3?})
 a: {:.3}
 b: {:.3}
@@ -276,6 +297,8 @@ delta-u: {:.10?}",
             self.F_N_,
             (90.0 - self.F_N_.angle(&self.delta_x_) * 180.0 / std::f64::consts::PI).abs(),
             self.torque_exceeded,
+            self.w,
+            self.delta_hl_normal_.magnitude(),
             self.torque_.magnitude(),
             self.torque_,
             self.a_,

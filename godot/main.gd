@@ -3,9 +3,13 @@ extends Node3D
 # Used to show control points
 @export var control_point_scene: PackedScene
 
+# Anim Vectors
+@onready var hl_normal_mi: MeshInstance3D = $HLNormal
+
 # Relevant child nodes
 @onready var camera: Camera3D = $PanOrbitCamera;
 @onready var basic_lines: MeshInstance3D = $BasicLines;
+
 @onready var optimizer: Optimizer = $Optimizer;
 @onready var anim: Node3D = $Anim;
 @onready var label: Label = $VBoxContainer/MainStats;
@@ -125,17 +129,24 @@ func _process(_delta: float) -> void:
 		optimizer.set_points(positions)
 	if Input.is_action_just_pressed("run_simulation"):
 		curve = optimizer.get_curve()
-		physics = CoasterPhysicsV3.create(mass, gravity, curve, 5.0)		
+		physics = CoasterPhysicsV3.create(mass, gravity, curve, 0.0)		
 	
 	# update physics simulation
-	if curve != null && (!manual_physics || Input.is_action_just_pressed("step_physics")):
+	if curve != null:
 		anim.visible = true
-		physics.step(curve, anim_step_size)
+		if (!manual_physics || Input.is_action_just_pressed("step_physics")):
+			physics.step(curve, anim_step_size)
 		#var anim_pos = physics.pos(curve)
 		var anim_pos = physics.pos()
 		#var anim_vel = physics.velocity()
 		var anim_vel = physics.vel()
 		var anim_up = physics.hl_normal()
+		var m: ImmediateMesh = hl_normal_mi.mesh
+		m.clear_surfaces()
+		m.surface_begin(Mesh.PRIMITIVE_LINES)
+		m.surface_add_vertex(anim_pos)
+		m.surface_add_vertex(anim_pos + 10 * anim_up)
+		m.surface_end()
 		#var anim_up = Vector3.UP
 		if anim_pos != null:
 			anim.look_at_from_position(anim_pos, anim_pos + anim_vel, anim_up)
