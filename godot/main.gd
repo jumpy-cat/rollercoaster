@@ -129,7 +129,7 @@ func _process(_delta: float) -> void:
 		optimizer.set_points(positions)
 	if Input.is_action_just_pressed("run_simulation"):
 		curve = optimizer.get_curve()
-		physics = CoasterPhysicsV3.create(mass, gravity, curve, 0.0)		
+		physics = CoasterPhysicsV3.create(mass, gravity, curve, 1.0)		
 	
 	# update physics simulation
 	if curve != null:
@@ -161,6 +161,12 @@ func _process(_delta: float) -> void:
 		m.surface_add_vertex(anim_pos + MULT * physics.a())
 		m.surface_set_color(Color.YELLOW)
 		m.surface_add_vertex(anim_pos + MULT * physics.a() - MULT * physics.g())
+
+		# blue velocity
+		m.surface_set_color(Color.BLUE)
+		m.surface_add_vertex(anim_pos)
+		m.surface_set_color(Color.BLUE)
+		m.surface_add_vertex(anim_pos + MULT * anim_vel)
 
 		m.surface_end()
 		#var anim_up = Vector3.UP
