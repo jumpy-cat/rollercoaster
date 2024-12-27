@@ -193,12 +193,13 @@ impl Optimizer {
             .iter_shared()
             .map(|p| point::Point::new(p.x.as_f64(), p.y.as_f64(), p.z.as_f64()))
             .collect();
+        hermite::set_derivatives_using_catmull_rom(&mut self.points);
         self.curve = hermite::Spline::new(&self.points);
         let _ = self
             .to_worker
             .send(ToWorker::SetPoints(
                 self.points.clone(),
-                Derivatives::Ignore,
+                Derivatives::Keep,
             ))
             .map_err(|e| godot_error!("{:#?}", e));
     }
@@ -214,6 +215,8 @@ impl Optimizer {
     #[func]
     fn set_point(&mut self, i: i32, point: Gd<CoasterPoint>) {
         self.points[i as usize] = point.bind().inner().clone();
+        self.curve = hermite::Spline::new(&self.points);
+        self.segment_points_cache = None;
         self.to_worker
             .send(ToWorker::SetPoints(self.points.clone(), Derivatives::Keep))
             .unwrap();

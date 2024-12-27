@@ -75,7 +75,17 @@ impl PhysicsStateV3 {
     /// `curve.curve_at(0.0)`: Starting position of the curve at `u=0`
     pub fn new(m: f64, g: na::Vector3<f64>, curve: &hermite::Spline, o: f64) -> Self {
         let hl_pos = curve.curve_at(0.0).unwrap();
-        let hl_forward = curve.curve_1st_derivative_at(0.0).unwrap();
+        let mut hl_forward = curve.curve_1st_derivative_at(0.0).unwrap();
+        
+        if hl_forward.magnitude() == 0.0 {
+            hl_forward = curve.curve_2nd_derivative_at(0.0).unwrap();
+        }
+        if hl_forward.magnitude() == 0.0 {
+            hl_forward = curve.curve_3rd_derivative_at(0.0).unwrap();
+        }
+        if hl_forward.magnitude() == 0.0 {
+            hl_forward = curve.curve_4th_derivative_at(0.0).unwrap();
+        }
         assert!(hl_forward.magnitude() > 0.0);
         let hl_normal = (-g - vector_projection(-g, hl_forward)).normalize();
         Self {

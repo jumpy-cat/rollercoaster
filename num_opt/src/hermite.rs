@@ -321,8 +321,8 @@ pub fn catmull_rom_recursive(values: &Vec<f64>, coeff: f64, depth: u32) -> Vec<V
     out
 }
 
-/// Sets the first three derivatives using recursive cardinal curves
-/// This is needed to get reasonable starting values for the derivatives.
+/// Sets the first three derivatives using recursive cardinal curves.  
+/// This is needed to get reasonable starting values for the derivatives.  
 /// That way the optimization can proceed smoothly.
 pub fn set_derivatives_using_catmull_rom(points: &mut Vec<point::Point<f64>>) {
     const SCALE: f64 = 0.5;
