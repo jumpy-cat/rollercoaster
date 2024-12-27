@@ -129,7 +129,7 @@ func _process(_delta: float) -> void:
 		optimizer.set_points(positions)
 	if Input.is_action_just_pressed("run_simulation"):
 		curve = optimizer.get_curve()
-		physics = CoasterPhysicsV3.create(mass, gravity, curve, 0.0)		
+		physics = CoasterPhysicsV3.create(mass, gravity, curve, 1.0)		
 	
 	# update physics simulation
 	if curve != null:
@@ -144,12 +144,32 @@ func _process(_delta: float) -> void:
 		var m: ImmediateMesh = hl_normal_mi.mesh
 		m.clear_surfaces()
 		m.surface_begin(Mesh.PRIMITIVE_LINES)
+
+		const MULT = 200;
+
+		m.surface_set_color(Color.ORANGE)
 		m.surface_add_vertex(anim_pos)
-		m.surface_add_vertex(anim_pos + 10 * anim_up)
+		print(physics.ag())
+		m.surface_set_color(Color.ORANGE)
+		m.surface_add_vertex(anim_pos + MULT * physics.ag())
+
+		m.surface_set_color(Color.RED)
+		m.surface_add_vertex(anim_pos)
+		print(physics.ag())
+		m.surface_set_color(Color.RED)
+		m.surface_add_vertex(anim_pos + MULT * physics.a())
+
+		m.surface_set_color(Color.YELLOW)
+		m.surface_add_vertex(anim_pos + MULT * physics.a())
+		print(physics.ag())
+		m.surface_set_color(Color.YELLOW)
+		m.surface_add_vertex(anim_pos + MULT * physics.a() - MULT * physics.g())
+
 		m.surface_end()
 		#var anim_up = Vector3.UP
 		if anim_pos != null:
-			anim.look_at_from_position(anim_pos, anim_pos + anim_vel, anim_up)
+			if anim_pos != anim_pos + anim_vel:
+				anim.look_at_from_position(anim_pos, anim_pos + anim_vel, anim_up)
 			#anim.position = anim_pos
 			#anim. = Quaternion(anim_up, Vector3.UP).get_euler()
 		else:
@@ -160,7 +180,7 @@ func _process(_delta: float) -> void:
 	if len(curve_points) > 1:
 		var m = basic_lines.mesh;
 		m.clear_surfaces();
-		m.surface_begin(Mesh.PRIMITIVE_TRIANGLES);
+		m.surface_begin(Mesh.PRIMITIVE_LINES);
 
 		Utils.cylinder_line(m, optimizer.as_segment_points(), 0.2)
 				

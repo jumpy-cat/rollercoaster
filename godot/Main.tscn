@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://br738eihq2cus"]
+[gd_scene load_steps=13 format=3 uid="uid://br738eihq2cus"]
 
 [ext_resource type="Script" path="res://main.gd" id="1_w5dqp"]
 [ext_resource type="PackedScene" uid="uid://c3vuka4b0smhh" path="res://control_point.tscn" id="2_o72i1"]
@@ -19,6 +19,10 @@ LineEdit/colors/font_color = Color(0.875, 0.875, 0.875, 1)
 [sub_resource type="Theme" id="Theme_kxmhj"]
 
 [sub_resource type="Theme" id="Theme_b8h1k"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_mwvwa"]
+shading_mode = 0
+vertex_color_use_as_albedo = true
 
 [sub_resource type="ImmediateMesh" id="ImmediateMesh_oh57q"]
 
@@ -142,6 +146,7 @@ access = 2
 use_native_dialog = true
 
 [node name="HLNormal" type="MeshInstance3D" parent="."]
+material_overlay = SubResource("StandardMaterial3D_mwvwa")
 mesh = SubResource("ImmediateMesh_oh57q")
 
 [connection signal="toggled" from="VBoxContainer/CheckButton" to="." method="_on_check_button_toggled"]

@@ -267,9 +267,14 @@ impl CoasterPhysicsV3 {
     fn step(&mut self, curve: Gd<CoasterCurve>, step_size: f64) {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
-            if phys.step(step_size, curve, physics::StepBehavior::Time).is_none() {
-                godot_warn!("Simulation Stuck");
-            };
+            for _ in 0..5 {
+                if phys.step(step_size, curve, physics::StepBehavior::Constant).is_none() {
+                    //godot_warn!("Simulation Stuck");
+                };
+                if phys.step(step_size, curve, physics::StepBehavior::Constant).is_none() {
+                    //godot_warn!("Simulation Stuck");
+                };
+            }
         }
     }
 
@@ -304,6 +309,33 @@ impl CoasterPhysicsV3 {
     fn hl_normal(&self) -> Variant {
         if let Some(phys) = &self.inner {
             Variant::from(na_to_gd(phys.hl_normal()))
+        } else {
+            Variant::nil()
+        }
+    }
+
+    #[func]
+    fn ag(&self) -> Variant {
+        if let Some(phys) = &self.inner {
+            Variant::from(na_to_gd(phys.ag()))
+        } else {
+            Variant::nil()
+        }
+    }
+
+    #[func]
+    fn a(&self) -> Variant {
+        if let Some(phys) = &self.inner {
+            Variant::from(na_to_gd(phys.a()))
+        } else {
+            Variant::nil()
+        }
+    }
+
+    #[func]
+    fn g(&self) -> Variant {
+        if let Some(phys) = &self.inner {
+            Variant::from(na_to_gd(phys.g()))
         } else {
             Variant::nil()
         }

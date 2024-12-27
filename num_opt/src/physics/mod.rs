@@ -25,6 +25,9 @@ pub enum StepBehavior {
     Time,
 }
 
+const FALLBACK_STEP: f64 = 0.001;
+
+
 /// Physics solver v3
 /// ### Overview
 /// Store simulation parameters (m,g)
@@ -58,11 +61,8 @@ pub struct PhysicsStateV3 {
     delta_t_: f64,
     delta_x_: na::Vector3<f64>,
     delta_hl_normal_: na::Vector3<f64>,
+    ag_: na::Vector3<f64>,
     F_N_: na::Vector3<f64>,
-    a_: f64,
-    b_: f64,
-    c_: f64,
-    roots_: Roots<f64>,
     torque_: na::Vector3<f64>,
 }
 
@@ -99,12 +99,46 @@ impl PhysicsStateV3 {
             delta_t_: 0.0,
             delta_hl_normal_: Default::default(),
             F_N_: Default::default(),
-            a_: 0.0,
-            b_: 0.0,
-            c_: 0.0,
-            roots_: Roots::No([]),
+            ag_: Default::default(),
             torque_: Default::default(),
         }
+    }
+
+    fn calc_delta_t_from_delta_u(&mut self, step: f64) -> Option<f64> {
+        // delta_t is computed based on g,v, delta_X
+            // Find the positive root of the quadratic equation
+            let a_ = self.g.dot(&self.delta_x_) / self.delta_x_.magnitude_squared();
+            let b_ = self.v.dot(&self.delta_x_) / self.delta_x_.magnitude_squared();
+            let c_ = -1.0;
+
+            let roots_ = roots::find_roots_quadratic(a_, b_, c_);
+            match roots_ {
+                roots::Roots::No(_) => {
+                    godot_warn!("No root found");
+                    if step < FALLBACK_STEP {
+                        return None;
+                    } else {
+                        return None; //self.step(step / 2.0, curve, behavior);
+                    }
+                }
+                roots::Roots::One([r]) => Some(r),
+                roots::Roots::Two(rs) => match rs
+                    .iter()
+                    .filter(|rs| **rs > 0.0)
+                    .min_by(|a, b| a.partial_cmp(b).unwrap())
+                {
+                    Some(r) => Some(*r),
+                    None => {
+                        godot_warn!("No good roots found");
+                        if step < FALLBACK_STEP {
+                            return None;
+                        } else {
+                            return None; //self.step(step / 2.0, curve, behavior);
+                        }
+                    }
+                },
+                _ => unreachable!(),
+            }
     }
 
     /// ### Step Sizes
@@ -121,13 +155,13 @@ impl PhysicsStateV3 {
         if self.torque_exceeded {
             //return None;
         }
-        godot_print!("Step for {}", self.u);
+       // godot_print!("Step for {}", self.u);
 
-        const FALLBACK_STEP: f64 = 0.001;
-        let max_curve_angle: f64 = 0.00001;
-        const MIN_STEP: f64 = 0.0001;
+        // 0.00001 is unstable (either due to rounding error)
+        let max_curve_angle: f64 = 0.0001;
+        const MIN_STEP: f64 = 0.001;
         const MIN_DELTA_X: f64 = 0.0001;
-        const MAX_TORQUE: f64 = 2.0;
+        const MAX_TORQUE: f64 = 0.01;
         const ALLOWED_ANGULAR_WIGGLE: f64 = 0.01;
 
         self.delta_u_ = match behavior {
@@ -154,13 +188,13 @@ impl PhysicsStateV3 {
         };
 
         // Advance the parametric value u by delta_u and calculate the new position along the curve.
-        // The displacement vector delta_x is the difference btetween the new position and the current position.
+        // The displacement vector delta_x is the difference between the new position and the current position.
         let new_u = self.u + self.delta_u_;
-        let ag = self.hl_accel - self.g;
+        self.ag_ = self.hl_accel - self.g;
         let new_hl_normal = if self.torque_exceeded {
             self.hl_normal
         } else {
-            (ag - vector_projection(ag, curve.curve_1st_derivative_at(new_u).unwrap())).normalize()
+            (self.ag_ - vector_projection(self.ag_, curve.curve_1st_derivative_at(new_u).unwrap())).normalize()
         };
         self.delta_x_ = curve.curve_at(new_u).unwrap() - self.o * self.hl_normal - self.x;
 
@@ -171,47 +205,11 @@ impl PhysicsStateV3 {
                 && self.delta_x_.magnitude() > MIN_DELTA_X
         };
         if step_too_big {
-            godot_print!("Step half for {}", self.u);
             self.step(step / 2.0, curve, behavior).unwrap();
-            self.step(step / 2.0, curve, behavior).unwrap();
+            //self.step(step / 2.0, curve, behavior).unwrap();
             return Some(());
         }
-        self.delta_t_ = {
-            // delta_t is computed based on g,v, delta_X
-            // Find the positive root of the quadratic equation
-            self.a_ = self.g.dot(&self.delta_x_) / self.delta_x_.magnitude_squared();
-            self.b_ = self.v.dot(&self.delta_x_) / self.delta_x_.magnitude_squared();
-            self.c_ = -1.0;
-
-            self.roots_ = roots::find_roots_quadratic(self.a_, self.b_, self.c_);
-            match self.roots_ {
-                roots::Roots::No(_) => {
-                    godot_warn!("No root found");
-                    if step < FALLBACK_STEP {
-                        return None;
-                    } else {
-                        return None; //self.step(step / 2.0, curve, behavior);
-                    }
-                }
-                roots::Roots::One([r]) => r,
-                roots::Roots::Two(rs) => match rs
-                    .iter()
-                    .filter(|rs| **rs > 0.0)
-                    .min_by(|a, b| a.partial_cmp(b).unwrap())
-                {
-                    Some(r) => *r,
-                    None => {
-                        godot_warn!("No good roots found");
-                        if step < FALLBACK_STEP {
-                            return None;
-                        } else {
-                            return None; //self.step(step / 2.0, curve, behavior);
-                        }
-                    }
-                },
-                _ => panic!(),
-            }
-        };
+        self.delta_t_ = self.calc_delta_t_from_delta_u(step).unwrap();
 
         // Normal Force: Derived from displacement, velocity, and gravity.
         // v: semi implicit Euler integration
@@ -223,24 +221,25 @@ impl PhysicsStateV3 {
         let F = self.F_N_ + self.g * self.m;
         // hl values
         let new_hl_vel = (curve.curve_at(new_u)? - curve.curve_at(self.u)?) / self.delta_t_;
-        self.hl_accel = (new_hl_vel - self.hl_vel) / self.delta_t_;
+        let new_hl_accel = (new_hl_vel - self.hl_vel) / self.delta_t_;
         // rotation
         self.delta_hl_normal_ =
             self.hl_normal.cross(&new_hl_normal) * self.hl_normal.angle(&new_hl_normal);
+        godot_print!("{:.6} {:.5}", self.delta_hl_normal_.magnitude(), step);
         if self.torque_exceeded {
             //self.torque_ = na::Vector3::zeros();
             self.w = na::Vector3::zeros();
         } else {
             self.torque_ =
                 self.I * (self.delta_hl_normal_ / self.delta_t_.powi(2) - self.w / self.delta_t_);
-            godot_warn!(
+            /*godot_warn!(
                 "Torque: {} = {} / {} - {} / {}",
                 self.torque_.magnitude(),
                 self.delta_hl_normal_.magnitude(),
                 self.delta_t_.powi(2),
                 self.w.magnitude(),
                 self.delta_t_
-            );
+            );*/
         }
         if !self.torque_exceeded {
             self.w = self.w + self.delta_t_ * self.torque_ / self.I;
@@ -252,7 +251,7 @@ impl PhysicsStateV3 {
             self.torque_exceeded = true;
             // REMEMBER TO REMOVE
             std::thread::sleep(std::time::Duration::from_millis(200));
-            //return self.step(step, curve, behavior);
+            return self.step(step, curve, behavior);
         }
         // semi-implicit euler update rule
         self.v = self.v + self.delta_t_ * F / self.m;
@@ -262,6 +261,7 @@ impl PhysicsStateV3 {
             na::UnitQuaternion::from_scaled_axis(self.w * self.delta_t_) * self.hl_normal;
         // updates
         self.hl_vel = new_hl_vel;
+        self.hl_accel = new_hl_accel;
 
         Some(())
     }
@@ -280,13 +280,10 @@ delta-x: {:.6?} ({:.3?})
 F_N: {:.3?}
 F_N err(deg): {:.3}
 T-Exceeded: {}
-w: {:.3?}
+w: {:.6} ({:.4?})
 delta-hl-norm: {:.3?}
 Torque: {:.4} ({:.3?})
-a: {:.3}
-b: {:.3}
-c: {:.3}
-delta-t: {:.6} ({:.3?})
+delta-t: {:.6}
 delta-u: {:.10?}",
             self.x,
             self.v,
@@ -301,15 +298,12 @@ delta-u: {:.10?}",
             self.F_N_,
             (90.0 - self.F_N_.angle(&self.delta_x_) * 180.0 / std::f64::consts::PI).abs(),
             self.torque_exceeded,
+            self.w.magnitude(),
             self.w,
             self.delta_hl_normal_.magnitude(),
             self.torque_.magnitude(),
             self.torque_,
-            self.a_,
-            self.b_,
-            self.c_,
             self.delta_t_,
-            self.roots_,
             self.delta_u_
         )
     }
@@ -324,5 +318,17 @@ delta-u: {:.10?}",
 
     pub fn hl_normal(&self) -> na::Vector3<f64> {
         self.hl_normal
+    }
+
+    pub fn ag(&self) -> na::Vector3<f64> {
+        self.ag_
+    }
+
+    pub fn a(&self) -> na::Vector3<f64> {
+        self.hl_accel
+    }
+
+    pub fn g(&self) -> na::Vector3<f64> {
+        self.g
     }
 }
