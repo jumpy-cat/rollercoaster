@@ -99,11 +99,16 @@ impl Spline {
         ))
     }
 
-    /// Find the 1st derivative ("velocity") of the spline at `u`
-    pub fn curve_1st_derivative_at(&self, u: f64) -> Option<na::Vector3<f64>> {
+    fn u_to_i_rem(&self, u: f64) -> (usize, f64) {
         let i = u.floor();
         let rem = u - i;
         let i = i as usize;
+        (i, rem)
+    }
+
+    /// Find the 1st derivative ("velocity") of the spline at `u`
+    pub fn curve_1st_derivative_at(&self, u: f64) -> Option<na::Vector3<f64>> {
+        let (i, rem) = self.u_to_i_rem(u);
         if i >= self.params.len() {
             return None;
         }
@@ -112,6 +117,48 @@ impl Spline {
             self.params[i].x_d1(rem),
             self.params[i].y_d1(rem),
             self.params[i].z_d1(rem),
+        ))
+    }
+
+    /// Find the 2nd derivative ("acceleration") of the spline at `u`
+    pub fn curve_2nd_derivative_at(&self, u: f64) -> Option<na::Vector3<f64>> {
+        let (i, rem) = self.u_to_i_rem(u);
+        if i >= self.params.len() {
+            return None;
+        }
+
+        Some(na::Vector3::new(
+            self.params[i].x_d2(rem),
+            self.params[i].y_d2(rem),
+            self.params[i].z_d2(rem),
+        ))
+    }
+
+    /// Find the 3rd derivative ("jerk") of the spline at `u`
+    pub fn curve_3rd_derivative_at(&self, u: f64) -> Option<na::Vector3<f64>> {
+        let (i, rem) = self.u_to_i_rem(u);
+        if i >= self.params.len() {
+            return None;
+        }
+
+        Some(na::Vector3::new(
+            self.params[i].x_d3(rem),
+            self.params[i].y_d3(rem),
+            self.params[i].z_d3(rem),
+        ))
+    }
+
+    /// Find the 4th derivative ("snap") of the spline at `u`
+    pub fn curve_4th_derivative_at(&self, u: f64) -> Option<na::Vector3<f64>> {
+        let (i, rem) = self.u_to_i_rem(u);
+        if i >= self.params.len() {
+            return None;
+        }
+
+        Some(na::Vector3::new(
+            self.params[i].x_d4(rem),
+            self.params[i].y_d4(rem),
+            self.params[i].z_d4(rem),
         ))
     }
 }
@@ -148,6 +195,30 @@ impl CurveParams {
         (2.0, 1),
         (1.0, 0),
     ];
+    /// acceleration
+    const D2: [(f64, i32); 6] = [
+        (7.0 * 6.0, 5),
+        (6.0 * 5.0, 4),
+        (5.0 * 4.0, 3),
+        (4.0 * 3.0, 2),
+        (3.0 * 2.0, 1),
+        (2.0, 0),
+    ];
+    /// jerk
+    const D3: [(f64, i32); 5] = [
+        (7.0 * 6.0 * 5.0, 4),
+        (6.0 * 5.0 * 4.0, 3),
+        (5.0 * 4.0 * 3.0, 2),
+        (4.0 * 3.0 * 2.0, 1),
+        (3.0 * 2.0, 0),
+    ];
+    /// snap
+    const D4: [(f64, i32); 4] = [
+        (7.0 * 6.0 * 5.0 * 4.0, 3),
+        (6.0 * 5.0 * 4.0 * 3.0, 2),
+        (5.0 * 4.0 * 3.0 * 2.0, 1),
+        (4.0 * 3.0 * 2.0, 0),
+    ];
 
     // getters for position and 1st derivative
     curve_params_getter!(x_d0, Self::D0, x);
@@ -156,6 +227,15 @@ impl CurveParams {
     curve_params_getter!(x_d1, Self::D1, x);
     curve_params_getter!(y_d1, Self::D1, y);
     curve_params_getter!(z_d1, Self::D1, z);
+    curve_params_getter!(x_d2, Self::D2, x);
+    curve_params_getter!(y_d2, Self::D2, y);
+    curve_params_getter!(z_d2, Self::D2, z);
+    curve_params_getter!(x_d3, Self::D3, x);
+    curve_params_getter!(y_d3, Self::D3, y);
+    curve_params_getter!(z_d3, Self::D3, z);
+    curve_params_getter!(x_d4, Self::D4, x);
+    curve_params_getter!(y_d4, Self::D4, y);
+    curve_params_getter!(z_d4, Self::D4, z);
 }
 
 /// Given two points, finds a hermite curve interpolating them.
