@@ -300,21 +300,24 @@ func _on_control_point_clicked(index: int) -> void:
 
 
 func _on_x_edit_value_changed(value: float) -> void:
-	selected_point.set_x(value)
-	control_points[selected_index].position.x = value
-	optimizer.set_point(selected_index, selected_point)
+	if selected_point:
+		selected_point.set_x(value)
+		control_points[selected_index].position.x = value
+		optimizer.set_point(selected_index, selected_point)
 
 
 func _on_y_edit_value_changed(value: float) -> void:
-	selected_point.set_y(value)
-	control_points[selected_index].position.y = value
-	optimizer.set_point(selected_index, selected_point)
+	if selected_point:
+		selected_point.set_y(value)
+		control_points[selected_index].position.y = value
+		optimizer.set_point(selected_index, selected_point)
 
 
 func _on_z_edit_value_changed(value: float) -> void:
-	selected_point.set_z(value)
-	control_points[selected_index].position.z = value
-	optimizer.set_point(selected_index, selected_point)
+	if selected_point:
+		selected_point.set_z(value)
+		control_points[selected_index].position.z = value
+		optimizer.set_point(selected_index, selected_point)
 
 
 func _on_load_button_pressed() -> void:
