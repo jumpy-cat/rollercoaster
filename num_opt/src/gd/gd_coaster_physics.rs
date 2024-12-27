@@ -267,10 +267,7 @@ impl CoasterPhysicsV3 {
     fn step(&mut self, curve: Gd<CoasterCurve>, step_size: f64) {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
-            for _ in 0..5 {
-                if phys.step(step_size, curve, physics::StepBehavior::Constant).is_none() {
-                    //godot_warn!("Simulation Stuck");
-                };
+            for _ in 0..1 {
                 if phys.step(step_size, curve, physics::StepBehavior::Constant).is_none() {
                     //godot_warn!("Simulation Stuck");
                 };
@@ -279,9 +276,9 @@ impl CoasterPhysicsV3 {
     }
 
     #[func]
-    fn description(&self) -> String {
+    fn description(&self, curve: Gd<CoasterCurve>) -> String {
         if let Some(phys) = &self.inner {
-            phys.description()
+            phys.description(&curve.bind().inner)
         } else {
             String::new()
         }

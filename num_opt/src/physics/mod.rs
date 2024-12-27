@@ -12,6 +12,10 @@ fn vector_projection(a: na::Vector3<f64>, b: na::Vector3<f64>) -> na::Vector3<f6
     a.dot(&b) / b.magnitude_squared() * b
 }
 
+fn scaler_projection(a: na::Vector3<f64>, b: na::Vector3<f64>) -> f64 {
+    a.dot(&b) / b.magnitude()
+}
+
 /// Possible ways for the physics system to take a step  
 /// Steps are in `u`, the (0,1) parameterization of hermite curves
 #[derive(Debug, Clone, Copy)]
@@ -104,7 +108,7 @@ impl PhysicsStateV3 {
         }
     }
 
-    fn calc_delta_t_from_delta_u(&mut self, step: f64) -> Option<f64> {
+    fn calc_delta_t_from_delta_u(&self, step: f64) -> Option<f64> {
         // delta_t is computed based on g,v, delta_X
             // Find the positive root of the quadratic equation
             let a_ = self.g.dot(&self.delta_x_) / self.delta_x_.magnitude_squared();
@@ -141,6 +145,37 @@ impl PhysicsStateV3 {
             }
     }
 
+    fn calc_new_u_from_delta_t(&mut self, step: f64, init_bracket_amount: f64, curve: &hermite::Spline) -> Option<f64> {
+        // Semi-implicit euler position update
+        let new_pos = self.x + step * (self.v + step * self.g);
+
+        let u_lower_bound = (self.u - init_bracket_amount).max(0.0);
+        let u_upper_bound = (self.u + init_bracket_amount).min(curve.max_u());
+        if u_upper_bound == curve.max_u() {
+            return None;
+        }
+        let roots = roots::find_root_brent(u_lower_bound, u_upper_bound, |u| {
+            scaler_projection(
+                new_pos - curve.curve_at(u).unwrap(),
+                curve.curve_1st_derivative_at(u).unwrap(),
+            )
+        }, &mut 1e-14f64);
+        match roots {
+            Ok(root) => Some(root),
+            Err(e) => match e {
+                roots::SearchError::NoConvergency => {
+                    godot_warn!("NoConvergency");
+                    return self.calc_new_u_from_delta_t(step, init_bracket_amount * 2.0, curve)
+                }
+                roots::SearchError::NoBracketing => {
+                    //godot_warn!("NoBracketing");
+                    return self.calc_new_u_from_delta_t(step, init_bracket_amount * 2.0, curve)
+                },
+                roots::SearchError::ZeroDerivative => unreachable!(),
+            }
+        }
+    }
+
     /// ### Step Sizes
     /// `StepBehavior::Constant`: Use a fixed step size step.
     /// `StepBehavior::Distance`: Adjust delta_u to keep the traveled arc length constant
@@ -164,32 +199,36 @@ impl PhysicsStateV3 {
         const MAX_TORQUE: f64 = 0.01;
         const ALLOWED_ANGULAR_WIGGLE: f64 = 0.01;
 
-        self.delta_u_ = match behavior {
-            StepBehavior::Constant => step,
-            StepBehavior::Distance => {
-                let dsdu = curve.curve_1st_derivative_at(self.u).unwrap().magnitude();
-                if dsdu == 0.0 {
-                    // consider replacing with a numeric determination of step
-                    FALLBACK_STEP
-                } else {
-                    step / dsdu
-                }
-            }
-            StepBehavior::Time => {
-                let dsdu = curve.curve_1st_derivative_at(self.u).unwrap().magnitude();
-                let hl_spd = self.hl_vel.magnitude();
-                if dsdu == 0.0 || self.v.magnitude() == 0.0 || hl_spd < 0.001 {
-                    // consider replacing with a numeric determination of step
-                    FALLBACK_STEP
-                } else {
-                    step * hl_spd / dsdu
-                }
-            }
-        };
+        //self.delta_u_ = match behavior {
+        //    StepBehavior::Constant => step,
+        //    StepBehavior::Distance => {
+        //        let dsdu = curve.curve_1st_derivative_at(self.u).unwrap().magnitude();
+        //        if dsdu == 0.0 {
+        //            // consider replacing with a numeric determination of step
+        //            FALLBACK_STEP
+        //        } else {
+        //            step / dsdu
+        //        }
+        //    }
+        //    StepBehavior::Time => {
+        //        let dsdu = curve.curve_1st_derivative_at(self.u).unwrap().magnitude();
+        //        let hl_spd = self.hl_vel.magnitude();
+        //        if dsdu == 0.0 || self.v.magnitude() == 0.0 || hl_spd < 0.001 {
+        //            // consider replacing with a numeric determination of step
+        //            FALLBACK_STEP
+        //        } else {
+        //            step * hl_spd / dsdu
+        //        }
+        //    }
+        //};
+
+        self.delta_t_ = step;
+        let new_u = self.calc_new_u_from_delta_t(step, 0.0001, curve).unwrap();
+        self.delta_u_ = new_u - self.u;
 
         // Advance the parametric value u by delta_u and calculate the new position along the curve.
         // The displacement vector delta_x is the difference between the new position and the current position.
-        let new_u = self.u + self.delta_u_;
+        //let new_u = self.u + self.delta_u_;
         self.ag_ = self.hl_accel - self.g;
         let new_hl_normal = if self.torque_exceeded {
             self.hl_normal
@@ -204,17 +243,18 @@ impl PhysicsStateV3 {
                 && step > MIN_STEP
                 && self.delta_x_.magnitude() > MIN_DELTA_X
         };
-        if step_too_big {
+        /*if step_too_big {
             self.step(step / 2.0, curve, behavior).unwrap();
             //self.step(step / 2.0, curve, behavior).unwrap();
             return Some(());
-        }
-        self.delta_t_ = self.calc_delta_t_from_delta_u(step).unwrap();
+        }*/
+        //self.delta_t_ = self.calc_delta_t_from_delta_u(step).unwrap();
 
         // Normal Force: Derived from displacement, velocity, and gravity.
         // v: semi implicit Euler integration
         // Position(x): Advance based on velocity
         // u: A Advances to the next point.
+        //self.F_N_ = na::Vector3::zeros();
         self.F_N_ =
             self.m * (self.delta_x_ / self.delta_t_.powi(2) - self.v / self.delta_t_ - self.g);
         #[allow(non_snake_case)]
@@ -248,14 +288,18 @@ impl PhysicsStateV3 {
             && self.torque_.magnitude() > MAX_TORQUE
             && self.delta_hl_normal_.magnitude() > ALLOWED_ANGULAR_WIGGLE
         {
-            self.torque_exceeded = true;
+            /*self.torque_exceeded = true;
             // REMEMBER TO REMOVE
             std::thread::sleep(std::time::Duration::from_millis(200));
-            return self.step(step, curve, behavior);
+            return self.step(step, curve, behavior);*/
         }
         // semi-implicit euler update rule
         self.v = self.v + self.delta_t_ * F / self.m;
         self.x = self.x + self.delta_t_ * self.v;
+        
+        // cop-out update
+        //self.x = curve.curve_at(new_u).unwrap();
+
         self.u = new_u;
         self.hl_normal =
             na::UnitQuaternion::from_scaled_axis(self.w * self.delta_t_) * self.hl_normal;
@@ -266,7 +310,7 @@ impl PhysicsStateV3 {
         Some(())
     }
 
-    pub fn description(&self) -> String {
+    pub fn description(&self, curve: &hermite::Spline) -> String {
         format!(
             "x: {:.3?}
 v: {:.3?}
@@ -296,7 +340,7 @@ delta-u: {:.10?}",
             self.delta_x_.magnitude(),
             self.delta_x_,
             self.F_N_,
-            (90.0 - self.F_N_.angle(&self.delta_x_) * 180.0 / std::f64::consts::PI).abs(),
+            (90.0 - self.F_N_.angle(&curve.curve_1st_derivative_at(self.u).unwrap()) * 180.0 / std::f64::consts::PI).abs(),
             self.torque_exceeded,
             self.w.magnitude(),
             self.w,

@@ -129,7 +129,7 @@ func _process(_delta: float) -> void:
 		optimizer.set_points(positions)
 	if Input.is_action_just_pressed("run_simulation"):
 		curve = optimizer.get_curve()
-		physics = CoasterPhysicsV3.create(mass, gravity, curve, 1.0)		
+		physics = CoasterPhysicsV3.create(mass, gravity, curve, 0.0)		
 	
 	# update physics simulation
 	if curve != null:
@@ -149,19 +149,16 @@ func _process(_delta: float) -> void:
 
 		m.surface_set_color(Color.ORANGE)
 		m.surface_add_vertex(anim_pos)
-		print(physics.ag())
 		m.surface_set_color(Color.ORANGE)
 		m.surface_add_vertex(anim_pos + MULT * physics.ag())
 
 		m.surface_set_color(Color.RED)
 		m.surface_add_vertex(anim_pos)
-		print(physics.ag())
 		m.surface_set_color(Color.RED)
 		m.surface_add_vertex(anim_pos + MULT * physics.a())
 
 		m.surface_set_color(Color.YELLOW)
 		m.surface_add_vertex(anim_pos + MULT * physics.a())
-		print(physics.ag())
 		m.surface_set_color(Color.YELLOW)
 		m.surface_add_vertex(anim_pos + MULT * physics.a() - MULT * physics.g())
 
@@ -227,7 +224,7 @@ func _process(_delta: float) -> void:
 	if physics == null:
 		label.text = "physics not initialized"
 	else:
-		label.text = physics.description()
+		label.text = physics.description(curve)
 	var ips = optimizer.iters_per_second()
 	if ips == null:
 		optimizer_speed_label.text = "-- iter/s"

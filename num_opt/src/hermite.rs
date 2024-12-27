@@ -70,6 +70,10 @@ impl Spline {
         Self { params }
     }
 
+    pub fn max_u(&self) -> f64 {
+        self.params.len() as f64 - 0.00001
+    }
+
     /// Iterate through the hermite curves of the spline
     pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a CurveParams> + use<'a> {
         self.params.iter()
