@@ -165,6 +165,9 @@ impl PhysicsStateV3 {
             return None;
         }
         let roots = roots::find_root_brent(u_lower_bound, u_upper_bound, |u| {
+            let v1 = new_pos - curve.curve_at(u).unwrap();
+            let v2 = curve.curve_1st_derivative_at(u).unwrap();
+            godot_print!("v1: {:.3?} v2: {:.3?}", v1, v2);
             scaler_projection(
                 new_pos - curve.curve_at(u).unwrap(),
                 curve.curve_1st_derivative_at(u).unwrap(),
@@ -240,10 +243,12 @@ impl PhysicsStateV3 {
         // The displacement vector delta_x is the difference between the new position and the current position.
         //let new_u = self.u + self.delta_u_;
         self.ag_ = self.hl_accel - self.g;
-        let new_hl_normal = if self.torque_exceeded {
+        let new_hl_normal = if /*self.torque_exceeded*/ true {
             self.hl_normal
         } else {
-            (self.ag_ - vector_projection(self.ag_, curve.curve_1st_derivative_at(new_u).unwrap())).normalize()
+            let ortho_to = curve.curve_1st_derivative_at(new_u).unwrap().normalize();
+            let tmp = (self.ag_.normalize() - vector_projection(self.ag_.normalize(), ortho_to)).normalize();
+            (tmp - vector_projection(tmp, ortho_to)).normalize()
         };
         self.delta_x_ = curve.curve_at(new_u).unwrap() - self.o * self.hl_normal - self.x;
 
@@ -305,7 +310,9 @@ impl PhysicsStateV3 {
         }
         // semi-implicit euler update rule
         self.v = self.v + self.delta_t_ * F / self.m;
-        self.x = self.x + self.delta_t_ * self.v;
+        let new_x = self.x + self.delta_t_ * self.v;
+        godot_print!("translation error: {:?}", new_x - self.x - self.delta_x_);
+        self.x = new_x;
         
         // cop-out update
         //self.x = curve.curve_at(new_u).unwrap();
@@ -329,10 +336,11 @@ speed: {:.3}
 hl speed: {}
 hl accel: {:.3}
 g force: {}
-hl normal: {:.3?}
+hl normal: {:.6?}
 delta-x: {:.6?} ({:.3?})
 F_N: {:.3?}
 F_N err(deg): {:.3}
+hl-norm err(deg): {:.5}
 T-Exceeded: {}
 w: {:.6} ({:.4?})
 delta-hl-norm: {:.3?}
@@ -350,7 +358,8 @@ delta-u: {:.10?}",
             self.delta_x_.magnitude(),
             self.delta_x_,
             self.F_N_,
-            (90.0 - self.F_N_.angle(&curve.curve_1st_derivative_at(self.u).unwrap()) * 180.0 / std::f64::consts::PI).abs(),
+            (self.F_N_.angle(&self.hl_normal) * 180.0 / std::f64::consts::PI).abs(),
+            (90.0 - self.hl_normal.angle(&curve.curve_1st_derivative_at(self.u).unwrap()) * 180.0 / std::f64::consts::PI).abs(),
             self.torque_exceeded,
             self.w.magnitude(),
             self.w,
