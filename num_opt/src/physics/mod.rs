@@ -1,15 +1,350 @@
 //! Physics solver and cost function
 
+use std::{
+    fmt::{Debug, Display},
+    ops::{AddAssign, Mul, MulAssign},
+};
+
 use godot::global::{godot_print, godot_warn};
+use na::{ComplexField, Field, RealField};
 use roots::Roots;
+use rug::Float;
 
 use crate::hermite;
 
 pub mod legacy;
 
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
+struct MyFloat(rug::Float);
+
+impl Display for MyFloat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl ComplexField for MyFloat {
+    type RealField = MyFloat;
+
+    #[doc = r" Builds a pure-real complex number from the given value."]
+    fn from_real(re: Self::RealField) -> Self {
+        todo!()
+    }
+
+    #[doc = r" The real part of this complex number."]
+    fn real(self) -> Self::RealField {
+        todo!()
+    }
+
+    #[doc = r" The imaginary part of this complex number."]
+    fn imaginary(self) -> Self::RealField {
+        todo!()
+    }
+
+    #[doc = r" The modulus of this complex number."]
+    fn modulus(self) -> Self::RealField {
+        todo!()
+    }
+
+    #[doc = r" The squared modulus of this complex number."]
+    fn modulus_squared(self) -> Self::RealField {
+        todo!()
+    }
+
+    #[doc = r" The argument of this complex number."]
+    fn argument(self) -> Self::RealField {
+        todo!()
+    }
+
+    #[doc = r" The sum of the absolute value of this complex number's real and imaginary part."]
+    fn norm1(self) -> Self::RealField {
+        todo!()
+    }
+
+    #[doc = r" Multiplies this complex number by `factor`."]
+    fn scale(self, factor: Self::RealField) -> Self {
+        todo!()
+    }
+
+    #[doc = r" Divides this complex number by `factor`."]
+    fn unscale(self, factor: Self::RealField) -> Self {
+        todo!()
+    }
+
+    fn floor(self) -> Self {
+        todo!()
+    }
+
+    fn ceil(self) -> Self {
+        todo!()
+    }
+
+    fn round(self) -> Self {
+        todo!()
+    }
+
+    fn trunc(self) -> Self {
+        todo!()
+    }
+
+    fn fract(self) -> Self {
+        todo!()
+    }
+
+    fn mul_add(self, a: Self, b: Self) -> Self {
+        todo!()
+    }
+
+    #[doc = r" The absolute value of this complex number: `self / self.signum()`."]
+    #[doc = r""]
+    #[doc = r" This is equivalent to `self.modulus()`."]
+    fn abs(self) -> Self::RealField {
+        todo!()
+    }
+
+    #[doc = r" Computes (self.conjugate() * self + other.conjugate() * other).sqrt()"]
+    fn hypot(self, other: Self) -> Self::RealField {
+        todo!()
+    }
+
+    fn recip(self) -> Self {
+        todo!()
+    }
+
+    fn conjugate(self) -> Self {
+        todo!()
+    }
+
+    fn sin(self) -> Self {
+        todo!()
+    }
+
+    fn cos(self) -> Self {
+        todo!()
+    }
+
+    fn sin_cos(self) -> (Self, Self) {
+        todo!()
+    }
+
+    fn tan(self) -> Self {
+        todo!()
+    }
+
+    fn asin(self) -> Self {
+        todo!()
+    }
+
+    fn acos(self) -> Self {
+        todo!()
+    }
+
+    fn atan(self) -> Self {
+        todo!()
+    }
+
+    fn sinh(self) -> Self {
+        todo!()
+    }
+
+    fn cosh(self) -> Self {
+        todo!()
+    }
+
+    fn tanh(self) -> Self {
+        todo!()
+    }
+
+    fn asinh(self) -> Self {
+        todo!()
+    }
+
+    fn acosh(self) -> Self {
+        todo!()
+    }
+
+    fn atanh(self) -> Self {
+        todo!()
+    }
+
+    fn log(self, base: Self::RealField) -> Self {
+        todo!()
+    }
+
+    fn log2(self) -> Self {
+        todo!()
+    }
+
+    fn log10(self) -> Self {
+        todo!()
+    }
+
+    fn ln(self) -> Self {
+        todo!()
+    }
+
+    fn ln_1p(self) -> Self {
+        todo!()
+    }
+
+    fn sqrt(self) -> Self {
+        todo!()
+    }
+
+    fn exp(self) -> Self {
+        todo!()
+    }
+
+    fn exp2(self) -> Self {
+        todo!()
+    }
+
+    fn exp_m1(self) -> Self {
+        todo!()
+    }
+
+    fn powi(self, n: i32) -> Self {
+        todo!()
+    }
+
+    fn powf(self, n: Self::RealField) -> Self {
+        todo!()
+    }
+
+    fn powc(self, n: Self) -> Self {
+        todo!()
+    }
+
+    fn cbrt(self) -> Self {
+        todo!()
+    }
+
+    fn is_finite(&self) -> bool {
+        todo!()
+    }
+
+    fn try_sqrt(self) -> Option<Self> {
+        todo!()
+    }
+}
+
+impl RealField for MyFloat {
+    fn is_sign_positive(&self) -> bool {
+        todo!()
+    }
+
+    fn is_sign_negative(&self) -> bool {
+        todo!()
+    }
+
+    fn copysign(self, sign: Self) -> Self {
+        todo!()
+    }
+
+    fn max(self, other: Self) -> Self {
+        todo!()
+    }
+
+    fn min(self, other: Self) -> Self {
+        todo!()
+    }
+
+    fn clamp(self, min: Self, max: Self) -> Self {
+        todo!()
+    }
+
+    fn atan2(self, other: Self) -> Self {
+        todo!()
+    }
+
+    fn min_value() -> Option<Self> {
+        todo!()
+    }
+
+    fn max_value() -> Option<Self> {
+        todo!()
+    }
+
+    fn pi() -> Self {
+        todo!()
+    }
+
+    fn two_pi() -> Self {
+        todo!()
+    }
+
+    fn frac_pi_2() -> Self {
+        todo!()
+    }
+
+    fn frac_pi_3() -> Self {
+        todo!()
+    }
+
+    fn frac_pi_4() -> Self {
+        todo!()
+    }
+
+    fn frac_pi_6() -> Self {
+        todo!()
+    }
+
+    fn frac_pi_8() -> Self {
+        todo!()
+    }
+
+    fn frac_1_pi() -> Self {
+        todo!()
+    }
+
+    fn frac_2_pi() -> Self {
+        todo!()
+    }
+
+    fn frac_2_sqrt_pi() -> Self {
+        todo!()
+    }
+
+    fn e() -> Self {
+        todo!()
+    }
+
+    fn log2_e() -> Self {
+        todo!()
+    }
+
+    fn log10_e() -> Self {
+        todo!()
+    }
+
+    fn ln_2() -> Self {
+        todo!()
+    }
+
+    fn ln_10() -> Self {
+        todo!()
+    }
+}
+
+impl Field for MyFloat {
+}
+
 /// Projects `a` onto `b`
-fn vector_projection(a: na::Vector3<f64>, b: na::Vector3<f64>) -> na::Vector3<f64> {
-    a.dot(&b) / b.magnitude_squared() * b
+fn vector_projection<T>(a: na::Vector3<T>, b: na::Vector3<T>) -> na::Vector3<T>
+where
+    T: Clone
+        + num_traits::Zero
+        + PartialEq
+        + Debug
+        + AddAssign
+        + MulAssign
+        + Mul
+        + Mul<Output = T>
+        + ComplexField<RealField = T>,
+{
+    let dp = a.dot(&b);
+    let mag_b = b.magnitude_squared();
+    b * (dp / mag_b)
 }
 
 fn scaler_projection(a: na::Vector3<f64>, b: na::Vector3<f64>) -> f64 {
@@ -31,6 +366,7 @@ pub enum StepBehavior {
 
 const FALLBACK_STEP: f64 = 0.001;
 
+const PRECISION: u32 = 10;
 
 /// Physics solver v3
 /// ### Overview
@@ -41,42 +377,47 @@ const FALLBACK_STEP: f64 = 0.001;
 #[derive(Debug)]
 pub struct PhysicsStateV3 {
     // params
-    m: f64,
-    g: na::Vector3<f64>,
-    o: f64,
+    m: rug::Float,
+    g: na::Vector3<rug::Float>,
+    o: rug::Float,
 
     // simulation state
-    u: f64,
+    u: rug::Float,
     // center of mass
-    x: na::Vector3<f64>,
-    v: na::Vector3<f64>,
+    x: na::Vector3<rug::Float>,
+    v: na::Vector3<rug::Float>,
     // heart line
-    hl_normal: na::Vector3<f64>,
-    hl_pos: na::Vector3<f64>,
-    hl_vel: na::Vector3<f64>,
-    hl_accel: na::Vector3<f64>,
+    hl_normal: na::Vector3<rug::Float>,
+    hl_pos: na::Vector3<rug::Float>,
+    hl_vel: na::Vector3<rug::Float>,
+    hl_accel: na::Vector3<rug::Float>,
     // rotation
     torque_exceeded: bool,
-    w: na::Vector3<f64>, // angular velocity
-    I: f64,              // moment of inertia
+    w: na::Vector3<rug::Float>, // angular velocity
+    I: rug::Float,              // moment of inertia
 
     // stats, info, persisted intermediate values
-    delta_u_: f64,
-    delta_t_: f64,
-    delta_x_: na::Vector3<f64>,
-    delta_hl_normal_: na::Vector3<f64>,
-    ag_: na::Vector3<f64>,
-    F_N_: na::Vector3<f64>,
-    torque_: na::Vector3<f64>,
+    delta_u_: rug::Float,
+    delta_t_: rug::Float,
+    delta_x_: na::Vector3<rug::Float>,
+    delta_hl_normal_: na::Vector3<rug::Float>,
+    ag_: na::Vector3<rug::Float>,
+    F_N_: na::Vector3<rug::Float>,
+    torque_: na::Vector3<rug::Float>,
 }
 
 impl PhysicsStateV3 {
     /// Initialize the physics state: `m` mass, `g` Gravity vector,
     /// `curve.curve_at(0.0)`: Starting position of the curve at `u=0`
-    pub fn new(m: f64, g: na::Vector3<f64>, curve: &hermite::Spline, o: f64) -> Self {
+    pub fn new(m: f64, g: f64, curve: &hermite::Spline, o: f64) -> Self {
+        let g = na::Vector3::new(
+            Float::with_val(PRECISION, 0.0),
+            Float::with_val(PRECISION, g),
+            Float::with_val(PRECISION, 0.0),
+        );
         let hl_pos = curve.curve_at(0.0).unwrap();
         let mut hl_forward = curve.curve_1st_derivative_at(0.0).unwrap();
-        
+
         if hl_forward.magnitude() == 0.0 {
             hl_forward = curve.curve_2nd_derivative_at(0.0).unwrap();
         }
@@ -90,10 +431,10 @@ impl PhysicsStateV3 {
         let hl_normal = (-g - vector_projection(-g, hl_forward)).normalize();
         Self {
             // constants
-            m,
-            I: 1.0,
+            m: Float::with_val(PRECISION, m),
+            I: Float::with_val(PRECISION, 1.0),
             g,
-            o,
+            o: Float::with_val(PRECISION, o),
             // simulation state
             u: 0.0,
             // center of mass
@@ -120,42 +461,47 @@ impl PhysicsStateV3 {
 
     fn calc_delta_t_from_delta_u(&self, step: f64) -> Option<f64> {
         // delta_t is computed based on g,v, delta_X
-            // Find the positive root of the quadratic equation
-            let a_ = self.g.dot(&self.delta_x_) / self.delta_x_.magnitude_squared();
-            let b_ = self.v.dot(&self.delta_x_) / self.delta_x_.magnitude_squared();
-            let c_ = -1.0;
+        // Find the positive root of the quadratic equation
+        let a_ = self.g.dot(&self.delta_x_) / self.delta_x_.magnitude_squared();
+        let b_ = self.v.dot(&self.delta_x_) / self.delta_x_.magnitude_squared();
+        let c_ = -1.0;
 
-            let roots_ = roots::find_roots_quadratic(a_, b_, c_);
-            match roots_ {
-                roots::Roots::No(_) => {
-                    godot_warn!("No root found");
+        let roots_ = roots::find_roots_quadratic(a_, b_, c_);
+        match roots_ {
+            roots::Roots::No(_) => {
+                godot_warn!("No root found");
+                if step < FALLBACK_STEP {
+                    return None;
+                } else {
+                    return None; //self.step(step / 2.0, curve, behavior);
+                }
+            }
+            roots::Roots::One([r]) => Some(r),
+            roots::Roots::Two(rs) => match rs
+                .iter()
+                .filter(|rs| **rs > 0.0)
+                .min_by(|a, b| a.partial_cmp(b).unwrap())
+            {
+                Some(r) => Some(*r),
+                None => {
+                    godot_warn!("No good roots found");
                     if step < FALLBACK_STEP {
                         return None;
                     } else {
                         return None; //self.step(step / 2.0, curve, behavior);
                     }
                 }
-                roots::Roots::One([r]) => Some(r),
-                roots::Roots::Two(rs) => match rs
-                    .iter()
-                    .filter(|rs| **rs > 0.0)
-                    .min_by(|a, b| a.partial_cmp(b).unwrap())
-                {
-                    Some(r) => Some(*r),
-                    None => {
-                        godot_warn!("No good roots found");
-                        if step < FALLBACK_STEP {
-                            return None;
-                        } else {
-                            return None; //self.step(step / 2.0, curve, behavior);
-                        }
-                    }
-                },
-                _ => unreachable!(),
-            }
+            },
+            _ => unreachable!(),
+        }
     }
 
-    fn calc_new_u_from_delta_t(&mut self, step: f64, init_bracket_amount: f64, curve: &hermite::Spline) -> Option<f64> {
+    fn calc_new_u_from_delta_t(
+        &mut self,
+        step: f64,
+        init_bracket_amount: f64,
+        curve: &hermite::Spline,
+    ) -> Option<f64> {
         // Semi-implicit euler position update
         let new_pos = self.x + step * (self.v + step * self.g);
 
@@ -164,28 +510,33 @@ impl PhysicsStateV3 {
         if u_upper_bound == curve.max_u() {
             return None;
         }
-        let roots = roots::find_root_brent(u_lower_bound, u_upper_bound, |u| {
-            let v1 = new_pos - curve.curve_at(u).unwrap();
-            let v2 = curve.curve_1st_derivative_at(u).unwrap();
-            godot_print!("v1: {:.3?} v2: {:.3?}", v1, v2);
-            scaler_projection(
-                new_pos - curve.curve_at(u).unwrap(),
-                curve.curve_1st_derivative_at(u).unwrap(),
-            )
-        }, &mut 1e-14f64);
+        let roots = roots::find_root_brent(
+            u_lower_bound,
+            u_upper_bound,
+            |u| {
+                let v1 = new_pos - curve.curve_at(u).unwrap();
+                let v2 = curve.curve_1st_derivative_at(u).unwrap();
+                godot_print!("v1: {:.3?} v2: {:.3?}", v1, v2);
+                scaler_projection(
+                    new_pos - curve.curve_at(u).unwrap(),
+                    curve.curve_1st_derivative_at(u).unwrap(),
+                )
+            },
+            &mut 1e-14f64,
+        );
         match roots {
             Ok(root) => Some(root),
             Err(e) => match e {
                 roots::SearchError::NoConvergency => {
                     godot_warn!("NoConvergency");
-                    return self.calc_new_u_from_delta_t(step, init_bracket_amount * 2.0, curve)
+                    return self.calc_new_u_from_delta_t(step, init_bracket_amount * 2.0, curve);
                 }
                 roots::SearchError::NoBracketing => {
                     //godot_warn!("NoBracketing");
-                    return self.calc_new_u_from_delta_t(step, init_bracket_amount * 2.0, curve)
-                },
+                    return self.calc_new_u_from_delta_t(step, init_bracket_amount * 2.0, curve);
+                }
                 roots::SearchError::ZeroDerivative => unreachable!(),
-            }
+            },
         }
     }
 
@@ -203,7 +554,7 @@ impl PhysicsStateV3 {
         if self.torque_exceeded {
             //return None;
         }
-       // godot_print!("Step for {}", self.u);
+        // godot_print!("Step for {}", self.u);
 
         // 0.00001 is unstable (either due to rounding error)
         let max_curve_angle: f64 = 0.0001;
@@ -243,11 +594,14 @@ impl PhysicsStateV3 {
         // The displacement vector delta_x is the difference between the new position and the current position.
         //let new_u = self.u + self.delta_u_;
         self.ag_ = self.hl_accel - self.g;
-        let new_hl_normal = if /*self.torque_exceeded*/ true {
+        let new_hl_normal = if
+        /*self.torque_exceeded*/
+        true {
             self.hl_normal
         } else {
             let ortho_to = curve.curve_1st_derivative_at(new_u).unwrap().normalize();
-            let tmp = (self.ag_.normalize() - vector_projection(self.ag_.normalize(), ortho_to)).normalize();
+            let tmp = (self.ag_.normalize() - vector_projection(self.ag_.normalize(), ortho_to))
+                .normalize();
             (tmp - vector_projection(tmp, ortho_to)).normalize()
         };
         self.delta_x_ = curve.curve_at(new_u).unwrap() - self.o * self.hl_normal - self.x;
@@ -313,7 +667,7 @@ impl PhysicsStateV3 {
         let new_x = self.x + self.delta_t_ * self.v;
         godot_print!("translation error: {:?}", new_x - self.x - self.delta_x_);
         self.x = new_x;
-        
+
         // cop-out update
         //self.x = curve.curve_at(new_u).unwrap();
 
@@ -359,7 +713,13 @@ delta-u: {:.10?}",
             self.delta_x_,
             self.F_N_,
             (self.F_N_.angle(&self.hl_normal) * 180.0 / std::f64::consts::PI).abs(),
-            (90.0 - self.hl_normal.angle(&curve.curve_1st_derivative_at(self.u).unwrap()) * 180.0 / std::f64::consts::PI).abs(),
+            (90.0
+                - self
+                    .hl_normal
+                    .angle(&curve.curve_1st_derivative_at(self.u).unwrap())
+                    * 180.0
+                    / std::f64::consts::PI)
+                .abs(),
             self.torque_exceeded,
             self.w.magnitude(),
             self.w,

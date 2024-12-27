@@ -13,6 +13,7 @@ godot = { version = "0.2.1", features = ["register-docs"] }
 nalgebra = "0.33.2"
 num-traits = "0.2.19"
 roots = "0.0.8"
+rug = "1.26.1"
 
 [profile.dev.package."*"]
 opt-level = 3
