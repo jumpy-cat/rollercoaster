@@ -3,9 +3,13 @@ extends Node3D
 # Used to show control points
 @export var control_point_scene: PackedScene
 
+# Anim Vectors
+@onready var hl_normal_mi: MeshInstance3D = $HLNormal
+
 # Relevant child nodes
 @onready var camera: Camera3D = $PanOrbitCamera;
 @onready var basic_lines: MeshInstance3D = $BasicLines;
+
 @onready var optimizer: Optimizer = $Optimizer;
 @onready var anim: Node3D = $Anim;
 @onready var label: Label = $VBoxContainer/MainStats;
@@ -21,17 +25,27 @@ extends Node3D
 var selected_index;
 var selected_point;
 
+var manual_physics = false
 var optimize: bool = false
 var control_points: Array[ControlPoint]
 
 var curve: CoasterCurve
-var physics: CoasterPhysics
+var physics: CoasterPhysicsV3
 
 # default parameter values
 var learning_rate: float = 1.0
 var mass: float = 1.00
 var gravity: float = -0.01
 var friction: float = 0.05
+var anim_step_size: float = 0.05
+var com_offset_mag: float = 1.0
+
+# parameter editing
+@onready var lr_edit: FloatEdit = $VBoxContainer/LREdit
+@onready var mass_edit: FloatEdit = $VBoxContainer/MassEdit
+@onready var gravity_edit: FloatEdit = $VBoxContainer/GravityEdit
+@onready var friction_edit: FloatEdit = $VBoxContainer/FrictionEdit
+@onready var anim_step_edit: FloatEdit = $VBoxContainer/AnimStepEdit
 
 ## Input is an array of Vector3
 func set_points(points: Variant) -> void:
@@ -88,6 +102,7 @@ func _ready() -> void:
 	optimizer.set_gravity(gravity)
 	optimizer.set_mu(friction)
 	optimizer.set_lr(learning_rate)
+	optimizer.set_com_offset_mag(com_offset_mag)
 
 	# ui setup
 	x_edit.theme.set_color("font_color", "Label", Color.RED)
@@ -97,8 +112,16 @@ func _ready() -> void:
 	z_edit.theme.set_color("font_color", "Label", Color.SKY_BLUE)
 	z_edit.theme.set_color("font_color", "LineEdit", Color.SKY_BLUE)
 
+	# more ui setup
+	lr_edit.set_value(learning_rate)
+	mass_edit.set_value(mass)
+	gravity_edit.set_value(gravity)
+	friction_edit.set_value(friction)
+	anim_step_edit.set_value(anim_step_size)
+
 
 func _process(_delta: float) -> void:
+
 	# handle key input
 	if Input.is_action_just_pressed("reset_curve"):
 		var positions: Array[Vector3] = []
@@ -106,16 +129,56 @@ func _process(_delta: float) -> void:
 			positions.push_back(cp.position)
 		optimizer.set_points(positions)
 	if Input.is_action_just_pressed("run_simulation"):
+		push_warning("hi2")
 		curve = optimizer.get_curve()
-		physics = CoasterPhysics.create(mass, gravity, friction)		
+		push_warning("hi3")
+		physics = CoasterPhysicsV3.create(mass, gravity, curve, 5.0)	
+		push_warning("hi4")	
 	
 	# update physics simulation
 	if curve != null:
 		anim.visible = true
-		physics.step(curve)
-		var anim_pos = physics.pos(curve)
+		if (!manual_physics || Input.is_action_just_pressed("step_physics")):
+			physics.step(curve, anim_step_size)
+		#var anim_pos = physics.pos(curve)
+		var anim_pos = physics.pos()
+		#var anim_vel = physics.velocity()
+		var anim_vel = physics.vel()
+		var anim_up = physics.hl_normal()
+		var m: ImmediateMesh = hl_normal_mi.mesh
+		m.clear_surfaces()
+		m.surface_begin(Mesh.PRIMITIVE_LINES)
+
+		const MULT = 200;
+
+		m.surface_set_color(Color.ORANGE)
+		m.surface_add_vertex(anim_pos)
+		m.surface_set_color(Color.ORANGE)
+		m.surface_add_vertex(anim_pos + MULT * physics.ag())
+
+		m.surface_set_color(Color.RED)
+		m.surface_add_vertex(anim_pos)
+		m.surface_set_color(Color.RED)
+		m.surface_add_vertex(anim_pos + MULT * physics.a())
+
+		m.surface_set_color(Color.YELLOW)
+		m.surface_add_vertex(anim_pos + MULT * physics.a())
+		m.surface_set_color(Color.YELLOW)
+		m.surface_add_vertex(anim_pos + MULT * physics.a() - MULT * physics.g())
+
+		# blue velocity
+		m.surface_set_color(Color.BLUE)
+		m.surface_add_vertex(anim_pos)
+		m.surface_set_color(Color.BLUE)
+		m.surface_add_vertex(anim_pos + MULT * anim_vel)
+
+		m.surface_end()
+		#var anim_up = Vector3.UP
 		if anim_pos != null:
-			anim.position = anim_pos
+			if anim_pos != anim_pos + anim_vel:
+				anim.look_at_from_position(anim_pos, anim_pos + anim_vel, anim_up)
+			#anim.position = anim_pos
+			#anim. = Quaternion(anim_up, Vector3.UP).get_euler()
 		else:
 			anim.visible = false
 
@@ -124,33 +187,54 @@ func _process(_delta: float) -> void:
 	if len(curve_points) > 1:
 		var m = basic_lines.mesh;
 		m.clear_surfaces();
-		m.surface_begin(Mesh.PRIMITIVE_TRIANGLES);
+		m.surface_begin(Mesh.PRIMITIVE_LINES);
 
 		Utils.cylinder_line(m, optimizer.as_segment_points(), 0.2)
 				
 		m.surface_end();
 	
 	# update ui
-	var format_values;
-	if physics != null:
-		format_values = [
-			optimizer.cost(),
-			physics.speed(),
-			physics.accel(),
-			physics.g_force(),
-			physics.max_g_force(),
-			physics.cost()
-		]
+	#var format_values;
+	#if physics != null:
+	#	var v = physics.velocity()
+	#	var n = physics.hl_normal()
+	#	format_values = [
+	#		optimizer.cost(),
+	#		physics.speed(),
+	#		physics.accel(),
+	#		physics.g_force(),
+	#		physics.max_g_force(),
+	#		physics.cost(),
+	#		v,
+	#		n,
+	#		90 - rad_to_deg(v.signed_angle_to(n, v.cross(n)))
+	#	]
+	#else:
+	#	format_values = [
+	#		optimizer.cost(),
+	#		0.0,
+	#		0.0,
+	#		0.0,
+	#		0.0,
+	#		0.0,
+	#		Vector3.ZERO,
+	#		Vector3.ZERO,
+	#		0.0
+	#	]
+	#label.text = """Cost: %.3f
+		
+	#	Speed: %.3f
+	#	Accel: %.3f
+	#	Gs: %.3f
+	#	Max Gs: %.3f
+	#	Cost: %.3f
+	#	Velocity: %.3v
+	#	Normal Force: %.3v
+	#	Angle Error: %.3f""" % format_values
+	if physics == null:
+		label.text = "physics not initialized"
 	else:
-		format_values = [
-			optimizer.cost(),
-			0.0,
-			0.0,
-			0.0,
-			0.0,
-			0.0,
-		]
-	label.text = "Cost: %.3f\n\nSpeed: %.3f\nAccel: %.3f\nGs: %.3f\nMax Gs: %.3f\nCost: %.3f" % format_values
+		label.text = physics.description(curve)
 	var ips = optimizer.iters_per_second()
 	if ips == null:
 		optimizer_speed_label.text = "-- iter/s"
@@ -220,21 +304,24 @@ func _on_control_point_clicked(index: int) -> void:
 
 
 func _on_x_edit_value_changed(value: float) -> void:
-	selected_point.set_x(value)
-	control_points[selected_index].position.x = value
-	optimizer.set_point(selected_index, selected_point)
+	if selected_point:
+		selected_point.set_x(value)
+		control_points[selected_index].position.x = value
+		optimizer.set_point(selected_index, selected_point)
 
 
 func _on_y_edit_value_changed(value: float) -> void:
-	selected_point.set_y(value)
-	control_points[selected_index].position.y = value
-	optimizer.set_point(selected_index, selected_point)
+	if selected_point:
+		selected_point.set_y(value)
+		control_points[selected_index].position.y = value
+		optimizer.set_point(selected_index, selected_point)
 
 
 func _on_z_edit_value_changed(value: float) -> void:
-	selected_point.set_z(value)
-	control_points[selected_index].position.z = value
-	optimizer.set_point(selected_index, selected_point)
+	if selected_point:
+		selected_point.set_z(value)
+		control_points[selected_index].position.z = value
+		optimizer.set_point(selected_index, selected_point)
 
 
 func _on_load_button_pressed() -> void:
@@ -249,6 +336,7 @@ func _on_save_dialogue_file_selected(path: String) -> void:
 	print(path)
 
 	var file = FileAccess.open(path, FileAccess.WRITE)
+	print(FileAccess.get_open_error())
 
 	var diag = AcceptDialog.new()
 	diag.content_scale_factor = 2
@@ -266,6 +354,9 @@ func _on_save_dialogue_file_selected(path: String) -> void:
 			"\t"
 		)
 	)
+	print(file.get_error())
+	file.close()
+	print(file.get_error())
 
 
 func _on_load_dialogue_file_selected(path: String) -> void:
@@ -300,7 +391,16 @@ func _on_load_dialogue_file_selected(path: String) -> void:
 
 	var pts = json.map(func(i): return Vector3(i[0], i[1], i[2]))
 	set_points(pts)
+	file.close()
 
 
 func _on_save_dialogue_confirmed() -> void:
 	print("confirmed")
+
+
+func _on_anim_step_edit_value_changed(value: float) -> void:
+	anim_step_size = value
+
+
+func _on_check_box_toggled(toggled_on: bool) -> void:
+	manual_physics = toggled_on

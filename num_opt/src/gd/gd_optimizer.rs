@@ -4,9 +4,11 @@ use std::{
     time::Instant,
 };
 
-use crate::{hermite, optimizer, physics, point};
+use crate::{hermite, my_float::{MyFloat, MyFloatType}, optimizer, physics::{self, float}, point};
 use godot::prelude::*;
 use num_traits::AsPrimitive;
+use crate::physics::PRECISION;
+use rug::Float;
 
 use super::{CoasterCurve, CoasterPoint};
 
@@ -25,6 +27,7 @@ enum ToWorker {
     SetGravity(f64),
     SetMu(f64),
     SetLR(f64),
+    SetComOffsetMag(f64),
 }
 
 /// Messages gotten by an `Optimizer` from its worker thread
@@ -38,7 +41,7 @@ enum FromWorker {
 #[class(base=Node)]
 pub struct Optimizer {
     points: Vec<point::Point<f64>>,
-    curve: hermite::Spline,
+    curve: hermite::Spline<MyFloatType>,
     segment_points_cache: Option<Vec<Vector3>>,
     from_worker: Mutex<mpsc::Receiver<FromWorker>>,
     to_worker: mpsc::Sender<ToWorker>,
@@ -52,6 +55,7 @@ impl INode for Optimizer {
     /// Starts up the worker thread and sets point and curve to empty values
     fn init(_base: Base<Node>) -> Self {
         godot_print!("Hello from Optimizer!");
+        godot_print!("{}", float!(1e-14f64));
 
         let (to_worker_tx, to_worker_rx) = mpsc::channel::<ToWorker>();
         let (to_main_tx, to_main_rx) = mpsc::channel();
@@ -62,11 +66,12 @@ impl INode for Optimizer {
         std::thread::spawn(move || {
             let mut active = false;
             let mut points = vec![];
-            let mut curve = Default::default();
+            let mut curve: hermite::Spline<MyFloatType> = Default::default();
             let mut mass = None;
             let mut gravity = None;
             let mut mu = None;
             let mut lr = None;
+            let mut com_offset_mag = None;
             loop {
                 while let Ok(msg) = if active {
                     // avoid blocking if inactive
@@ -92,6 +97,7 @@ impl INode for Optimizer {
                         ToWorker::SetGravity(v) => gravity = Some(v),
                         ToWorker::SetMu(v) => mu = Some(v),
                         ToWorker::SetLR(v) => lr = Some(v),
+                        ToWorker::SetComOffsetMag(v) => com_offset_mag = Some(v)
                     }
                 }
                 if active
@@ -99,9 +105,10 @@ impl INode for Optimizer {
                     && let Some(gravity) = gravity
                     && let Some(mu) = mu
                     && let Some(lr) = lr
+                    && let Some(com_offset_mag) = com_offset_mag
                 {
                     let prev_cost = optimizer::optimize(
-                        &physics::PhysicsState::new(mass, gravity, mu),
+                        &physics::legacy::PhysicsState::new(mass, gravity, mu, com_offset_mag),
                         &curve,
                         &mut points,
                         lr,
@@ -189,12 +196,13 @@ impl Optimizer {
             .iter_shared()
             .map(|p| point::Point::new(p.x.as_f64(), p.y.as_f64(), p.z.as_f64()))
             .collect();
+        hermite::set_derivatives_using_catmull_rom(&mut self.points);
         self.curve = hermite::Spline::new(&self.points);
         let _ = self
             .to_worker
             .send(ToWorker::SetPoints(
                 self.points.clone(),
-                Derivatives::Ignore,
+                Derivatives::Keep,
             ))
             .map_err(|e| godot_error!("{:#?}", e));
     }
@@ -210,8 +218,17 @@ impl Optimizer {
     #[func]
     fn set_point(&mut self, i: i32, point: Gd<CoasterPoint>) {
         self.points[i as usize] = point.bind().inner().clone();
+        self.curve = hermite::Spline::new(&self.points);
+        self.segment_points_cache = None;
         self.to_worker
             .send(ToWorker::SetPoints(self.points.clone(), Derivatives::Keep))
+            .unwrap();
+    }
+
+    #[func]
+    fn set_com_offset_mag(&mut self, mag: f64) {
+        self.to_worker
+            .send(ToWorker::SetComOffsetMag(mag))
             .unwrap();
     }
 
@@ -246,7 +263,7 @@ impl Optimizer {
                 .map(|params| {
                     let pts = hermite::curve_points(params, NonZero::new(10).unwrap());
                     pts.iter()
-                        .map(|(x,y,z)| Vector3::new(x.as_(), y.as_(), z.as_()))
+                        .map(|(x, y, z)| Vector3::new(x.as_(), y.as_(), z.as_()))
                         .collect::<Vec<_>>()
                 })
                 .flatten()
