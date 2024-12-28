@@ -1,6 +1,6 @@
 use godot::prelude::*;
 
-use crate::{hermite, my_float::MyFloatType};
+use num_opt::{hermite, my_float::MyFloatType};
 
 /// Wrapper around hermite::Spline  
 /// A handle opaque to GDScript

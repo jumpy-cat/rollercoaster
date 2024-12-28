@@ -1,8 +1,8 @@
 use godot::prelude::*;
 
-use crate::my_float::MyFloatType;
-use crate::physics;
-use crate::my_float::MyFloat;
+use num_opt::my_float::MyFloatType;
+use num_opt::physics;
+use num_opt::my_float::MyFloat;
 
 
 use super::{myvec_to_gd, na_to_gd, CoasterCurve};
@@ -267,9 +267,12 @@ impl CoasterPhysicsV3 {
     }
 
     #[func]
-    fn step(&mut self, curve: Gd<CoasterCurve>, step_size: f64) {
+    fn step(&mut self, curve: Gd<CoasterCurve>, mut step_size: f64) {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
+            if rand::random::<f64>() > 0.5_f64 {
+                //step_size /= 2.0;
+            }
             if phys.step(MyFloatType::from_f64(step_size), curve, physics::StepBehavior::Constant).is_none() {
                     //godot_warn!("Simulation Stuck");
             };

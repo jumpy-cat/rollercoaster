@@ -1,6 +1,6 @@
 use godot::prelude::*;
+use num_opt::point;
 
-use crate::point;
 
 #[derive(GodotClass)]
 #[class(init)]

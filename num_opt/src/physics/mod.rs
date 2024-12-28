@@ -1,6 +1,6 @@
 //! Physics solver and cost function
 
-use godot::global::godot_warn;
+use godot::global::{godot_print, godot_warn};
 use linalg::{scaler_projection, vector_projection, MyQuaternion, MyVector3, Silence};
 
 use crate::{hermite, my_float::MyFloat};
@@ -70,7 +70,8 @@ fn find_root_bisection<T: MyFloat>(a: T, b: T, f: impl Fn(&T) -> T, epsilon: f64
 /// Track the state of the particle (position, velocity, u(curve parameter))
 /// Compute intermediate values like delta_x(displacement), F_N(force), and delta_t(time step).
 /// Use a quadratic equation to determine the correcr time step(roots).
-#[derive(Debug)]
+#[derive(Debug, getset::Getters)]
+#[getset(get = "pub")]
 pub struct PhysicsStateV3<T: MyFloat> {
     // params
     m: T,
@@ -95,6 +96,7 @@ pub struct PhysicsStateV3<T: MyFloat> {
     // stats, info, persisted intermediate values
     delta_u_: T,
     delta_t_: T,
+    total_t_: T,
     delta_x_actual_: MyVector3<T>,
     delta_x_target_: MyVector3<T>,
     delta_hl_normal_actual_: MyVector3<T>,
@@ -102,8 +104,16 @@ pub struct PhysicsStateV3<T: MyFloat> {
     target_hl_normal_: MyVector3<T>,
     ag_: MyVector3<T>,
     F_N_: MyVector3<T>,
+    F_: MyVector3<T>,
     torque_: MyVector3<T>,
 }
+
+const MIN_STEP: f64 = 0.00001;
+const MAX_CURVE_ANGLE: f64 = 0.0001;
+const MIN_DELTA_X: f64 = 0.0001;
+const MAX_TORQUE: f64 = 10.0;
+const ALLOWED_ANGULAR_WIGGLE: f64 = 0.01;
+
 
 impl<T: MyFloat> PhysicsStateV3<T> {
     /// Initialize the physics state: `m` mass, `g` Gravity vector,
@@ -148,14 +158,15 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             delta_x_actual_: Default::default(),
             delta_x_target_: Default::default(),
             delta_t_: T::from_f64(0.0),
+            total_t_: T::from_f64(0.0),
             delta_hl_normal_actual_: Default::default(),
             delta_hl_normal_target_: Default::default(),
             target_hl_normal_: Default::default(),
             F_N_: Default::default(),
+            F_: Default::default(),
             ag_: Default::default(),
             torque_: Default::default(),
         };
-        godot_warn!("{:#?}", s);
         s
     }
 
@@ -203,6 +214,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     pub fn step(
         &mut self,
         step: T,
+        corrective_force_timescale: T,
         curve: &hermite::Spline<T>,
         behavior: StepBehavior,
     ) -> Option<()> {
@@ -210,14 +222,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             //return None;
         }
 
-        // 0.00001 is unstable (either due to rounding error)
-        let max_curve_angle: f64 = 0.0001;
-        const MIN_STEP: f64 = 0.001;
-        const MIN_DELTA_X: f64 = 0.0001;
-        const MAX_TORQUE: f64 = 10.0;
-        const ALLOWED_ANGULAR_WIGGLE: f64 = 0.01;
-
-        self.delta_t_ = step.clone();
+        self.total_t_ = self.total_t_.clone() + step.clone();
+        let new_delta_t = step.clone();
         let new_u = self
             .calc_new_u_from_delta_t(&step, T::from_f64(0.00001), curve)
             .unwrap();
@@ -241,16 +247,16 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             - self.x.clone();
 
         let step_too_big = {
-            self.v.angle(&self.delta_x_target_) > max_curve_angle
-                && self.delta_u_ != FALLBACK_STEP
+            self.v.angle(&self.delta_x_target_) > MAX_CURVE_ANGLE
+                //&& self.delta_u_ != FALLBACK_STEP
                 && step > MIN_STEP
-                && self.delta_x_target_.magnitude() > MIN_DELTA_X
+                //&& self.delta_x_target_.magnitude() > MIN_DELTA_X
         };
-        /*if step_too_big {
-            self.step(step / 2.0, curve, behavior).unwrap();
-            //self.step(step / 2.0, curve, behavior).unwrap();
-            return Some(());
-        }*/
+        if step_too_big {
+            //self.step(step.clone() * T::from_f64(0.5), curve, behavior).unwrap();
+            //self.step(step * T::from_f64(0.5), curve, behavior).unwrap();
+            //return Some(());
+        }
         //self.delta_t_ = self.calc_delta_t_from_delta_u(step).unwrap();
 
         // Normal Force: Derived from displacement, velocity, and gravity.
@@ -259,16 +265,16 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         // u: A Advances to the next point.
         //self.F_N_ = na::Vector3::zeros();
 
-        self.F_N_ = (self.delta_x_target_.clone() / self.delta_t_.clone().pow(2)
-            - self.v.clone() / self.delta_t_.clone()
+        self.F_N_ = (self.delta_x_target_.clone() / new_delta_t.clone().pow(2)
+            - self.v.clone() / new_delta_t.clone()
             - self.g.clone())
             * self.m.clone();
-        #[allow(non_snake_case)]
-        let F = self.F_N_.clone() + self.g.clone() * self.m.clone();
+        self.F_ = self.F_N_.clone() + self.g.clone() * self.m.clone();
         // hl values
         let new_hl_vel =
-            (curve.curve_at(&new_u)? - curve.curve_at(&self.u)?) / self.delta_t_.clone();
-        let new_hl_accel = (new_hl_vel.clone() - self.hl_vel.clone()) / self.delta_t_.clone();
+            (curve.curve_at(&new_u)? - curve.curve_at(&self.u)?) / new_delta_t.clone();
+        let new_hl_accel = (new_hl_vel.clone() - self.hl_vel.clone()) / (new_delta_t.clone());
+        // let new_hl_accel = (new_hl_vel.clone() - self.hl_vel.clone()) * T::from_f64(2.0) / (new_delta_t.clone() + self.delta_t_.clone());
         // rotation
         let cross = self.hl_normal.cross(&self.target_hl_normal_).normalize();
         self.delta_hl_normal_target_ =
@@ -277,8 +283,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         if self.torque_exceeded {
             self.w = MyVector3::default();
         } else {
-            self.torque_ = (self.delta_hl_normal_target_.clone() / self.delta_t_.clone().pow(2)
-                - self.w.clone() / self.delta_t_.clone())
+            self.torque_ = (self.delta_hl_normal_target_.clone() / new_delta_t.clone().pow(2)
+                - self.w.clone() / new_delta_t.clone())
                 * self.I.clone();
         }
         if !self.torque_exceeded
@@ -298,8 +304,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         }
 
         // semi-implicit euler update rule
-        self.v = self.v.clone() + F / self.m.clone() * self.delta_t_.clone();
-        let new_x = self.x.clone() + self.v.clone() * self.delta_t_.clone();
+        self.v = self.v.clone() + self.F_.clone() / self.m.clone() * new_delta_t.clone();
+        let new_x = self.x.clone() + self.v.clone() * new_delta_t.clone();
         self.delta_x_actual_ = new_x.clone() - self.x.clone();
         self.x = new_x.clone();
 
@@ -308,10 +314,10 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
         // semi-implicit euler update rule, rotation
         if !self.torque_exceeded {
-            self.w = self.w.clone() + self.torque_.clone() * self.delta_t_.clone() / self.I.clone();
+            self.w = self.w.clone() + self.torque_.clone() * new_delta_t.clone() / self.I.clone();
         }
 
-        self.delta_hl_normal_actual_ = self.w.clone() * self.delta_t_.clone();
+        self.delta_hl_normal_actual_ = self.w.clone() * new_delta_t.clone();
 
         self.hl_normal = MyQuaternion::from_scaled_axis(self.delta_hl_normal_actual_.clone())
             .rotate(self.hl_normal.clone());
@@ -322,6 +328,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.hl_vel = new_hl_vel;
         self.hl_accel = new_hl_accel;
         self.u = new_u;
+        self.delta_t_ = new_delta_t;
 
         //godot_warn!("{:#?}", self);
 
@@ -342,18 +349,20 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 E: {:.3?}
 speed: {:.3}
 hl speed: {:.2}
+hl accel: {:.4}
 g force: {:.2}
 delta-x: {:.3?} err: {}
 F_N: {:.2?}
 T-Exceeded: {}
 w: {:.3}
 Torque: {:.3}
-delta-t: {:.6}
+delta-t: {:.6} {}
 delta-u: {:.6?}",
             self.x,
             self.energy(),
             self.v.magnitude(),
             self.hl_vel.magnitude(),
+            self.hl_accel.magnitude(),
             self.ag_.magnitude() / self.g.magnitude(),
             self.delta_x_target_.magnitude(),
             (self.delta_x_actual_.clone() - self.delta_x_target_.clone()).magnitude(),
@@ -362,6 +371,11 @@ delta-u: {:.6?}",
             self.w.magnitude(),
             self.torque_.magnitude(),
             self.delta_t_,
+            if self.delta_t_ < MIN_STEP {
+                "##MIN##"
+            } else {
+                ""
+            },
             self.delta_u_
         )
     }
@@ -374,19 +388,11 @@ delta-u: {:.6?}",
         &self.v
     }
 
-    pub fn hl_normal(&self) -> &MyVector3<T> {
-        &self.hl_normal
-    }
-
     pub fn ag(&self) -> &MyVector3<T> {
         &self.ag_
     }
 
     pub fn a(&self) -> &MyVector3<T> {
         &self.hl_accel
-    }
-
-    pub fn g(&self) -> &MyVector3<T> {
-        &self.g
     }
 }

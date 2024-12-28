@@ -4,15 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-crate-type = ["cdylib"]  # Compile this crate to a dynamic C library.
+crate-type = ["rlib"]  # Compile this crate to a dynamic C library.
 
 [dependencies]
-clap = { version = "4.5.23", features = ["derive"] }
 getset = "0.1.3"
 godot = { version = "0.2.1", features = ["register-docs"] }
 nalgebra = "0.33.2"
 ndarray = "0.16.1"
 num-traits = "0.2.19"
+rand = "0.8.5"
 roots = "0.0.8"
 rug = { version = "1.26.1", features = ["num-traits"] }
 

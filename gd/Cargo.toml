@@ -1,0 +1,15 @@
+[package]
+name = "gd"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+num_opt = { path = "../num_opt" }
+godot = { version = "0.2.1", features = ["register-docs"] }
+num-traits = "0.2.19"
+nalgebra = "0.33.2"
+rand = "0.8.5"
+
