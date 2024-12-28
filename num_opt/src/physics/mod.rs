@@ -181,8 +181,10 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         //let new_pos =
         //    self.x.clone() + (self.v.clone() + self.g.clone() * step.clone()) * step.clone();
         // verlet position update
-        let new_pos = self.x.clone() + self.x.clone() - self.x_prev.clone()
-            + self.g.clone() * step.clone().pow(2);
+        let new_pos = self.x.clone()
+            + (self.x.clone() - self.x_prev.clone()) * step.clone() / self.delta_t_.clone()
+            + self.g.clone() * step.clone() * (step.clone() + self.delta_t_.clone())
+                / T::from_f64(2.0);
 
         let u_lower_bound = (self.u.clone() - init_bracket_amount.clone()).max(&T::from_f64(0.0));
         let u_upper_bound =
@@ -221,12 +223,17 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         curve: &hermite::Spline<T>,
         behavior: StepBehavior,
     ) -> Option<()> {
+        const STEP_ADJUSTMENT: f64 = 0.99;
         if self.torque_exceeded {
             //return None;
         }
-
-        self.total_t_ = self.total_t_.clone() + step.clone();
+        if self.delta_t_ == 0.0 {
+            self.delta_t_ = step.clone();
+        }
+        //let new_delta_t = step.clone().min(&(self.delta_t_.clone() / T::from_f64
+        //(STEP_ADJUSTMENT)));
         let new_delta_t = step.clone();
+        self.total_t_ = self.total_t_.clone() + new_delta_t.clone();
         let new_u = self
             .calc_new_u_from_delta_t(&step, T::from_f64(0.00001), curve)
             .unwrap();
@@ -249,17 +256,17 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             - self.target_hl_normal_.clone() * self.o.clone()
             - self.x.clone();
 
-        /*let step_too_big = {
-            self.v.angle(&self.delta_x_target_) > MAX_CURVE_ANGLE
+        let step_too_big = {
+            self.vel().angle(&self.delta_x_target_) > MAX_CURVE_ANGLE
                 //&& self.delta_u_ != FALLBACK_STEP
-                && step > MIN_STEP
+                && step > MIN_STEP //&& step > self.delta_t_.clone() * T::from_f64(STEP_ADJUSTMENT)
             //&& self.delta_x_target_.magnitude() > MIN_DELTA_X
         };
         if step_too_big {
-            //self.step(step.clone() * T::from_f64(0.5), curve, behavior).unwrap();
-            //self.step(step * T::from_f64(0.5), curve, behavior).unwrap();
+            self.step(step.clone() * T::from_f64(0.5), curve, behavior).unwrap();
+            self.step(step * T::from_f64(0.5), curve, behavior).unwrap();
             //return Some(());
-        }*/
+        }
 
         // Normal Force: Derived from displacement, velocity, and gravity.
         // v: semi implicit Euler integration
@@ -274,8 +281,10 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.F_ = self.F_N_.clone() + self.g.clone() * self.m.clone();*/
         // TODO: new expression for accel / force
         self.F_N_ = (-self.g.clone()
-            + (self.delta_x_target_.clone() - self.x.clone() + self.x_prev.clone())
-                / new_delta_t.clone().pow(2))
+            + self.delta_x_target_.clone() * T::from_f64(2.0)
+                / (new_delta_t.clone() * (new_delta_t.clone() + self.delta_t_.clone()))
+            + (self.x_prev.clone() - self.x.clone()) * T::from_f64(2.0)
+                / (self.delta_t_.clone() * (new_delta_t.clone() + self.delta_t_.clone())))
             * self.m.clone();
         self.F_ = self.F_N_.clone() + self.g.clone() * self.m.clone();
 
@@ -301,7 +310,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             && self.torque_.magnitude() > MAX_TORQUE
             && self.delta_hl_normal_target_.magnitude() > ALLOWED_ANGULAR_WIGGLE
         {
-            self.torque_exceeded = true;
+            //self.torque_exceeded = true;
             //let delta_y = self.hl_normal.clone() * self.o.clone();
             let curr_energy = self.energy();
             self.o = T::from_f64(0.0);
@@ -311,8 +320,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                 / self.m.clone())
             .sqrt();*/
             // REMEMBER TO REMOVE
-            std::thread::sleep(std::time::Duration::from_millis(200));
-            return self.step(step, curve, behavior);
+            //std::thread::sleep(std::time::Duration::from_millis(200));
+            //return self.step(step, curve, behavior);
         }
 
         // semi-implicit euler update rule
@@ -324,9 +333,12 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         // verlet update rule
         let x_prev = self.x_prev.clone();
         self.x_prev = self.x.clone();
-        self.x = self.x.clone() + self.x.clone() - x_prev.clone()
-            + self.F_.clone() / self.m.clone() * new_delta_t.clone().pow(2);
-        
+        self.x = self.x.clone()
+            + (self.x.clone() - x_prev.clone()) * (new_delta_t.clone() / self.delta_t_.clone())
+            + self.F_.clone() / self.m.clone()
+                * new_delta_t.clone()
+                * (new_delta_t.clone() + self.delta_t_.clone())
+                / T::from_f64(2.0);
 
         // cop-out update
         //self.x = curve.curve_at(new_u).unwrap();
