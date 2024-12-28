@@ -185,56 +185,56 @@ impl Default for MyVector3 {
 /// Only suitable for rotations
 #[derive(Clone, Debug)]
 pub struct MyQuaternion {
-    pub w: Float,
-    pub x: Float,
-    pub y: Float,
-    pub z: Float,
+    pub q0: Float,
+    pub q1: Float,
+    pub q2: Float,
+    pub q3: Float,
 }
 
 impl MyQuaternion {
     pub fn from_scaled_axis(x: MyVector3) -> Self {
         let half_angle: Float = x.magnitude() / 2.0;
         Self {
-            w: half_angle.clone().cos(),
-            x: x.x * half_angle.clone().sin(),
-            y: x.y * half_angle.clone().sin(),
-            z: x.z * half_angle.sin(),
+            q0: half_angle.clone().cos(),
+            q1: x.x * half_angle.clone().sin(),
+            q2: x.y * half_angle.clone().sin(),
+            q3: x.z * half_angle.sin(),
         }
     }
 
     pub fn normalize(self) -> Self {
-        let mag = ((&self.w * &self.w + &self.x * &self.x).complete(PRECISION)
-            + &self.y * &self.y
-            + &self.z * &self.z)
+        let mag = ((&self.q0 * &self.q0 + &self.q1 * &self.q1).complete(PRECISION)
+            + &self.q2 * &self.q2
+            + &self.q3 * &self.q3)
             .sqrt();
         Self {
-            w: self.w / &mag,
-            x: self.x / &mag,
-            y: self.y / &mag,
-            z: self.z / &mag,
+            q0: self.q0 / &mag,
+            q1: self.q1 / &mag,
+            q2: self.q2 / &mag,
+            q3: self.q3 / &mag,
         }
     }
 
     pub fn unit_inverse(self) -> Self {
         Self {
-            w: self.w,
-            x: -self.x,
-            y: -self.y,
-            z: -self.z,
+            q0: self.q0,
+            q1: -self.q1,
+            q2: -self.q2,
+            q3: -self.q3,
         }
     }
 
     pub fn rotate(self, other: MyVector3) -> MyVector3 {
         let other = MyQuaternion {
-            w: float!(0.0),
-            x: other.x,
-            y: other.y,
-            z: other.z,
+            q0: float!(0.0),
+            q1: other.x,
+            q2: other.y,
+            q3: other.z,
         };
         let s = self.normalize();
         let inv = s.clone().unit_inverse();
         let other = inv * other * s;
-        MyVector3 { x: other.x, y: other.y, z: other.z }
+        MyVector3 { x: other.q1, y: other.q2, z: other.q3 }
     }
 }
 
@@ -242,16 +242,16 @@ impl Mul<MyQuaternion> for MyQuaternion {
     type Output = MyQuaternion;
     fn mul(self, other: MyQuaternion) -> MyQuaternion {
         MyQuaternion {
-            w: (&self.w * &other.w - &self.x * &other.x).complete(PRECISION)
-                - &self.y * &other.y
-                - &self.z * &other.z,
-            x: (&self.w * &other.x + &self.x * &other.w).complete(PRECISION) + &self.y * &other.z
-                - &self.z * &other.y,
-            y: (&self.w * &other.y - &self.x * &other.z).complete(PRECISION)
-                + &self.y * &other.w
-                + &self.z * &other.x,
-            z: (&self.w * &other.z + &self.x * &other.y).complete(PRECISION) - &self.y * &other.x
-                + &self.z * &other.w,
+            q0: (&self.q0 * &other.q0 - &self.q1 * &other.q1).complete(PRECISION)
+                - &self.q2 * &other.q2
+                - &self.q3 * &other.q3,
+            q1: (&self.q0 * &other.q1 + &self.q1 * &other.q0).complete(PRECISION) - &self.q2 * &other.q3
+                + &self.q3 * &other.q2,
+            q2: (&self.q0 * &other.q2 + &self.q1 * &other.q3).complete(PRECISION)
+                + &self.q2 * &other.q0
+                - &self.q3 * &other.q1,
+            q3: (&self.q0 * &other.q3 - &self.q1 * &other.q2).complete(PRECISION) + &self.q2 * &other.q1
+                + &self.q3 * &other.q0,
         }
     }
 }

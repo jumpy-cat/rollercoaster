@@ -268,7 +268,6 @@ impl CoasterPhysicsV3 {
 
     #[func]
     fn step(&mut self, curve: Gd<CoasterCurve>, step_size: f64) {
-        godot_print!("step");
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
             if phys.step(float!(step_size), curve, physics::StepBehavior::Constant).is_none() {
