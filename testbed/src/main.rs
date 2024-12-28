@@ -44,9 +44,9 @@ fn main() {
 
     while phys.total_t_() < &max_time {
         if rand::random::<f64>() > 0.5_f64 {
-            phys.step(0.05, 0.05, &curve, StepBehavior::Time);
+            phys.step(0.05, &curve, StepBehavior::Time);
         } else {
-            phys.step(0.025, 0.025, &curve, StepBehavior::Time);
+            phys.step(0.025, &curve, StepBehavior::Time);
         }
         file.write_all(
             format!(
