@@ -22,7 +22,7 @@ pub enum StepBehavior {
 }
 
 const FALLBACK_STEP: f64 = 0.001;
-pub const PRECISION: u32 = 64;
+pub const PRECISION: u32 = 640;
 
 macro_rules! float {
     () => {
@@ -88,6 +88,7 @@ pub struct PhysicsStateV3<T: MyFloat> {
     hl_pos: MyVector3<T>,
     hl_vel: MyVector3<T>,
     hl_accel: MyVector3<T>,
+    hl_accel_ema: MyVector3<T>,
     // rotation
     torque_exceeded: bool,
     w: MyVector3<T>, // angular velocity
@@ -138,7 +139,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             // constants
             m: T::from_f64(m),
             I: T::from_f64(1.0),
-            g,
+            g:g.clone(),
             o: T::from_f64(o),
             // simulation state
             u: T::from_f64(0.0), //0.0,
@@ -150,6 +151,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             hl_normal,
             hl_vel: Default::default(),
             hl_accel: Default::default(),
+            hl_accel_ema: -g,
             // rotation
             torque_exceeded: false,
             w: Default::default(),
@@ -231,15 +233,14 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         // Advance the parametric value u by delta_u and calculate the new position along the curve.
         // The displacement vector delta_x is the difference between the new position and the current position.
         //let new_u = self.u + self.delta_u_;
-        self.ag_ = self.hl_accel.clone() - self.g.clone();
+        self.ag_ = /*self.hl_accel.clone()*/ - self.g.clone();
         self.target_hl_normal_ = if self.torque_exceeded {
             self.hl_normal.clone()
         } else {
             let ortho_to = curve.curve_1st_derivative_at(&new_u).unwrap().normalize();
-            let tmp = (self.ag_.clone().normalize()
+            (self.ag_.clone().normalize()
                 - vector_projection(self.ag_.clone().normalize(), ortho_to.clone()))
-            .normalize();
-            (tmp.clone() - vector_projection(tmp.clone(), ortho_to.clone())).normalize()
+            .normalize()
         };
         self.delta_x_target_ = curve.curve_at(&new_u).unwrap()
             - self.target_hl_normal_.clone() * self.o.clone()
@@ -252,9 +253,9 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                 //&& self.delta_x_target_.magnitude() > MIN_DELTA_X
         };
         if step_too_big {
-            //self.step(step.clone() * T::from_f64(0.5), curve, behavior).unwrap();
-            //self.step(step * T::from_f64(0.5), curve, behavior).unwrap();
-            //return Some(());
+            self.step(step.clone() * T::from_f64(0.5), curve, behavior).unwrap();
+            self.step(step * T::from_f64(0.5), curve, behavior).unwrap();
+            return Some(());
         }
         //self.delta_t_ = self.calc_delta_t_from_delta_u(step).unwrap();
 
@@ -288,7 +289,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         }
         if !self.torque_exceeded
             && self.torque_.magnitude() > MAX_TORQUE
-            && self.delta_hl_normal_target_.magnitude() > ALLOWED_ANGULAR_WIGGLE
+            //&& self.delta_hl_normal_target_.magnitude() > ALLOWED_ANGULAR_WIGGLE
         {
             self.torque_exceeded = true;
             //let delta_y = self.hl_normal.clone() * self.o.clone();
@@ -326,6 +327,9 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         // updates
         self.hl_vel = new_hl_vel;
         self.hl_accel = new_hl_accel;
+        const EMA_ALPHA: f64 = 0.99999;
+        self.hl_accel_ema = self.hl_accel_ema.clone() * T::from_f64(EMA_ALPHA)
+            + self.hl_accel.clone() * T::from_f64(1.0 - EMA_ALPHA);
         self.u = new_u;
         self.delta_t_ = new_delta_t;
 
