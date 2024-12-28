@@ -3,7 +3,7 @@
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use godot::global::{godot_print, godot_warn};
-use linalg::{scaler_projection, vector_projection, MyQuaternion, MyVector3};
+use linalg::{scaler_projection, vector_projection, MyQuaternion, MyVector3, Silence};
 use num_traits::Pow;
 use roots::{FloatType, Roots};
 use rug::{ops::CompleteRound, Float};
@@ -302,9 +302,7 @@ impl PhysicsStateV3 {
         // The displacement vector delta_x is the difference between the new position and the current position.
         //let new_u = self.u + self.delta_u_;
         self.ag_ = self.hl_accel.clone() - self.g.clone();
-        let new_hl_normal = if
-        /*self.torque_exceeded*/
-        true {
+        let new_hl_normal = if self.torque_exceeded {
             self.hl_normal.clone()
         } else {
             let ortho_to = curve.curve_1st_derivative_at(&new_u).unwrap().normalize();
@@ -312,7 +310,7 @@ impl PhysicsStateV3 {
                 .normalize();
             (tmp.clone() - vector_projection(tmp.clone(), ortho_to.clone())).normalize()
         };
-        self.delta_x_ = curve.curve_at(&new_u).unwrap() - self.o.clone() * self.hl_normal.clone() - self.x.clone();
+        self.delta_x_ = curve.curve_at(&new_u).unwrap() - self.o.clone() * new_hl_normal.clone() - self.x.clone();
 
         let step_too_big = {
             self.v.angle(&self.delta_x_) > max_curve_angle
@@ -342,7 +340,7 @@ impl PhysicsStateV3 {
         let new_hl_accel = (new_hl_vel.clone() - self.hl_vel.clone()) / self.delta_t_.clone();
         // rotation
         self.delta_hl_normal_ =
-            self.hl_normal.cross(&new_hl_normal) * self.hl_normal.angle_dbg::<()>(&new_hl_normal);
+            self.hl_normal.cross(&new_hl_normal) * self.hl_normal.angle_dbg::<Silence>(&new_hl_normal);
         if self.delta_hl_normal_.has_nan() {
             godot_warn!("NAN delta_hl_normal\n\thl_normal: {:#?}\n\rnew: {:#?}\n\rcross: {:3?}\n\rangle: {}", self.hl_normal, new_hl_normal, self.hl_normal.cross(&new_hl_normal), self.hl_normal.angle(&new_hl_normal));
         }
@@ -383,13 +381,16 @@ impl PhysicsStateV3 {
         //self.x = curve.curve_at(new_u).unwrap();
 
         self.u = new_u;
-        self.hl_normal =
-            MyQuaternion::from_scaled_axis(self.w.clone() * self.delta_t_.clone()).rotate(self.hl_normal.clone());
+        /*self.hl_normal =
+            MyQuaternion::from_scaled_axis(self.w.clone() * self.delta_t_.clone()).rotate(self.hl_normal.clone());*/
+        
+        // cop-out rotation
+        self.hl_normal = new_hl_normal;
         // updates
         self.hl_vel = new_hl_vel;
         self.hl_accel = new_hl_accel;
 
-        godot_warn!("{:#?}", self);
+        //godot_warn!("{:#?}", self);
 
         Some(())
     }

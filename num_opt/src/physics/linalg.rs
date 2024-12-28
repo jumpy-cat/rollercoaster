@@ -14,7 +14,7 @@ pub fn scaler_projection(a: MyVector3, b: MyVector3) -> Float {
     a.dot(&b) / b.magnitude()
 }
 
-struct Silence;
+pub struct Silence;
 
 /// 3D Vector with higher precision
 ///
