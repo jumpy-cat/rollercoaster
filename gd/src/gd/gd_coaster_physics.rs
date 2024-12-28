@@ -300,7 +300,7 @@ impl CoasterPhysicsV3 {
     #[func]
     fn vel(&self) -> Variant {
         if let Some(phys) = &self.inner {
-            Variant::from(myvec_to_gd(phys.vel()))
+            Variant::from(myvec_to_gd(&phys.vel()))
         } else {
             Variant::nil()
         }

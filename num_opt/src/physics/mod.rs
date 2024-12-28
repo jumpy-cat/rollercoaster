@@ -82,7 +82,8 @@ pub struct PhysicsStateV3<T: MyFloat> {
     u: T,
     // center of mass
     x: MyVector3<T>,
-    v: MyVector3<T>,
+    x_prev: MyVector3<T>,
+    //v: MyVector3<T>,
     // heart line
     hl_normal: MyVector3<T>,
     hl_pos: MyVector3<T>,
@@ -114,7 +115,6 @@ const MIN_DELTA_X: f64 = 0.0001;
 const MAX_TORQUE: f64 = 10.0;
 const ALLOWED_ANGULAR_WIGGLE: f64 = 0.01;
 
-
 impl<T: MyFloat> PhysicsStateV3<T> {
     /// Initialize the physics state: `m` mass, `g` Gravity vector,
     /// `curve.curve_at(0.0)`: Starting position of the curve at `u=0`
@@ -144,7 +144,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             u: T::from_f64(0.0), //0.0,
             // center of mass
             x: hl_pos.clone() - hl_normal.clone() * T::from_f64(o), //o,
-            v: Default::default(),
+            x_prev: hl_pos.clone() - hl_normal.clone() * T::from_f64(o),
+            //v: Default::default(),
             // heart line
             hl_pos,
             hl_normal,
@@ -177,8 +178,11 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         curve: &hermite::Spline<T>,
     ) -> Option<T> {
         // Semi-implicit euler position update
-        let new_pos =
-            self.x.clone() + (self.v.clone() + self.g.clone() * step.clone()) * step.clone();
+        //let new_pos =
+        //    self.x.clone() + (self.v.clone() + self.g.clone() * step.clone()) * step.clone();
+        // verlet position update
+        let new_pos = self.x.clone() + self.x.clone() - self.x_prev.clone()
+            + self.g.clone() * step.clone().pow(2);
 
         let u_lower_bound = (self.u.clone() - init_bracket_amount.clone()).max(&T::from_f64(0.0));
         let u_upper_bound =
@@ -245,18 +249,17 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             - self.target_hl_normal_.clone() * self.o.clone()
             - self.x.clone();
 
-        let step_too_big = {
+        /*let step_too_big = {
             self.v.angle(&self.delta_x_target_) > MAX_CURVE_ANGLE
                 //&& self.delta_u_ != FALLBACK_STEP
                 && step > MIN_STEP
-                //&& self.delta_x_target_.magnitude() > MIN_DELTA_X
+            //&& self.delta_x_target_.magnitude() > MIN_DELTA_X
         };
         if step_too_big {
             //self.step(step.clone() * T::from_f64(0.5), curve, behavior).unwrap();
             //self.step(step * T::from_f64(0.5), curve, behavior).unwrap();
             //return Some(());
-        }
-        //self.delta_t_ = self.calc_delta_t_from_delta_u(step).unwrap();
+        }*/
 
         // Normal Force: Derived from displacement, velocity, and gravity.
         // v: semi implicit Euler integration
@@ -264,16 +267,22 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         // u: A Advances to the next point.
         //self.F_N_ = na::Vector3::zeros();
 
-        self.F_N_ = (self.delta_x_target_.clone() / new_delta_t.clone().pow(2)
+        /*self.F_N_ = (self.delta_x_target_.clone() / new_delta_t.clone().pow(2)
             - self.v.clone() / new_delta_t.clone()
             - self.g.clone())
             * self.m.clone();
+        self.F_ = self.F_N_.clone() + self.g.clone() * self.m.clone();*/
+        // TODO: new expression for accel / force
+        self.F_N_ = (-self.g.clone()
+            + (self.delta_x_target_.clone() - self.x.clone() + self.x_prev.clone())
+                / new_delta_t.clone().pow(2))
+            * self.m.clone();
         self.F_ = self.F_N_.clone() + self.g.clone() * self.m.clone();
+
         // hl values
-        let new_hl_vel =
-            (curve.curve_at(&new_u)? - curve.curve_at(&self.u)?) / new_delta_t.clone();
+        let new_hl_vel = (curve.curve_at(&new_u)? - curve.curve_at(&self.u)?) / new_delta_t.clone();
         let new_hl_accel = (new_hl_vel.clone() - self.hl_vel.clone()) / (new_delta_t.clone());
-        // let new_hl_accel = (new_hl_vel.clone() - self.hl_vel.clone()) * T::from_f64(2.0) / (new_delta_t.clone() + self.delta_t_.clone());
+
         // rotation
         let cross = self.hl_normal.cross(&self.target_hl_normal_).normalize();
         self.delta_hl_normal_target_ =
@@ -282,9 +291,11 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         if self.torque_exceeded {
             self.w = MyVector3::default();
         } else {
-            self.torque_ = (self.delta_hl_normal_target_.clone() / new_delta_t.clone().pow(2)
-                - self.w.clone() / new_delta_t.clone())
-                * self.I.clone();
+            /*self.torque_ = (self.delta_hl_normal_target_.clone() / new_delta_t.clone().pow(2)
+            - self.w.clone() / new_delta_t.clone())
+            * self.I.clone();*/
+
+            // TODO: new expression for torque
         }
         if !self.torque_exceeded
             && self.torque_.magnitude() > MAX_TORQUE
@@ -294,35 +305,47 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             //let delta_y = self.hl_normal.clone() * self.o.clone();
             let curr_energy = self.energy();
             self.o = T::from_f64(0.0);
-            self.x = curve.curve_at(&self.u).unwrap();
-            self.v = self.v.clone().normalize()
-                * ((curr_energy - self.potential_energy()).max(&T::from_f64(0.0)) * 2.0 / self.m.clone()).sqrt();
+            //self.x = curve.curve_at(&self.u).unwrap();
+            /*self.v = self.v.clone().normalize()
+            * ((curr_energy - self.potential_energy()).max(&T::from_f64(0.0)) * 2.0
+                / self.m.clone())
+            .sqrt();*/
             // REMEMBER TO REMOVE
             std::thread::sleep(std::time::Duration::from_millis(200));
             return self.step(step, curve, behavior);
         }
 
         // semi-implicit euler update rule
-        self.v = self.v.clone() + self.F_.clone() / self.m.clone() * new_delta_t.clone();
+        /*self.v = self.v.clone() + self.F_.clone() / self.m.clone() * new_delta_t.clone();
         let new_x = self.x.clone() + self.v.clone() * new_delta_t.clone();
         self.delta_x_actual_ = new_x.clone() - self.x.clone();
-        self.x = new_x.clone();
+        self.x = new_x.clone();*/
+
+        // verlet update rule
+        let x_prev = self.x_prev.clone();
+        self.x_prev = self.x.clone();
+        self.x = self.x.clone() + self.x.clone() - x_prev.clone()
+            + self.F_.clone() / self.m.clone() * new_delta_t.clone().pow(2);
+        
 
         // cop-out update
         //self.x = curve.curve_at(new_u).unwrap();
 
         // semi-implicit euler update rule, rotation
-        if !self.torque_exceeded {
+        /*if !self.torque_exceeded {
             self.w = self.w.clone() + self.torque_.clone() * new_delta_t.clone() / self.I.clone();
-        }
+        }*/
 
-        self.delta_hl_normal_actual_ = self.w.clone() * new_delta_t.clone();
+        // TODO: verlet update rule, rotation
 
-        self.hl_normal = MyQuaternion::from_scaled_axis(self.delta_hl_normal_actual_.clone())
-            .rotate(self.hl_normal.clone());
+        //self.delta_hl_normal_actual_ = self.w.clone() * new_delta_t.clone();
+
+        //self.hl_normal = MyQuaternion::from_scaled_axis(self.delta_hl_normal_actual_.clone())
+        //    .rotate(self.hl_normal.clone());
 
         // cop-out rotation
-        //self.hl_normal = self.target_hl_normal_.clone();
+        self.hl_normal = self.target_hl_normal_.clone();
+
         // updates
         self.hl_vel = new_hl_vel;
         self.hl_accel = new_hl_accel;
@@ -335,7 +358,10 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     }
 
     fn energy(&self) -> T {
-        self.v.magnitude_squared() * 0.5 * self.m.clone() + self.potential_energy()
+        ((self.x.clone() - self.x_prev.clone()) / self.delta_t_.clone()).magnitude_squared()
+            * 0.5
+            * self.m.clone()
+            + self.potential_energy()
     }
 
     fn potential_energy(&self) -> T {
@@ -359,7 +385,7 @@ delta-t: {:.6} {}
 delta-u: {:.6?}",
             self.x,
             self.energy(),
-            self.v.magnitude(),
+            (self.x.clone() - self.x_prev.clone()).magnitude() / self.delta_t_.clone(),
             self.hl_vel.magnitude(),
             self.hl_accel.magnitude(),
             self.ag_.magnitude() / self.g.magnitude(),
@@ -383,8 +409,8 @@ delta-u: {:.6?}",
         &self.x
     }
 
-    pub fn vel(&self) -> &MyVector3<T> {
-        &self.v
+    pub fn vel(&self) -> MyVector3<T> {
+        (self.x.clone() - self.x_prev.clone()) / self.delta_t_.clone()
     }
 
     pub fn ag(&self) -> &MyVector3<T> {
