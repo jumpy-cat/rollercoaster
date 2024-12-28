@@ -1,7 +1,12 @@
-
 use crate::godot_print;
+use crate::hermite;
 use crate::physics::StepBehavior;
-use crate::hermite;   
+
+use super::float;
+use super::linalg::MyVector3;
+use crate::physics::Float;
+use crate::physics::PRECISION;
+
 
 /// Physics solver
 #[derive(Debug, Clone, getset::CopyGetters)]
@@ -157,17 +162,19 @@ impl PhysicsState {
         (2.0 * k / self.mass).sqrt()
     }
 
-    pub fn hl_pos(&self, curve: &hermite::Spline) -> Option<na::Vector3<f64>> {
-        curve.curve_at(self.u)
+    pub fn hl_pos(&self, curve: &hermite::Spline) -> Option<MyVector3> {
+        curve.curve_at(&float!(self.u))
     }
 
     /// Uses `-self.normal_force()` to determine offset direction
-    pub fn com_pos(&self, curve: &hermite::Spline) -> Option<na::Vector3<f64>> {
-        self.hl_pos(curve)
-            .map(|hl| hl - self.normal_force.normalize() * self.com_offset_mag)
+    pub fn com_pos(&self, curve: &hermite::Spline) -> Option<MyVector3> {
+        self.hl_pos(curve).map(|hl| {
+            let offset = self.normal_force.normalize() * self.com_offset_mag;
+            hl - MyVector3::new_f64(offset.x, offset.y, offset.z) // (x, y, z)
+        })
     }
 }
-
+/* 
 /// Physics solver v2
 /// See `Design: adding rotation to physics` in the doc
 #[derive(Debug, Clone)]
@@ -239,16 +246,20 @@ impl PhysicsStateV2 {
         let new_n_hl = (a_sub_g
             - a_sub_g.dot(&self.v_hl) * self.v_hl / self.v_hl.magnitude_squared().max(0.0001))
         .normalize();
-        let delta_p_com = (curve.curve_at(new_u)? - self.o * new_n_hl)
-            - (curve.curve_at(self.u)? - self.o * self.n_hl);
+        let offset = self.o * new_n_hl;
+        let offset = MyVector3::new_f64(offset.x, offset.y, offset.z);
+        let delta_p_com = (curve.curve_at(&float!(new_u))? - offset)
+            - (curve.curve_at(&float!(self.u))? - offset);
         let new_k = self.k + self.m * self.g.y * delta_p_com.y;
-        let new_v_hl = (curve.curve_at(new_u)? - curve.curve_at(self.u)?) / delta_t;
-        let new_a_hl = (new_v_hl - self.v_hl) / delta_t;
+        let new_v_hl =
+            (curve.curve_at(&float!(new_u))? - curve.curve_at(&float!(self.u))?) / float!(delta_t);
+        let new_a_hl = (new_v_hl - MyVector3::new_f64(self.v_hl.x, self.v_hl.y, self.v_hl.z))
+            / float!(delta_t);
         let new_v_com = (2.0 * new_k / self.m).sqrt() * delta_p_com / delta_t;
         let new_dsdu = delta_p_com.magnitude() / delta_u;
 
         self.u = new_u;
-        self.k = new_k;
+        self.k = new_k.to_f64();
         self.v_hl = new_v_hl;
         self.a_hl = new_a_hl;
         self.v_com = new_v_com;
@@ -313,3 +324,4 @@ impl PhysicsStateV2 {
         self.n_hl
     }
 }
+*/

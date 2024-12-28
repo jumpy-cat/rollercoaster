@@ -1,6 +1,8 @@
 //! Calculates the cost of a curve, and performs gradient descent to optimize it
 
-use crate::{hermite, physics, point};
+use crate::{hermite, physics::{self, float}, point};
+use rug::Float;
+use crate::physics::PRECISION;
 
 /// Given initial state and curve, calculates the total cost of the curve
 /// 
@@ -33,8 +35,8 @@ use crate::{hermite, physics, point};
 /// returns `None` to indicate an invalid calculation
 fn cost(initial: physics::legacy::PhysicsState, curve: &hermite::Spline) -> Option<f64> {
     let mut phys = initial;
-    while let Some(drdu) = curve.curve_1st_derivative_at(phys.u()) {
-        phys.step(drdu.x, drdu.y, drdu.z, physics::StepBehavior::Distance, 1.0);
+    while let Some(drdu) = curve.curve_1st_derivative_at(&float!(phys.u())) {
+        phys.step(drdu.x.to_f64(), drdu.y.to_f64(), drdu.z.to_f64(), physics::StepBehavior::Distance, 1.0);
     }
     if phys.cost().is_nan() {
         None

@@ -121,6 +121,7 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+
 	# handle key input
 	if Input.is_action_just_pressed("reset_curve"):
 		var positions: Array[Vector3] = []
@@ -128,8 +129,11 @@ func _process(_delta: float) -> void:
 			positions.push_back(cp.position)
 		optimizer.set_points(positions)
 	if Input.is_action_just_pressed("run_simulation"):
+		push_warning("hi2")
 		curve = optimizer.get_curve()
-		physics = CoasterPhysicsV3.create(mass, gravity, curve, 1.0)		
+		push_warning("hi3")
+		physics = CoasterPhysicsV3.create(mass, gravity, curve, 0.1)	
+		push_warning("hi4")	
 	
 	# update physics simulation
 	if curve != null:

@@ -1,20 +1,17 @@
 //! Physics solver and cost function
 
+use std::ops::{Add, Div, Mul, Neg, Sub};
+
 use godot::global::{godot_print, godot_warn};
-use roots::Roots;
+use linalg::{scaler_projection, vector_projection, MyQuaternion, MyVector3};
+use num_traits::Pow;
+use roots::{FloatType, Roots};
+use rug::{ops::CompleteRound, Float};
 
 use crate::hermite;
 
 pub mod legacy;
-
-/// Projects `a` onto `b`
-fn vector_projection(a: na::Vector3<f64>, b: na::Vector3<f64>) -> na::Vector3<f64> {
-    a.dot(&b) / b.magnitude_squared() * b
-}
-
-fn scaler_projection(a: na::Vector3<f64>, b: na::Vector3<f64>) -> f64 {
-    a.dot(&b) / b.magnitude()
-}
+pub mod linalg;
 
 /// Possible ways for the physics system to take a step  
 /// Steps are in `u`, the (0,1) parameterization of hermite curves
@@ -30,7 +27,56 @@ pub enum StepBehavior {
 }
 
 const FALLBACK_STEP: f64 = 0.001;
+pub const PRECISION: u32 = 64;
 
+macro_rules! float {
+    () => {
+        Float::with_val(PRECISION, 0.0)
+    };
+    ($e:expr) => {
+        Float::with_val(PRECISION, $e)
+    };
+    ($n:expr, $d: expr) => {
+        Float::with_val(PRECISION, $n) / Float::with_val(PRECISION, $d)
+    };
+}
+
+pub(crate) use float;
+
+fn find_root_bisection(
+    a: Float,
+    b: Float,
+    f: impl Fn(&Float) -> Float,
+    epsilon: Float,
+) -> Option<Float> {
+    let mut a = a;
+    let mut b = b;
+    if a > b {
+        // swap
+        let tmp = a;
+        a = b;
+        b = tmp;
+    }
+    let mut fa = f(&a);
+    let mut fb = f(&b);
+    if (&fa * &fb).complete(PRECISION) > 0.0 {
+        // they have the same sign, so there is no root in this interval
+        return None;
+    }
+    while (&b - &a).complete(PRECISION).abs() > epsilon {
+        let m = (&a + &b).complete(PRECISION) / 2.0;
+        let fm = f(&m);
+        if (&fa * &fm).complete(PRECISION) < 0.0 {
+            b = m;
+            fb = fm;
+        } else {
+            a = m;
+            fa = fm;
+        }
+    }
+    Some((&a + &b).complete(PRECISION) / 2.0)
+    
+}
 
 /// Physics solver v3
 /// ### Overview
@@ -41,63 +87,64 @@ const FALLBACK_STEP: f64 = 0.001;
 #[derive(Debug)]
 pub struct PhysicsStateV3 {
     // params
-    m: f64,
-    g: na::Vector3<f64>,
-    o: f64,
+    m: Float,
+    g: MyVector3,
+    o: Float,
 
     // simulation state
-    u: f64,
+    u: Float,
     // center of mass
-    x: na::Vector3<f64>,
-    v: na::Vector3<f64>,
+    x: MyVector3,
+    v: MyVector3,
     // heart line
-    hl_normal: na::Vector3<f64>,
-    hl_pos: na::Vector3<f64>,
-    hl_vel: na::Vector3<f64>,
-    hl_accel: na::Vector3<f64>,
+    hl_normal: MyVector3,
+    hl_pos: MyVector3,
+    hl_vel: MyVector3,
+    hl_accel: MyVector3,
     // rotation
     torque_exceeded: bool,
-    w: na::Vector3<f64>, // angular velocity
-    I: f64,              // moment of inertia
+    w: MyVector3, // angular velocity
+    I: Float,     // moment of inertia
 
     // stats, info, persisted intermediate values
-    delta_u_: f64,
-    delta_t_: f64,
-    delta_x_: na::Vector3<f64>,
-    delta_hl_normal_: na::Vector3<f64>,
-    ag_: na::Vector3<f64>,
-    F_N_: na::Vector3<f64>,
-    torque_: na::Vector3<f64>,
+    delta_u_: Float,
+    delta_t_: Float,
+    delta_x_: MyVector3,
+    delta_hl_normal_: MyVector3,
+    ag_: MyVector3,
+    F_N_: MyVector3,
+    torque_: MyVector3,
 }
 
 impl PhysicsStateV3 {
     /// Initialize the physics state: `m` mass, `g` Gravity vector,
     /// `curve.curve_at(0.0)`: Starting position of the curve at `u=0`
-    pub fn new(m: f64, g: na::Vector3<f64>, curve: &hermite::Spline, o: f64) -> Self {
-        let hl_pos = curve.curve_at(0.0).unwrap();
-        let mut hl_forward = curve.curve_1st_derivative_at(0.0).unwrap();
-        
+    pub fn new(m: f64, g: f64, curve: &hermite::Spline, o: f64) -> Self {
+        let g = MyVector3::new_f64(0.0, g, 0.0);
+        let hl_pos = curve.curve_at(&float!()).unwrap();
+        let mut hl_forward = curve.curve_1st_derivative_at(&float!()).unwrap();
+
         if hl_forward.magnitude() == 0.0 {
-            hl_forward = curve.curve_2nd_derivative_at(0.0).unwrap();
+            hl_forward = curve.curve_2nd_derivative_at(&float!()).unwrap();
         }
         if hl_forward.magnitude() == 0.0 {
-            hl_forward = curve.curve_3rd_derivative_at(0.0).unwrap();
+            hl_forward = curve.curve_3rd_derivative_at(&float!()).unwrap();
         }
         if hl_forward.magnitude() == 0.0 {
-            hl_forward = curve.curve_4th_derivative_at(0.0).unwrap();
+            hl_forward = curve.curve_4th_derivative_at(&float!()).unwrap();
         }
         assert!(hl_forward.magnitude() > 0.0);
-        let hl_normal = (-g - vector_projection(-g, hl_forward)).normalize();
-        Self {
+        let hl_normal = (-g.clone() - vector_projection(-g.clone(), hl_forward)).normalize();
+        let s = Self {
             // constants
-            m,
-            I: 1.0,
+            m: float!(m),
+            I: float!(1.0),
             g,
-            o,
+            o: float!(o),
             // simulation state
-            u: 0.0,
+            u: float!(0.0), //0.0,
             // center of mass
-            x: hl_pos - o * hl_normal,
+            x: hl_pos.clone() - o * hl_normal.clone(),
             v: Default::default(),
             // heart line
             hl_pos,
@@ -108,17 +155,19 @@ impl PhysicsStateV3 {
             torque_exceeded: false,
             w: Default::default(),
             // stats, info, persisted intermediate values
-            delta_u_: 0.0,
+            delta_u_: float!(0.0), //0.0,
             delta_x_: Default::default(),
-            delta_t_: 0.0,
+            delta_t_: float!(0.0),
             delta_hl_normal_: Default::default(),
             F_N_: Default::default(),
             ag_: Default::default(),
             torque_: Default::default(),
-        }
+        };
+        godot_warn!("{:#?}", s);
+        s
     }
 
-    fn calc_delta_t_from_delta_u(&self, step: f64) -> Option<f64> {
+    /*fn calc_delta_t_from_delta_u(&self, step: f64) -> Option<f64> {
         // delta_t is computed based on g,v, delta_X
             // Find the positive root of the quadratic equation
             let a_ = self.g.dot(&self.delta_x_) / self.delta_x_.magnitude_squared();
@@ -153,39 +202,44 @@ impl PhysicsStateV3 {
                 },
                 _ => unreachable!(),
             }
-    }
+    }*/
 
-    fn calc_new_u_from_delta_t(&mut self, step: f64, init_bracket_amount: f64, curve: &hermite::Spline) -> Option<f64> {
+    fn calc_new_u_from_delta_t(
+        &mut self,
+        step: &Float,
+        init_bracket_amount: Float,
+        curve: &hermite::Spline,
+    ) -> Option<Float> {
         // Semi-implicit euler position update
-        let new_pos = self.x + step * (self.v + step * self.g);
+        let new_pos =
+            self.x.clone() + step.clone() * (self.v.clone() + step.clone() * self.g.clone());
 
-        let u_lower_bound = (self.u - init_bracket_amount).max(0.0);
-        let u_upper_bound = (self.u + init_bracket_amount).min(curve.max_u());
+        let u_lower_bound = (self.u.clone() - init_bracket_amount.clone()).max(&float!(0.0));
+        let u_upper_bound =
+            (self.u.clone() + init_bracket_amount.clone()).min(&float!(curve.max_u()));
         if u_upper_bound == curve.max_u() {
             return None;
         }
-        let roots = roots::find_root_brent(u_lower_bound, u_upper_bound, |u| {
-            let v1 = new_pos - curve.curve_at(u).unwrap();
-            let v2 = curve.curve_1st_derivative_at(u).unwrap();
-            godot_print!("v1: {:.3?} v2: {:.3?}", v1, v2);
-            scaler_projection(
-                new_pos - curve.curve_at(u).unwrap(),
-                curve.curve_1st_derivative_at(u).unwrap(),
-            )
-        }, &mut 1e-14f64);
+        let roots = find_root_bisection(
+            u_lower_bound,
+            u_upper_bound,
+            |u| {
+                let v1 = new_pos.clone() - curve.curve_at(u).unwrap();
+                let v2 = curve.curve_1st_derivative_at(u).unwrap();
+                godot_print!("v1: {:.3?} v2: {:.3?}", v1, v2);
+                scaler_projection(
+                    new_pos.clone() - curve.curve_at(u).unwrap(),
+                    curve.curve_1st_derivative_at(u).unwrap(),
+                )
+            },
+            float!(1e-14f64),
+        );
         match roots {
-            Ok(root) => Some(root),
-            Err(e) => match e {
-                roots::SearchError::NoConvergency => {
-                    godot_warn!("NoConvergency");
-                    return self.calc_new_u_from_delta_t(step, init_bracket_amount * 2.0, curve)
-                }
-                roots::SearchError::NoBracketing => {
-                    //godot_warn!("NoBracketing");
-                    return self.calc_new_u_from_delta_t(step, init_bracket_amount * 2.0, curve)
-                },
-                roots::SearchError::ZeroDerivative => unreachable!(),
-            }
+            Some(root) => Some(root),
+            None => {
+                godot_warn!("No root found, widening");
+                return self.calc_new_u_from_delta_t(step, init_bracket_amount * 2.0, curve)
+            },
         }
     }
 
@@ -196,14 +250,15 @@ impl PhysicsStateV3 {
     /// if `dsdu` is zero, a fallback step size is used
     pub fn step(
         &mut self,
-        step: f64,
+        step: Float,
         curve: &hermite::Spline,
         behavior: StepBehavior,
     ) -> Option<()> {
+        godot_print!("HI");
         if self.torque_exceeded {
             //return None;
         }
-       // godot_print!("Step for {}", self.u);
+        // godot_print!("Step for {}", self.u);
 
         // 0.00001 is unstable (either due to rounding error)
         let max_curve_angle: f64 = 0.0001;
@@ -235,22 +290,29 @@ impl PhysicsStateV3 {
         //    }
         //};
 
-        self.delta_t_ = step;
-        let new_u = self.calc_new_u_from_delta_t(step, 0.0001, curve).unwrap();
-        self.delta_u_ = new_u - self.u;
+        self.delta_t_ = step.clone();
+        let new_u = self
+            .calc_new_u_from_delta_t(&step, float!(0.00001), curve)
+            .unwrap();
+        self.delta_u_ = new_u.clone() - self.u.clone();
+
+        //return Some(());
 
         // Advance the parametric value u by delta_u and calculate the new position along the curve.
         // The displacement vector delta_x is the difference between the new position and the current position.
         //let new_u = self.u + self.delta_u_;
-        self.ag_ = self.hl_accel - self.g;
-        let new_hl_normal = if /*self.torque_exceeded*/ true {
-            self.hl_normal
+        self.ag_ = self.hl_accel.clone() - self.g.clone();
+        let new_hl_normal = if
+        /*self.torque_exceeded*/
+        true {
+            self.hl_normal.clone()
         } else {
-            let ortho_to = curve.curve_1st_derivative_at(new_u).unwrap().normalize();
-            let tmp = (self.ag_.normalize() - vector_projection(self.ag_.normalize(), ortho_to)).normalize();
-            (tmp - vector_projection(tmp, ortho_to)).normalize()
+            let ortho_to = curve.curve_1st_derivative_at(&new_u).unwrap().normalize();
+            let tmp = (self.ag_.clone().normalize() - vector_projection(self.ag_.clone().normalize(), ortho_to.clone()))
+                .normalize();
+            (tmp.clone() - vector_projection(tmp.clone(), ortho_to.clone())).normalize()
         };
-        self.delta_x_ = curve.curve_at(new_u).unwrap() - self.o * self.hl_normal - self.x;
+        self.delta_x_ = curve.curve_at(&new_u).unwrap() - self.o.clone() * self.hl_normal.clone() - self.x.clone();
 
         let step_too_big = {
             self.v.angle(&self.delta_x_) > max_curve_angle
@@ -270,23 +332,26 @@ impl PhysicsStateV3 {
         // Position(x): Advance based on velocity
         // u: A Advances to the next point.
         //self.F_N_ = na::Vector3::zeros();
+
         self.F_N_ =
-            self.m * (self.delta_x_ / self.delta_t_.powi(2) - self.v / self.delta_t_ - self.g);
+            self.m.clone() * (self.delta_x_.clone() / self.delta_t_.clone().pow(2) - self.v.clone() / self.delta_t_.clone() - self.g.clone());
         #[allow(non_snake_case)]
-        let F = self.F_N_ + self.g * self.m;
+        let F = self.F_N_.clone() + self.g.clone() * self.m.clone();
         // hl values
-        let new_hl_vel = (curve.curve_at(new_u)? - curve.curve_at(self.u)?) / self.delta_t_;
-        let new_hl_accel = (new_hl_vel - self.hl_vel) / self.delta_t_;
+        let new_hl_vel = (curve.curve_at(&new_u)? - curve.curve_at(&self.u)?) / self.delta_t_.clone();
+        let new_hl_accel = (new_hl_vel.clone() - self.hl_vel.clone()) / self.delta_t_.clone();
         // rotation
         self.delta_hl_normal_ =
-            self.hl_normal.cross(&new_hl_normal) * self.hl_normal.angle(&new_hl_normal);
-        godot_print!("{:.6} {:.5}", self.delta_hl_normal_.magnitude(), step);
+            self.hl_normal.cross(&new_hl_normal) * self.hl_normal.angle_dbg::<()>(&new_hl_normal);
+        if self.delta_hl_normal_.has_nan() {
+            godot_warn!("NAN delta_hl_normal\n\thl_normal: {:#?}\n\rnew: {:#?}\n\rcross: {:3?}\n\rangle: {}", self.hl_normal, new_hl_normal, self.hl_normal.cross(&new_hl_normal), self.hl_normal.angle(&new_hl_normal));
+        }
         if self.torque_exceeded {
             //self.torque_ = na::Vector3::zeros();
-            self.w = na::Vector3::zeros();
+            self.w = MyVector3::default();
         } else {
             self.torque_ =
-                self.I * (self.delta_hl_normal_ / self.delta_t_.powi(2) - self.w / self.delta_t_);
+                self.I.clone() * (self.delta_hl_normal_.clone() / self.delta_t_.clone().pow(2) - self.w.clone() / self.delta_t_.clone());
             /*godot_warn!(
                 "Torque: {} = {} / {} - {} / {}",
                 self.torque_.magnitude(),
@@ -297,7 +362,7 @@ impl PhysicsStateV3 {
             );*/
         }
         if !self.torque_exceeded {
-            self.w = self.w + self.delta_t_ * self.torque_ / self.I;
+            self.w = self.w.clone() + self.delta_t_.clone() * self.torque_.clone() / self.I.clone();
         }
         if !self.torque_exceeded
             && self.torque_.magnitude() > MAX_TORQUE
@@ -309,20 +374,22 @@ impl PhysicsStateV3 {
             return self.step(step, curve, behavior);*/
         }
         // semi-implicit euler update rule
-        self.v = self.v + self.delta_t_ * F / self.m;
-        let new_x = self.x + self.delta_t_ * self.v;
-        godot_print!("translation error: {:?}", new_x - self.x - self.delta_x_);
-        self.x = new_x;
-        
+        self.v = self.v.clone() + self.delta_t_.clone() * F / self.m.clone();
+        let new_x = self.x.clone() + self.delta_t_.clone() * self.v.clone();
+        godot_print!("translation error: {:?}", new_x.clone() - self.x.clone() - self.delta_x_.clone());
+        self.x = new_x.clone();
+
         // cop-out update
         //self.x = curve.curve_at(new_u).unwrap();
 
         self.u = new_u;
         self.hl_normal =
-            na::UnitQuaternion::from_scaled_axis(self.w * self.delta_t_) * self.hl_normal;
+            MyQuaternion::from_scaled_axis(self.w.clone() * self.delta_t_.clone()).rotate(self.hl_normal.clone());
         // updates
         self.hl_vel = new_hl_vel;
         self.hl_accel = new_hl_accel;
+
+        godot_warn!("{:#?}", self);
 
         Some(())
     }
@@ -349,7 +416,7 @@ delta-t: {:.6}
 delta-u: {:.10?}",
             self.x,
             self.v,
-            0.5 * self.m * self.v.magnitude_squared() + self.m * self.g.magnitude() * self.x.y,
+            0.5 * self.m.clone() * self.v.magnitude_squared() + self.m.clone() * self.g.magnitude() * self.x.y.clone(),
             self.v.magnitude(),
             self.hl_vel.magnitude(),
             self.hl_accel.magnitude(),
@@ -358,8 +425,14 @@ delta-u: {:.10?}",
             self.delta_x_.magnitude(),
             self.delta_x_,
             self.F_N_,
-            (self.F_N_.angle(&self.hl_normal) * 180.0 / std::f64::consts::PI).abs(),
-            (90.0 - self.hl_normal.angle(&curve.curve_1st_derivative_at(self.u).unwrap()) * 180.0 / std::f64::consts::PI).abs(),
+            (self.F_N_.angle(&self.hl_normal) * float!(180.0) / std::f64::consts::PI).abs(),
+            (float!(90.0)
+                - self
+                    .hl_normal
+                    .angle(&curve.curve_1st_derivative_at(&self.u).unwrap())
+                    * float!(180.0)
+                    / std::f64::consts::PI)
+                .abs(),
             self.torque_exceeded,
             self.w.magnitude(),
             self.w,
@@ -371,27 +444,27 @@ delta-u: {:.10?}",
         )
     }
 
-    pub fn pos(&self) -> na::Vector3<f64> {
-        self.x
+    pub fn pos(&self) -> &MyVector3 {
+        &self.x
     }
 
-    pub fn vel(&self) -> na::Vector3<f64> {
-        self.v
+    pub fn vel(&self) -> &MyVector3 {
+        &self.v
     }
 
-    pub fn hl_normal(&self) -> na::Vector3<f64> {
-        self.hl_normal
+    pub fn hl_normal(&self) -> &MyVector3 {
+        &self.hl_normal
     }
 
-    pub fn ag(&self) -> na::Vector3<f64> {
-        self.ag_
+    pub fn ag(&self) -> &MyVector3 {
+        &self.ag_
     }
 
-    pub fn a(&self) -> na::Vector3<f64> {
-        self.hl_accel
+    pub fn a(&self) -> &MyVector3 {
+        &self.hl_accel
     }
 
-    pub fn g(&self) -> na::Vector3<f64> {
-        self.g
+    pub fn g(&self) -> &MyVector3 {
+        &self.g
     }
 }

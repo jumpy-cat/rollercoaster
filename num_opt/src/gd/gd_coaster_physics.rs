@@ -1,8 +1,11 @@
 use godot::prelude::*;
 
-use crate::physics;
+use crate::physics::{self, float, linalg::MyVector3};
+use crate::physics::PRECISION;
+use rug::Float;
 
-use super::{na_to_gd, CoasterCurve};
+
+use super::{myvec_to_gd, na_to_gd, CoasterCurve};
 
 /// Wrapper around physics::PhysicsState
 #[derive(GodotClass)]
@@ -33,11 +36,11 @@ impl CoasterPhysics {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
             let u = phys.u();
-            if let Some(drdu) = curve.curve_1st_derivative_at(u) {
+            if let Some(drdu) = curve.curve_1st_derivative_at(&float!(u)) {
                 phys.step(
-                    drdu.x,
-                    drdu.y,
-                    drdu.z,
+                    drdu.x.to_f64(),
+                    drdu.y.to_f64(),
+                    drdu.z.to_f64(),
                     physics::StepBehavior::Time,
                     step_size,
                 );
@@ -51,7 +54,7 @@ impl CoasterPhysics {
         if let Some(phys) = &self.inner
             && let Some(pos) = phys.com_pos(&curve.bind().inner)
         {
-            Variant::from(na_to_gd(pos))
+            Variant::from(myvec_to_gd(&pos))
         } else {
             Variant::nil()
         }
@@ -128,7 +131,7 @@ impl CoasterPhysics {
     }
 }
 
-/// Wrapper around physics::PhysicsStateV2
+/*/// Wrapper around physics::PhysicsStateV2
 #[derive(GodotClass)]
 #[class(init)]
 #[deprecated]
@@ -240,7 +243,7 @@ impl CoasterPhysicsV2 {
         }
     }
 }
-
+*/
 /// Wrapper around physics::PhysicsStateV3
 #[derive(GodotClass)]
 #[class(init)]
@@ -256,7 +259,7 @@ impl CoasterPhysicsV3 {
         Gd::from_object(Self {
             inner: Some(physics::PhysicsStateV3::new(
                 mass,
-                na::Vector3::new(0.0, gravity, 0.0),
+                gravity,
                 &curve.bind().inner,
                 o,
             )),
@@ -265,13 +268,12 @@ impl CoasterPhysicsV3 {
 
     #[func]
     fn step(&mut self, curve: Gd<CoasterCurve>, step_size: f64) {
+        godot_print!("step");
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
-            for _ in 0..10 {
-                if phys.step(step_size, curve, physics::StepBehavior::Constant).is_none() {
+            if phys.step(float!(step_size), curve, physics::StepBehavior::Constant).is_none() {
                     //godot_warn!("Simulation Stuck");
-                };
-            }
+            };
         }
     }
 
@@ -287,7 +289,7 @@ impl CoasterPhysicsV3 {
     #[func]
     fn pos(&self) -> Variant {
         if let Some(phys) = &self.inner {
-            Variant::from(na_to_gd(phys.pos()))
+            Variant::from(myvec_to_gd(phys.pos()))
         } else {
             Variant::nil()
         }
@@ -296,7 +298,7 @@ impl CoasterPhysicsV3 {
     #[func]
     fn vel(&self) -> Variant {
         if let Some(phys) = &self.inner {
-            Variant::from(na_to_gd(phys.vel()))
+            Variant::from(myvec_to_gd(phys.vel()))
         } else {
             Variant::nil()
         }
@@ -305,7 +307,7 @@ impl CoasterPhysicsV3 {
     #[func]
     fn hl_normal(&self) -> Variant {
         if let Some(phys) = &self.inner {
-            Variant::from(na_to_gd(phys.hl_normal()))
+            Variant::from(myvec_to_gd(phys.hl_normal()))
         } else {
             Variant::nil()
         }
@@ -314,7 +316,7 @@ impl CoasterPhysicsV3 {
     #[func]
     fn ag(&self) -> Variant {
         if let Some(phys) = &self.inner {
-            Variant::from(na_to_gd(phys.ag()))
+            Variant::from(myvec_to_gd(phys.ag()))
         } else {
             Variant::nil()
         }
@@ -323,7 +325,7 @@ impl CoasterPhysicsV3 {
     #[func]
     fn a(&self) -> Variant {
         if let Some(phys) = &self.inner {
-            Variant::from(na_to_gd(phys.a()))
+            Variant::from(myvec_to_gd(phys.a()))
         } else {
             Variant::nil()
         }
@@ -332,7 +334,7 @@ impl CoasterPhysicsV3 {
     #[func]
     fn g(&self) -> Variant {
         if let Some(phys) = &self.inner {
-            Variant::from(na_to_gd(phys.g()))
+            Variant::from(myvec_to_gd(phys.g()))
         } else {
             Variant::nil()
         }

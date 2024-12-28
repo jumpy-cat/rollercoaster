@@ -1,4 +1,5 @@
 #![feature(let_chains, array_windows)]
+//#![recursion_limit = "2048"]
 
 extern crate nalgebra as na;
 

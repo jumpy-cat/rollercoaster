@@ -4,9 +4,11 @@ use std::{
     time::Instant,
 };
 
-use crate::{hermite, optimizer, physics, point};
+use crate::{hermite, optimizer, physics::{self, float}, point};
 use godot::prelude::*;
 use num_traits::AsPrimitive;
+use crate::physics::PRECISION;
+use rug::Float;
 
 use super::{CoasterCurve, CoasterPoint};
 
@@ -53,6 +55,7 @@ impl INode for Optimizer {
     /// Starts up the worker thread and sets point and curve to empty values
     fn init(_base: Base<Node>) -> Self {
         godot_print!("Hello from Optimizer!");
+        godot_print!("{}", float!(1e-14f64));
 
         let (to_worker_tx, to_worker_rx) = mpsc::channel::<ToWorker>();
         let (to_main_tx, to_main_rx) = mpsc::channel();
