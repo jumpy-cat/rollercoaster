@@ -1,8 +1,10 @@
 use godot::prelude::*;
 
+use crate::my_float::MyFloatType;
 use crate::physics::{self, float, linalg::MyVector3};
 use crate::physics::PRECISION;
 use rug::Float;
+use crate::my_float::MyFloat;
 
 
 use super::{myvec_to_gd, na_to_gd, CoasterCurve};
@@ -36,7 +38,7 @@ impl CoasterPhysics {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
             let u = phys.u();
-            if let Some(drdu) = curve.curve_1st_derivative_at(&float!(u)) {
+            if let Some(drdu) = curve.curve_1st_derivative_at(&u) {
                 phys.step(
                     drdu.x.to_f64(),
                     drdu.y.to_f64(),
@@ -248,7 +250,7 @@ impl CoasterPhysicsV2 {
 #[derive(GodotClass)]
 #[class(init)]
 pub struct CoasterPhysicsV3 {
-    inner: Option<physics::PhysicsStateV3>,
+    inner: Option<physics::PhysicsStateV3<MyFloatType>>,
 }
 
 #[godot_api]
@@ -270,7 +272,7 @@ impl CoasterPhysicsV3 {
     fn step(&mut self, curve: Gd<CoasterCurve>, step_size: f64) {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
-            if phys.step(float!(step_size), curve, physics::StepBehavior::Constant).is_none() {
+            if phys.step(MyFloatType::from_f64(step_size), curve, physics::StepBehavior::Constant).is_none() {
                     //godot_warn!("Simulation Stuck");
             };
         }

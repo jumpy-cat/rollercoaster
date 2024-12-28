@@ -5,11 +5,14 @@
 use std::array;
 // ensure segments for curve sampling are not zero
 use std::num::NonZeroU32;
+use std::ops::{Add, Mul};
 
 use ndarray::Array1;
+use num_traits::Pow;
 use rug::ops::CompleteRound;
 use rug::Float;
 
+use crate::my_float::MyFloat;
 // Refer to a custom module that defines a Point struct used in splines.
 use crate::{physics::float, point};
 
@@ -111,21 +114,21 @@ fn get_matrix() -> ndarray::Array2<f64> {
             (20.0),
             (10.0),
             (2.0),
-            (1.0/ 6.0),
+            (1.0 / 6.0),
             (-20.0),
             (10.0),
             (-2.0),
-            (1.0/ 6.0),
+            (1.0 / 6.0),
         ],
         [
             (-70.0),
             (-36.0),
-            (-15.0/ 2.0),
-            (-2.0/ 3.0),
+            (-15.0 / 2.0),
+            (-2.0 / 3.0),
             (70.0),
             (-34.0),
-            (13.0/ 2.0),
-            (-1.0/ 2.0),
+            (13.0 / 2.0),
+            (-1.0 / 2.0),
         ],
         [
             (84.0),
@@ -135,17 +138,17 @@ fn get_matrix() -> ndarray::Array2<f64> {
             (-84.0),
             (39.0),
             (-7.0),
-            (1.0/ 2.0),
+            (1.0 / 2.0),
         ],
         [
             (-35.0),
             (-20.0),
             (-5.0),
-            (-2.0/ 3.0),
+            (-2.0 / 3.0),
             (35.0),
             (-15.0),
-            (5.0/ 2.0),
-            (-1.0/ 6.0),
+            (5.0 / 2.0),
+            (-1.0 / 6.0),
         ],
         [
             (0.0),
@@ -160,7 +163,7 @@ fn get_matrix() -> ndarray::Array2<f64> {
         [
             (0.0),
             (0.0),
-            (1.0/ 2.0),
+            (1.0 / 2.0),
             (0.0),
             (0.0),
             (0.0),
@@ -208,30 +211,13 @@ fn get_matrix_precise() -> na::SMatrix<f64, 8,8> {
     ])
 }
 
-/// Simplify defining functions to calculate position(x,y,z)
-/// or its derivatives from the coefficients.  
-/// Uses a polynomial representation.
-macro_rules! curve_params_getter {
-    ($name:ident, $c:expr, $v:ident) => {
-        /// Evaluates the polynomial defined by the coefficients in `$c` at `u`,
-        /// using the $v coordinate
-        pub fn $name(&self, u: &Float) -> Float {
-            use rug::ops::Pow;
-            $c.iter()
-                .zip(&self.$v)
-                .map(|((coeff, power), param)| *coeff * param.clone() * u.clone().pow(*power))
-                .fold(float!(), |acc, x| acc + x)
-        }
-    };
-}
-
 /// A hermite spline, each curve parameterized by CurveParms.
 #[derive(Clone)]
-pub struct Spline {
-    params: Vec<CurveParams>,
+pub struct Spline<T> where T: MyFloat {
+    params: Vec<CurveParams<T>>,
 }
 
-impl Default for Spline {
+impl<T> Default for Spline<T> where T: MyFloat {
     /// Creates an empty spline
     fn default() -> Self {
         Self { params: vec![] }
@@ -253,7 +239,7 @@ macro_rules! spline_getter {
     }};
 }
 
-impl Spline {
+impl<T> Spline<T> where T: MyFloat {
     /// Creates a spline from the given points  
     /// For each pair of points, we need to find a Hermite polynomial  
     /// that smoothly interpolates between them.
@@ -273,7 +259,7 @@ impl Spline {
     }
 
     /// Iterate through the hermite curves of the spline
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a CurveParams> + use<'a> {
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a CurveParams<T>> {
         self.params.iter()
     }
 
@@ -283,9 +269,9 @@ impl Spline {
     /// while `u = 1` corresponds to the end of the first curve.
     /// This method evaluates the position by taking the `floor(u)`-th curve
     /// in the spline, and taking its position at `u - floor(u)`.
-    pub fn curve_at(&self, u: &Float) -> Option<MyVector3> {
+    pub fn curve_at(&self, u: &T) -> Option<MyVector3<T>> {
         let i = u.clone().floor();
-        let rem = (u - &i).complete(PRECISION);
+        let rem = u.clone() - i.clone();
         let i = i.to_f64() as usize;
         if i >= self.params.len() {
             return None;
@@ -297,45 +283,46 @@ impl Spline {
         ))
     }
 
-    fn u_to_i_rem(&self, u: &Float) -> (usize, Float) {
+    fn u_to_i_rem(&self, u: &T) -> (usize, T) {
         let i = u.clone().floor();
-        let rem = u.clone() - &i;
+        let rem = u.clone() - i.clone();
         let i = i.to_f64() as usize;
         (i, rem)
     }
 
     /// Find the 1st derivative ("velocity") of the spline at `u`
-    pub fn curve_1st_derivative_at(&self, u: &Float) -> Option<MyVector3> {
+    pub fn curve_1st_derivative_at(&self, u: &T) -> Option<MyVector3<T>> {
         spline_getter!(self, x_d1, y_d1, z_d1, u)
     }
 
     /// Find the 2nd derivative ("acceleration") of the spline at `u`
-    pub fn curve_2nd_derivative_at(&self, u: &Float) -> Option<MyVector3> {
+    pub fn curve_2nd_derivative_at(&self, u: &T) -> Option<MyVector3<T>> {
         spline_getter!(self, x_d2, y_d2, z_d2, u)
     }
 
     /// Find the 3rd derivative ("jerk") of the spline at `u`
-    pub fn curve_3rd_derivative_at(&self, u: &Float) -> Option<MyVector3> {
+    pub fn curve_3rd_derivative_at(&self, u: &T) -> Option<MyVector3<T>> {
         spline_getter!(self, x_d3, y_d3, z_d3, u)
     }
 
     /// Find the 4th derivative ("snap") of the spline at `u`
-    pub fn curve_4th_derivative_at(&self, u: &Float) -> Option<MyVector3> {
+    pub fn curve_4th_derivative_at(&self, u: &T) -> Option<MyVector3<T>> {
         spline_getter!(self, x_d4, y_d4, z_d4, u)
     }
 }
 
 /// A single hermite curve
 #[derive(Clone)]
-pub struct CurveParams {
-    x: [Float; 8], // x(t) = x[0] * t^7 + x[1] * t^6 + ... + x[7] * t^0
-    y: [Float; 8], // y(t) = y[0] * t^7 + y[1] * t^6 + ... + y[7] * t^0
-    z: [Float; 8], // z(t) = z[0] * t^7 + z[1] * t^6 + ... + z[7] * t^0
+pub struct CurveParams<T> where T: MyFloat {
+    x: [T; 8], // x(t) = x[0] * t^7 + x[1] * t^6 + ... + x[7] * t^0
+    y: [T; 8], // y(t) = y[0] * t^7 + y[1] * t^6 + ... + y[7] * t^0
+    z: [T; 8], // z(t) = z[0] * t^7 + z[1] * t^6 + ... + z[7] * t^0
 }
 
-impl CurveParams {
+// Stores polynomial coefficients for x(t), y(t), z(t), each up to t7.
+impl<T> CurveParams<T> where T: MyFloat {
     /// Create a new hermite curve
-    pub fn new(x: Box<[Float]>, y: Box<[Float]>, z: Box<[Float]>) -> Self // -> CurveParams[Float], y: [Float], z: [Float]) -> Self {
+    pub fn new(x: Box<[T]>, y: Box<[T]>, z: Box<[T]>) -> Self // -> CurveParams[Float], y: [Float], z: [Float]) -> Self {
     {
         assert_eq!(x.len(), 8);
         assert_eq!(y.len(), 8);
@@ -345,10 +332,7 @@ impl CurveParams {
         let z = array::from_fn(|i| z[i].clone());
         Self { x, y, z }
     }
-}
 
-// Stores polynomial coefficients for x(t), y(t), z(t), each up to t7.
-impl CurveParams {
     // coefficents and power
     /// position
     const D0: [(f64, i32); 8] = [
@@ -395,6 +379,26 @@ impl CurveParams {
         (5.0 * 4.0 * 3.0 * 2.0, 1),
         (4.0 * 3.0 * 2.0, 0),
     ];
+}
+
+/// Simplify defining functions to calculate position(x,y,z)
+/// or its derivatives from the coefficients.  
+/// Uses a polynomial representation.
+macro_rules! curve_params_getter {
+    ($name:ident, $c:expr, $v:ident) => {
+        /// Evaluates the polynomial defined by the coefficients in `$c` at `u`,
+        /// using the $v coordinate
+        pub fn $name(&self, u: &T) -> T {
+            use rug::ops::Pow;
+            $c.iter()
+                .zip(&self.$v)
+                .map(|((coeff, power), param)| param.clone() * *coeff * u.clone().pow(*power))
+                .fold(T::from_f64(0.0), |acc, x| acc + x)
+        }
+    };
+}
+
+impl<T> CurveParams<T> where T: MyFloat {
 
     // getters for position and 1st derivative
     curve_params_getter!(x_d0, Self::D0, x);
@@ -418,7 +422,7 @@ impl CurveParams {
 /// This step constructs the coefficients of the Hermite polynomial
 /// that interpolates two points, ensuring that the curve satisfies
 /// conditions for position, velocity, accerlation, and jerk continuity.
-pub fn solve(p: &point::Point<f64>, q: &point::Point<f64>) -> CurveParams {
+pub fn solve<T>(p: &point::Point<f64>, q: &point::Point<f64>) -> CurveParams<T> where T: MyFloat {
     let m = get_matrix();
     //type SMatrix8x1 = na::SMatrix<f64, 8, 1>;
     // let x_in = SMatrix8x1::from_row_slice(&[p.x, p.xp, p.xpp, p.xppp, q.x, q.xp, q.xpp, q.xppp]);
@@ -467,18 +471,18 @@ pub fn solve(p: &point::Point<f64>, q: &point::Point<f64>) -> CurveParams {
     }
     println!("0)");*/
     CurveParams::new(
-        x_out.into_iter().map(|x| float!(x)).collect(),
-        y_out.into_iter().map(|x| float!(x)).collect(),
-        z_out.into_iter().map(|x| float!(x)).collect(),
+        x_out.into_iter().map(|x| T::from_f64(x)).collect(),
+        y_out.into_iter().map(|x| T::from_f64(x)).collect(),
+        z_out.into_iter().map(|x| T::from_f64(x)).collect(),
     )
 }
 
 /// Samples a hermite curve, splitting it into `segments` segments
 /// The segments are __not__ equal in length
-pub fn curve_points(params: &CurveParams, segments: NonZeroU32) -> Vec<(f64, f64, f64)> {
+pub fn curve_points<T>(params: &CurveParams<T>, segments: NonZeroU32) -> Vec<(f64, f64, f64)> where T: MyFloat {
     (0..segments.get() + 1)
         .map(|t| {
-            let t = float!(t as f64, segments.get() as f64);
+            let t = T::from_f64_fraction(t as f64, segments.get() as f64);
             let x = params.x_d0(&t);
             let y = params.y_d0(&t);
             let z = params.z_d0(&t);

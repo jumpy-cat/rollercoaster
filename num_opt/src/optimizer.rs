@@ -1,6 +1,6 @@
 //! Calculates the cost of a curve, and performs gradient descent to optimize it
 
-use crate::{hermite, physics::{self, float}, point};
+use crate::{hermite, my_float::MyFloat, physics::{self, float}, point};
 use rug::Float;
 use crate::physics::PRECISION;
 
@@ -33,9 +33,9 @@ use crate::physics::PRECISION;
 ///
 /// `phys.cost()` computes the total cost of the curve, if cost is `Nan`, it
 /// returns `None` to indicate an invalid calculation
-fn cost(initial: physics::legacy::PhysicsState, curve: &hermite::Spline) -> Option<f64> {
+fn cost<T: MyFloat>(initial: physics::legacy::PhysicsState, curve: &hermite::Spline<T>) -> Option<f64> {
     let mut phys = initial;
-    while let Some(drdu) = curve.curve_1st_derivative_at(&float!(phys.u())) {
+    while let Some(drdu) = curve.curve_1st_derivative_at(&T::from_f64(phys.u())) {
         phys.step(drdu.x.to_f64(), drdu.y.to_f64(), drdu.z.to_f64(), physics::StepBehavior::Distance, 1.0);
     }
     if phys.cost().is_nan() {
@@ -52,9 +52,9 @@ fn cost(initial: physics::legacy::PhysicsState, curve: &hermite::Spline) -> Opti
 // curve: The Hermite spline to optimize
 // points: Array of control points for the spline
 //LR: Determines the step size for gradient descent
-pub fn optimize(
+pub fn optimize<T: MyFloat>(
     initial: &physics::legacy::PhysicsState,
-    curve: &hermite::Spline,
+    curve: &hermite::Spline<T>,
     points: &mut [point::Point<f64>],
     lr: f64,
 ) -> Option<f64> {
@@ -69,7 +69,7 @@ pub fn optimize(
             // for each control point, compute the gradient of the cost function with respect to its derivatives.
             for np in nudged {  
                 controls[i] = np; 
-                let params = hermite::Spline::new(&controls);
+                let params = hermite::Spline::<T>::new(&controls);
                 let new_cost = cost(initial.clone(), &params);
                 // sublist stores the calculated gradients for this control point.
                 sublist.push(new_cost.map(|c| {

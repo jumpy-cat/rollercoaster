@@ -9,6 +9,7 @@ mod hermite;
 mod optimizer;
 mod physics;
 mod point;
+mod my_float;
 
 // this adds all the godot exports
 mod gd;

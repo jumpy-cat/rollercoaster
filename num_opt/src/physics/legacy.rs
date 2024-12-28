@@ -162,12 +162,12 @@ impl PhysicsState {
         (2.0 * k / self.mass).sqrt()
     }
 
-    pub fn hl_pos(&self, curve: &hermite::Spline) -> Option<MyVector3> {
-        curve.curve_at(&float!(self.u))
+    pub fn hl_pos(&self, curve: &hermite::Spline<f64>) -> Option<MyVector3<f64>> {
+        curve.curve_at(&self.u)
     }
 
     /// Uses `-self.normal_force()` to determine offset direction
-    pub fn com_pos(&self, curve: &hermite::Spline) -> Option<MyVector3> {
+    pub fn com_pos(&self, curve: &hermite::Spline<f64>) -> Option<MyVector3<f64>> {
         self.hl_pos(curve).map(|hl| {
             let offset = self.normal_force.normalize() * self.com_offset_mag;
             hl - MyVector3::new_f64(offset.x, offset.y, offset.z) // (x, y, z)

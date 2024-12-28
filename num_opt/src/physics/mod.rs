@@ -8,7 +8,7 @@ use num_traits::Pow;
 use roots::{FloatType, Roots};
 use rug::{ops::CompleteRound, Float};
 
-use crate::hermite;
+use crate::{hermite, my_float::MyFloat};
 
 pub mod legacy;
 pub mod linalg;
@@ -43,12 +43,12 @@ macro_rules! float {
 
 pub(crate) use float;
 
-fn find_root_bisection(
-    a: Float,
-    b: Float,
-    f: impl Fn(&Float) -> Float,
-    epsilon: Float,
-) -> Option<Float> {
+fn find_root_bisection<T: MyFloat>(
+    a: T,
+    b: T,
+    f: impl Fn(&T) -> T,
+    epsilon: f64,
+) -> Option<T> {
     let mut a = a;
     let mut b = b;
     if a > b {
@@ -59,14 +59,14 @@ fn find_root_bisection(
     }
     let mut fa = f(&a);
     let mut fb = f(&b);
-    if (&fa * &fb).complete(PRECISION) > 0.0 {
+    if (fa.clone() * fb) > 0.0 {
         // they have the same sign, so there is no root in this interval
         return None;
     }
-    while (&b - &a).complete(PRECISION).abs() > epsilon {
-        let m = (&a + &b).complete(PRECISION) / 2.0;
+    while (b.clone() - a.clone()).abs() > epsilon {
+        let m = (a.clone() + b.clone()) / T::from_f64(2.0);
         let fm = f(&m);
-        if (&fa * &fm).complete(PRECISION) < 0.0 {
+        if (fa.clone() * fm.clone()) < 0.0 {
             b = m;
             fb = fm;
         } else {
@@ -74,7 +74,7 @@ fn find_root_bisection(
             fa = fm;
         }
     }
-    Some((&a + &b).complete(PRECISION) / 2.0)
+    Some((a + b) / T::from_f64(2.0))
 }
 
 /// Physics solver v3
@@ -84,69 +84,69 @@ fn find_root_bisection(
 /// Compute intermediate values like delta_x(displacement), F_N(force), and delta_t(time step).
 /// Use a quadratic equation to determine the correcr time step(roots).
 #[derive(Debug)]
-pub struct PhysicsStateV3 {
+pub struct PhysicsStateV3<T: MyFloat> {
     // params
-    m: Float,
-    g: MyVector3,
-    o: Float,
+    m: T,
+    g: MyVector3<T>,
+    o: T,
 
     // simulation state
-    u: Float,
+    u: T,
     // center of mass
-    x: MyVector3,
-    v: MyVector3,
+    x: MyVector3<T>,
+    v: MyVector3<T>,
     // heart line
-    hl_normal: MyVector3,
-    hl_pos: MyVector3,
-    hl_vel: MyVector3,
-    hl_accel: MyVector3,
+    hl_normal: MyVector3<T>,
+    hl_pos: MyVector3<T>,
+    hl_vel: MyVector3<T>,
+    hl_accel: MyVector3<T>,
     // rotation
     torque_exceeded: bool,
-    w: MyVector3, // angular velocity
-    I: Float,     // moment of inertia
+    w: MyVector3<T>, // angular velocity
+    I: T,     // moment of inertia
 
     // stats, info, persisted intermediate values
-    delta_u_: Float,
-    delta_t_: Float,
-    delta_x_actual_: MyVector3,
-    delta_x_target_: MyVector3,
-    delta_hl_normal_actual_: MyVector3,
-    delta_hl_normal_target_: MyVector3,
-    target_hl_normal_: MyVector3,
-    ag_: MyVector3,
-    F_N_: MyVector3,
-    torque_: MyVector3,
+    delta_u_: T,
+    delta_t_: T,
+    delta_x_actual_: MyVector3<T>,
+    delta_x_target_: MyVector3<T>,
+    delta_hl_normal_actual_: MyVector3<T>,
+    delta_hl_normal_target_: MyVector3<T>,
+    target_hl_normal_: MyVector3<T>,
+    ag_: MyVector3<T>,
+    F_N_: MyVector3<T>,
+    torque_: MyVector3<T>,
 }
 
-impl PhysicsStateV3 {
+impl<T: MyFloat> PhysicsStateV3<T> {
     /// Initialize the physics state: `m` mass, `g` Gravity vector,
     /// `curve.curve_at(0.0)`: Starting position of the curve at `u=0`
-    pub fn new(m: f64, g: f64, curve: &hermite::Spline, o: f64) -> Self {
+    pub fn new(m: f64, g: f64, curve: &hermite::Spline<T>, o: f64) -> Self {
         let g = MyVector3::new_f64(0.0, g, 0.0);
-        let hl_pos = curve.curve_at(&float!()).unwrap();
-        let mut hl_forward = curve.curve_1st_derivative_at(&float!()).unwrap();
+        let hl_pos = curve.curve_at(&T::from_f64(0.0)).unwrap();
+        let mut hl_forward = curve.curve_1st_derivative_at(&T::from_f64(0.0)).unwrap();
 
         if hl_forward.magnitude() == 0.0 {
-            hl_forward = curve.curve_2nd_derivative_at(&float!()).unwrap();
+            hl_forward = curve.curve_2nd_derivative_at(&T::from_f64(0.0)).unwrap();
         }
         if hl_forward.magnitude() == 0.0 {
-            hl_forward = curve.curve_3rd_derivative_at(&float!()).unwrap();
+            hl_forward = curve.curve_3rd_derivative_at(&T::from_f64(0.0)).unwrap();
         }
         if hl_forward.magnitude() == 0.0 {
-            hl_forward = curve.curve_4th_derivative_at(&float!()).unwrap();
+            hl_forward = curve.curve_4th_derivative_at(&T::from_f64(0.0)).unwrap();
         }
         assert!(hl_forward.magnitude() > 0.0);
         let hl_normal = (-g.clone() - vector_projection(-g.clone(), hl_forward)).normalize();
         let s = Self {
             // constants
-            m: float!(m),
-            I: float!(1.0),
+            m: T::from_f64(m),
+            I: T::from_f64(1.0),
             g,
-            o: float!(o),
+            o: T::from_f64(o),
             // simulation state
-            u: float!(0.0), //0.0,
+            u: T::from_f64(0.0), //0.0,
             // center of mass
-            x: hl_pos.clone() - o * hl_normal.clone(),
+            x: hl_pos.clone() - hl_normal.clone() * T::from_f64(o), //o,
             v: Default::default(),
             // heart line
             hl_pos,
@@ -157,10 +157,10 @@ impl PhysicsStateV3 {
             torque_exceeded: false,
             w: Default::default(),
             // stats, info, persisted intermediate values
-            delta_u_: float!(0.0), //0.0,
+            delta_u_: T::from_f64(0.0), //0.0,
             delta_x_actual_: Default::default(),
             delta_x_target_: Default::default(),
-            delta_t_: float!(0.0),
+            delta_t_: T::from_f64(0.0),
             delta_hl_normal_actual_: Default::default(),
             delta_hl_normal_target_: Default::default(),
             target_hl_normal_: Default::default(),
@@ -174,17 +174,17 @@ impl PhysicsStateV3 {
 
     fn calc_new_u_from_delta_t(
         &mut self,
-        step: &Float,
-        init_bracket_amount: Float,
-        curve: &hermite::Spline,
-    ) -> Option<Float> {
+        step: &T,
+        init_bracket_amount: T,
+        curve: &hermite::Spline<T>,
+    ) -> Option<T> {
         // Semi-implicit euler position update
         let new_pos =
-            self.x.clone() + step.clone() * (self.v.clone() + step.clone() * self.g.clone());
+            self.x.clone() + (self.v.clone() + self.g.clone() * step.clone()) * step.clone();
 
-        let u_lower_bound = (self.u.clone() - init_bracket_amount.clone()).max(&float!(0.0));
+        let u_lower_bound = (self.u.clone() - init_bracket_amount.clone()).max(&T::from_f64(0.0));
         let u_upper_bound =
-            (self.u.clone() + init_bracket_amount.clone()).min(&float!(curve.max_u()));
+            (self.u.clone() + init_bracket_amount.clone()).min(&T::from_f64(curve.max_u()));
         if u_upper_bound == curve.max_u() {
             return None;
         }
@@ -200,7 +200,7 @@ impl PhysicsStateV3 {
                     curve.curve_1st_derivative_at(u).unwrap(),
                 )
             },
-            float!(1e-14f64),
+            1e-14f64,
         );
         match roots {
             Some(root) => Some(root),
@@ -218,8 +218,8 @@ impl PhysicsStateV3 {
     /// if `dsdu` is zero, a fallback step size is used
     pub fn step(
         &mut self,
-        step: Float,
-        curve: &hermite::Spline,
+        step: T,
+        curve: &hermite::Spline<T>,
         behavior: StepBehavior,
     ) -> Option<()> {
         if self.torque_exceeded {
@@ -235,7 +235,7 @@ impl PhysicsStateV3 {
 
         self.delta_t_ = step.clone();
         let new_u = self
-            .calc_new_u_from_delta_t(&step, float!(0.00001), curve)
+            .calc_new_u_from_delta_t(&step, T::from_f64(0.00001), curve)
             .unwrap();
         self.delta_u_ = new_u.clone() - self.u.clone();
 
@@ -255,7 +255,7 @@ impl PhysicsStateV3 {
             (tmp.clone() - vector_projection(tmp.clone(), ortho_to.clone())).normalize()
         };
         self.delta_x_target_ = curve.curve_at(&new_u).unwrap()
-            - self.o.clone() * self.target_hl_normal_.clone()
+            - self.target_hl_normal_.clone() * self.o.clone()
             - self.x.clone();
 
         let step_too_big = {
@@ -277,10 +277,9 @@ impl PhysicsStateV3 {
         // u: A Advances to the next point.
         //self.F_N_ = na::Vector3::zeros();
 
-        self.F_N_ = self.m.clone()
-            * (self.delta_x_target_.clone() / self.delta_t_.clone().pow(2)
+        self.F_N_ = (self.delta_x_target_.clone() / self.delta_t_.clone().pow(2)
                 - self.v.clone() / self.delta_t_.clone()
-                - self.g.clone());
+                - self.g.clone()) * self.m.clone();
         #[allow(non_snake_case)]
         let F = self.F_N_.clone() + self.g.clone() * self.m.clone();
         // hl values
@@ -299,9 +298,8 @@ impl PhysicsStateV3 {
             //self.torque_ = na::Vector3::zeros();
             self.w = MyVector3::default();
         } else {
-            self.torque_ = self.I.clone()
-                * (self.delta_hl_normal_target_.clone() / self.delta_t_.clone().pow(2)
-                    - self.w.clone() / self.delta_t_.clone());
+            self.torque_ = (self.delta_hl_normal_target_.clone() / self.delta_t_.clone().pow(2)
+                    - self.w.clone() / self.delta_t_.clone()) * self.I.clone();
             /*godot_warn!(
                 "Torque: {} = {} / {} - {} / {}",
                 self.torque_.magnitude(),
@@ -322,8 +320,8 @@ impl PhysicsStateV3 {
         }
 
         // semi-implicit euler update rule
-        self.v = self.v.clone() + self.delta_t_.clone() * F / self.m.clone();
-        let new_x = self.x.clone() + self.delta_t_.clone() * self.v.clone();
+        self.v = self.v.clone() + F / self.m.clone() * self.delta_t_.clone();
+        let new_x = self.x.clone() + self.v.clone() * self.delta_t_.clone();
         self.delta_x_actual_ = new_x.clone() - self.x.clone();
         self.x = new_x.clone();
 
@@ -332,7 +330,7 @@ impl PhysicsStateV3 {
 
         // semi-implicit euler update rule, rotation
         if !self.torque_exceeded {
-            self.w = self.w.clone() + self.delta_t_.clone() * self.torque_.clone() / self.I.clone();
+            self.w = self.w.clone() + self.torque_.clone() * self.delta_t_.clone() / self.I.clone();
         }
 
         self.delta_hl_normal_actual_ = self.w.clone() * self.delta_t_.clone();
@@ -352,7 +350,7 @@ impl PhysicsStateV3 {
         Some(())
     }
 
-    pub fn description(&self, curve: &hermite::Spline) -> String {
+    pub fn description(&self, curve: &hermite::Spline<T>) -> String {
         format!(
             "x: {:.3?}
 v: {:.3?}
@@ -376,7 +374,7 @@ delta-t: {:.6}
 delta-u: {:.10?}",
             self.x,
             self.v,
-            0.5 * self.m.clone() * self.v.magnitude_squared()
+            self.v.magnitude_squared() * 0.5 * self.m.clone()
                 + self.m.clone() * self.g.magnitude() * self.x.y.clone(),
             self.v.magnitude(),
             self.hl_vel.magnitude(),
@@ -387,20 +385,18 @@ delta-u: {:.10?}",
             self.delta_x_target_,
             (self.delta_x_actual_.clone() - self.delta_x_target_.clone()).magnitude(),
             self.F_N_,
-            (self.F_N_.angle(&self.hl_normal) * float!(180.0) / std::f64::consts::PI).abs(),
-            (float!(90.0)
+            (self.F_N_.angle(&self.hl_normal) * T::from_f64_fraction(180.0, std::f64::consts::PI)).abs(),
+            (T::from_f64(90.0)
                 - self
                     .hl_normal
                     .angle(&curve.curve_1st_derivative_at(&self.u).unwrap())
-                    * float!(180.0)
-                    / std::f64::consts::PI)
+                    * T::from_f64_fraction(180.0, std::f64::consts::PI))
                 .abs(),
-            (float!(90.0)
+            (T::from_f64(90.0)
                 - self
                     .target_hl_normal_
                     .angle(&curve.curve_1st_derivative_at(&self.u).unwrap())
-                    * float!(180.0)
-                    / std::f64::consts::PI)
+                    * T::from_f64_fraction(180.0, std::f64::consts::PI))
                 .abs(),
             (self.hl_normal.clone() - self.target_hl_normal_.clone()).magnitude(),
             self.hl_normal.magnitude(),
@@ -418,27 +414,27 @@ delta-u: {:.10?}",
         )
     }
 
-    pub fn pos(&self) -> &MyVector3 {
+    pub fn pos(&self) -> &MyVector3<T> {
         &self.x
     }
 
-    pub fn vel(&self) -> &MyVector3 {
+    pub fn vel(&self) -> &MyVector3<T> {
         &self.v
     }
 
-    pub fn hl_normal(&self) -> &MyVector3 {
+    pub fn hl_normal(&self) -> &MyVector3<T> {
         &self.hl_normal
     }
 
-    pub fn ag(&self) -> &MyVector3 {
+    pub fn ag(&self) -> &MyVector3<T> {
         &self.ag_
     }
 
-    pub fn a(&self) -> &MyVector3 {
+    pub fn a(&self) -> &MyVector3<T> {
         &self.hl_accel
     }
 
-    pub fn g(&self) -> &MyVector3 {
+    pub fn g(&self) -> &MyVector3<T> {
         &self.g
     }
 }

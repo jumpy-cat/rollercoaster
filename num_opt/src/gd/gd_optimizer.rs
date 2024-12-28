@@ -4,7 +4,7 @@ use std::{
     time::Instant,
 };
 
-use crate::{hermite, optimizer, physics::{self, float}, point};
+use crate::{hermite, my_float::{MyFloat, MyFloatType}, optimizer, physics::{self, float}, point};
 use godot::prelude::*;
 use num_traits::AsPrimitive;
 use crate::physics::PRECISION;
@@ -41,7 +41,7 @@ enum FromWorker {
 #[class(base=Node)]
 pub struct Optimizer {
     points: Vec<point::Point<f64>>,
-    curve: hermite::Spline,
+    curve: hermite::Spline<MyFloatType>,
     segment_points_cache: Option<Vec<Vector3>>,
     from_worker: Mutex<mpsc::Receiver<FromWorker>>,
     to_worker: mpsc::Sender<ToWorker>,
@@ -66,7 +66,7 @@ impl INode for Optimizer {
         std::thread::spawn(move || {
             let mut active = false;
             let mut points = vec![];
-            let mut curve = Default::default();
+            let mut curve: hermite::Spline<MyFloatType> = Default::default();
             let mut mass = None;
             let mut gravity = None;
             let mut mu = None;
