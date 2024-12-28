@@ -75,7 +75,6 @@ fn find_root_bisection(
         }
     }
     Some((&a + &b).complete(PRECISION) / 2.0)
-    
 }
 
 /// Physics solver v3
@@ -238,8 +237,8 @@ impl PhysicsStateV3 {
             Some(root) => Some(root),
             None => {
                 godot_warn!("No root found, widening");
-                return self.calc_new_u_from_delta_t(step, init_bracket_amount * 2.0, curve)
-            },
+                return self.calc_new_u_from_delta_t(step, init_bracket_amount * 2.0, curve);
+            }
         }
     }
 
@@ -306,11 +305,14 @@ impl PhysicsStateV3 {
             self.hl_normal.clone()
         } else {
             let ortho_to = curve.curve_1st_derivative_at(&new_u).unwrap().normalize();
-            let tmp = (self.ag_.clone().normalize() - vector_projection(self.ag_.clone().normalize(), ortho_to.clone()))
-                .normalize();
+            let tmp = (self.ag_.clone().normalize()
+                - vector_projection(self.ag_.clone().normalize(), ortho_to.clone()))
+            .normalize();
             (tmp.clone() - vector_projection(tmp.clone(), ortho_to.clone())).normalize()
         };
-        self.delta_x_ = curve.curve_at(&new_u).unwrap() - self.o.clone() * new_hl_normal.clone() - self.x.clone();
+        self.delta_x_ = curve.curve_at(&new_u).unwrap()
+            - self.o.clone() * new_hl_normal.clone()
+            - self.x.clone();
 
         let step_too_big = {
             self.v.angle(&self.delta_x_) > max_curve_angle
@@ -331,16 +333,19 @@ impl PhysicsStateV3 {
         // u: A Advances to the next point.
         //self.F_N_ = na::Vector3::zeros();
 
-        self.F_N_ =
-            self.m.clone() * (self.delta_x_.clone() / self.delta_t_.clone().pow(2) - self.v.clone() / self.delta_t_.clone() - self.g.clone());
+        self.F_N_ = self.m.clone()
+            * (self.delta_x_.clone() / self.delta_t_.clone().pow(2)
+                - self.v.clone() / self.delta_t_.clone()
+                - self.g.clone());
         #[allow(non_snake_case)]
         let F = self.F_N_.clone() + self.g.clone() * self.m.clone();
         // hl values
-        let new_hl_vel = (curve.curve_at(&new_u)? - curve.curve_at(&self.u)?) / self.delta_t_.clone();
+        let new_hl_vel =
+            (curve.curve_at(&new_u)? - curve.curve_at(&self.u)?) / self.delta_t_.clone();
         let new_hl_accel = (new_hl_vel.clone() - self.hl_vel.clone()) / self.delta_t_.clone();
         // rotation
-        self.delta_hl_normal_ =
-            self.hl_normal.cross(&new_hl_normal) * self.hl_normal.angle_dbg::<Silence>(&new_hl_normal);
+        self.delta_hl_normal_ = self.hl_normal.cross(&new_hl_normal)
+            * self.hl_normal.angle_dbg::<Silence>(&new_hl_normal);
         if self.delta_hl_normal_.has_nan() {
             godot_warn!("NAN delta_hl_normal\n\thl_normal: {:#?}\n\rnew: {:#?}\n\rcross: {:3?}\n\rangle: {}", self.hl_normal, new_hl_normal, self.hl_normal.cross(&new_hl_normal), self.hl_normal.angle(&new_hl_normal));
         }
@@ -348,8 +353,9 @@ impl PhysicsStateV3 {
             //self.torque_ = na::Vector3::zeros();
             self.w = MyVector3::default();
         } else {
-            self.torque_ =
-                self.I.clone() * (self.delta_hl_normal_.clone() / self.delta_t_.clone().pow(2) - self.w.clone() / self.delta_t_.clone());
+            self.torque_ = self.I.clone()
+                * (self.delta_hl_normal_.clone() / self.delta_t_.clone().pow(2)
+                    - self.w.clone() / self.delta_t_.clone());
             /*godot_warn!(
                 "Torque: {} = {} / {} - {} / {}",
                 self.torque_.magnitude(),
@@ -374,7 +380,10 @@ impl PhysicsStateV3 {
         // semi-implicit euler update rule
         self.v = self.v.clone() + self.delta_t_.clone() * F / self.m.clone();
         let new_x = self.x.clone() + self.delta_t_.clone() * self.v.clone();
-        godot_print!("translation error: {:?}", new_x.clone() - self.x.clone() - self.delta_x_.clone());
+        godot_print!(
+            "translation error: {:?}",
+            new_x.clone() - self.x.clone() - self.delta_x_.clone()
+        );
         self.x = new_x.clone();
 
         // cop-out update
@@ -382,8 +391,8 @@ impl PhysicsStateV3 {
 
         self.u = new_u;
         /*self.hl_normal =
-            MyQuaternion::from_scaled_axis(self.w.clone() * self.delta_t_.clone()).rotate(self.hl_normal.clone());*/
-        
+        MyQuaternion::from_scaled_axis(self.w.clone() * self.delta_t_.clone()).rotate(self.hl_normal.clone());*/
+
         // cop-out rotation
         self.hl_normal = new_hl_normal;
         // updates
@@ -417,7 +426,8 @@ delta-t: {:.6}
 delta-u: {:.10?}",
             self.x,
             self.v,
-            0.5 * self.m.clone() * self.v.magnitude_squared() + self.m.clone() * self.g.magnitude() * self.x.y.clone(),
+            0.5 * self.m.clone() * self.v.magnitude_squared()
+                + self.m.clone() * self.g.magnitude() * self.x.y.clone(),
             self.v.magnitude(),
             self.hl_vel.magnitude(),
             self.hl_accel.magnitude(),
