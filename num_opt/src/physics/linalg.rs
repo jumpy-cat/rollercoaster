@@ -1,11 +1,9 @@
 use std::{any::TypeId, ops::{Div, Mul}};
 
 use godot::global::godot_warn;
-use rug::{ops::CompleteRound, Float};
 
 use crate::my_float::MyFloat;
 
-use super::{float, PRECISION};
 
 /// Projects `a` onto `b`
 pub fn vector_projection<T: MyFloat>(a: MyVector3<T>, b: MyVector3<T>) -> MyVector3<T> {
@@ -18,9 +16,9 @@ pub fn scaler_projection<T: MyFloat>(a: MyVector3<T>, b: MyVector3<T>) -> T {
 
 pub struct Silence;
 
-/// 3D Vector with higher precision
+/// 3D Vector with higher
 ///
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct MyVector3<T: MyFloat> {
     pub x: T,
     pub y: T,
@@ -94,6 +92,12 @@ impl<T: MyFloat> MyVector3<T> {
 
     pub fn has_nan(&self) -> bool {
         self.x.is_nan() || self.y.is_nan() || self.z.is_nan()
+    }
+}
+
+impl<T: MyFloat> std::fmt::Debug for MyVector3<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MV").field("x", &self.x).field("y", &self.y).field("z", &self.z).finish()
     }
 }
 

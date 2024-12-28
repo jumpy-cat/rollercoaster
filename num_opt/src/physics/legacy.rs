@@ -1,11 +1,7 @@
-use crate::godot_print;
 use crate::hermite;
 use crate::physics::StepBehavior;
 
-use super::float;
 use super::linalg::MyVector3;
-use crate::physics::Float;
-use crate::physics::PRECISION;
 
 
 /// Physics solver

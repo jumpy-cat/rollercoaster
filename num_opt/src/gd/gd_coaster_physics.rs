@@ -1,9 +1,7 @@
 use godot::prelude::*;
 
 use crate::my_float::MyFloatType;
-use crate::physics::{self, float, linalg::MyVector3};
-use crate::physics::PRECISION;
-use rug::Float;
+use crate::physics;
 use crate::my_float::MyFloat;
 
 

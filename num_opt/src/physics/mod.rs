@@ -1,12 +1,7 @@
 //! Physics solver and cost function
 
-use std::ops::{Add, Div, Mul, Neg, Sub};
-
-use godot::global::{godot_print, godot_warn};
+use godot::global::godot_warn;
 use linalg::{scaler_projection, vector_projection, MyQuaternion, MyVector3, Silence};
-use num_traits::Pow;
-use roots::{FloatType, Roots};
-use rug::{ops::CompleteRound, Float};
 
 use crate::{hermite, my_float::MyFloat};
 
@@ -43,22 +38,14 @@ macro_rules! float {
 
 pub(crate) use float;
 
-fn find_root_bisection<T: MyFloat>(
-    a: T,
-    b: T,
-    f: impl Fn(&T) -> T,
-    epsilon: f64,
-) -> Option<T> {
+fn find_root_bisection<T: MyFloat>(a: T, b: T, f: impl Fn(&T) -> T, epsilon: f64) -> Option<T> {
     let mut a = a;
     let mut b = b;
     if a > b {
-        // swap
-        let tmp = a;
-        a = b;
-        b = tmp;
+        std::mem::swap(&mut a, &mut b);
     }
     let mut fa = f(&a);
-    let mut fb = f(&b);
+    let fb = f(&b);
     if (fa.clone() * fb) > 0.0 {
         // they have the same sign, so there is no root in this interval
         return None;
@@ -68,7 +55,7 @@ fn find_root_bisection<T: MyFloat>(
         let fm = f(&m);
         if (fa.clone() * fm.clone()) < 0.0 {
             b = m;
-            fb = fm;
+            //fb = fm;
         } else {
             a = m;
             fa = fm;
@@ -103,7 +90,7 @@ pub struct PhysicsStateV3<T: MyFloat> {
     // rotation
     torque_exceeded: bool,
     w: MyVector3<T>, // angular velocity
-    I: T,     // moment of inertia
+    I: T,            // moment of inertia
 
     // stats, info, persisted intermediate values
     delta_u_: T,
@@ -204,10 +191,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         );
         match roots {
             Some(root) => Some(root),
-            None => {
-                godot_warn!("No root found, widening");
-                return self.calc_new_u_from_delta_t(step, init_bracket_amount * 2.0, curve);
-            }
+            None => self.calc_new_u_from_delta_t(step, init_bracket_amount * 2.0, curve),
         }
     }
 
@@ -230,7 +214,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let max_curve_angle: f64 = 0.0001;
         const MIN_STEP: f64 = 0.001;
         const MIN_DELTA_X: f64 = 0.0001;
-        const MAX_TORQUE: f64 = 0.01;
+        const MAX_TORQUE: f64 = 10.0;
         const ALLOWED_ANGULAR_WIGGLE: f64 = 0.01;
 
         self.delta_t_ = step.clone();
@@ -238,8 +222,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             .calc_new_u_from_delta_t(&step, T::from_f64(0.00001), curve)
             .unwrap();
         self.delta_u_ = new_u.clone() - self.u.clone();
-
-        //return Some(());
 
         // Advance the parametric value u by delta_u and calculate the new position along the curve.
         // The displacement vector delta_x is the difference between the new position and the current position.
@@ -278,8 +260,9 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         //self.F_N_ = na::Vector3::zeros();
 
         self.F_N_ = (self.delta_x_target_.clone() / self.delta_t_.clone().pow(2)
-                - self.v.clone() / self.delta_t_.clone()
-                - self.g.clone()) * self.m.clone();
+            - self.v.clone() / self.delta_t_.clone()
+            - self.g.clone())
+            * self.m.clone();
         #[allow(non_snake_case)]
         let F = self.F_N_.clone() + self.g.clone() * self.m.clone();
         // hl values
@@ -288,35 +271,30 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let new_hl_accel = (new_hl_vel.clone() - self.hl_vel.clone()) / self.delta_t_.clone();
         // rotation
         let cross = self.hl_normal.cross(&self.target_hl_normal_).normalize();
-        godot_warn!("cross mag: {}", cross.magnitude());
-        self.delta_hl_normal_target_ = cross
-            * self.hl_normal.angle_dbg::<Silence>(&self.target_hl_normal_);
-        if self.delta_hl_normal_target_.has_nan() {
-            godot_warn!("NAN delta_hl_normal\n\thl_normal: {:#?}\n\rnew: {:#?}\n\rcross: {:3?}\n\rangle: {}", self.hl_normal, self.target_hl_normal_, self.hl_normal.cross(&self.target_hl_normal_), self.hl_normal.angle(&self.target_hl_normal_));
-        }
+        self.delta_hl_normal_target_ =
+            cross * self.hl_normal.angle_dbg::<Silence>(&self.target_hl_normal_);
+
         if self.torque_exceeded {
-            //self.torque_ = na::Vector3::zeros();
             self.w = MyVector3::default();
         } else {
             self.torque_ = (self.delta_hl_normal_target_.clone() / self.delta_t_.clone().pow(2)
-                    - self.w.clone() / self.delta_t_.clone()) * self.I.clone();
-            /*godot_warn!(
-                "Torque: {} = {} / {} - {} / {}",
-                self.torque_.magnitude(),
-                self.delta_hl_normal_.magnitude(),
-                self.delta_t_.powi(2),
-                self.w.magnitude(),
-                self.delta_t_
-            );*/
+                - self.w.clone() / self.delta_t_.clone())
+                * self.I.clone();
         }
         if !self.torque_exceeded
             && self.torque_.magnitude() > MAX_TORQUE
             && self.delta_hl_normal_target_.magnitude() > ALLOWED_ANGULAR_WIGGLE
         {
-            /*self.torque_exceeded = true;
+            self.torque_exceeded = true;
+            //let delta_y = self.hl_normal.clone() * self.o.clone();
+            let curr_energy = self.energy();
+            self.o = T::from_f64(0.0);
+            self.x = curve.curve_at(&self.u).unwrap();
+            self.v = self.v.clone().normalize()
+                * ((curr_energy - self.potential_energy()).max(&T::from_f64(0.0)) * 2.0 / self.m.clone()).sqrt();
             // REMEMBER TO REMOVE
             std::thread::sleep(std::time::Duration::from_millis(200));
-            return self.step(step, curve, behavior);*/
+            return self.step(step, curve, behavior);
         }
 
         // semi-implicit euler update rule
@@ -350,65 +328,39 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         Some(())
     }
 
+    fn energy(&self) -> T {
+        self.v.magnitude_squared() * 0.5 * self.m.clone() + self.potential_energy()
+    }
+
+    fn potential_energy(&self) -> T {
+        self.m.clone() * self.g.magnitude() * self.x.y.clone()
+    }
+
     pub fn description(&self, curve: &hermite::Spline<T>) -> String {
         format!(
-            "x: {:.3?}
-v: {:.3?}
+            "x: {:.2?}
 E: {:.3?}
 speed: {:.3}
-hl speed: {}
-hl accel: {:.3}
-g force: {}
-hl normal: {:.6?}
-delta-x: {:.6?} ({:.3?}) err: {}
-F_N: {:.3?}
-F_N err(deg): {:.3}
-hl-norm err(deg): {:.5}
-tgt-hl-norm err(deg): {:.5}
-hl-tgt-hl err: {:.3} {:.3} {:.3}
+hl speed: {:.2}
+g force: {:.2}
+delta-x: {:.3?} err: {}
+F_N: {:.2?}
 T-Exceeded: {}
-w: {:.6} ({:.4?})
-delta-hl-norm: {:.3?} err: {:.3?}
-Torque: {:.4} ({:.3?})
+w: {:.3}
+Torque: {:.3}
 delta-t: {:.6}
-delta-u: {:.10?}",
+delta-u: {:.6?}",
             self.x,
-            self.v,
-            self.v.magnitude_squared() * 0.5 * self.m.clone()
-                + self.m.clone() * self.g.magnitude() * self.x.y.clone(),
+            self.energy(),
             self.v.magnitude(),
             self.hl_vel.magnitude(),
-            self.hl_accel.magnitude(),
-            self.hl_accel.magnitude() / self.g.magnitude(),
-            self.hl_normal,
+            self.ag_.magnitude() / self.g.magnitude(),
             self.delta_x_target_.magnitude(),
-            self.delta_x_target_,
             (self.delta_x_actual_.clone() - self.delta_x_target_.clone()).magnitude(),
             self.F_N_,
-            (self.F_N_.angle(&self.hl_normal) * T::from_f64_fraction(180.0, std::f64::consts::PI)).abs(),
-            (T::from_f64(90.0)
-                - self
-                    .hl_normal
-                    .angle(&curve.curve_1st_derivative_at(&self.u).unwrap())
-                    * T::from_f64_fraction(180.0, std::f64::consts::PI))
-                .abs(),
-            (T::from_f64(90.0)
-                - self
-                    .target_hl_normal_
-                    .angle(&curve.curve_1st_derivative_at(&self.u).unwrap())
-                    * T::from_f64_fraction(180.0, std::f64::consts::PI))
-                .abs(),
-            (self.hl_normal.clone() - self.target_hl_normal_.clone()).magnitude(),
-            self.hl_normal.magnitude(),
-            self.target_hl_normal_.magnitude(),
             self.torque_exceeded,
             self.w.magnitude(),
-            self.w,
-            self.delta_hl_normal_target_.magnitude(),
-            (self.delta_hl_normal_actual_.clone() - self.delta_hl_normal_target_.clone())
-                .magnitude(),
             self.torque_.magnitude(),
-            self.torque_,
             self.delta_t_,
             self.delta_u_
         )
