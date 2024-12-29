@@ -1,6 +1,6 @@
 use godot::prelude::*;
 
-use num_opt::{hermite, my_float::MyFloatType};
+use num_opt::{hermite, my_float::{MyFloat, MyFloatType}};
 
 /// Wrapper around hermite::Spline  
 /// A handle opaque to GDScript
@@ -9,3 +9,5 @@ use num_opt::{hermite, my_float::MyFloatType};
 pub struct CoasterCurve {
     pub inner: hermite::Spline<MyFloatType>,
 }
+
+
