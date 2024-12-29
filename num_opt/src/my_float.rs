@@ -9,9 +9,11 @@ use std::{
 use num_traits::Pow;
 use rug::Float;
 
-use crate::physics::{float, PRECISION};
+use crate::physics::float;
 
-pub type MyFloatType = f64;
+pub type MyFloatType = Float;
+pub const PRECISION: u32 = 128;
+
 
 pub trait MyFloat:
     Clone

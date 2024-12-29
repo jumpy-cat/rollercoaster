@@ -21,7 +21,7 @@ use crate::{physics::float, point};
 /// derivatives into polynomial coefficients(x(t),y(t),z(t)).  
 /// It operates on one dimension at a time, as we don't have tensors.
 //#[rustfmt::skip]
-use crate::physics::{linalg::MyVector3, PRECISION};
+use crate::physics::{linalg::MyVector3};
 
 fn get_matrix_p() -> ndarray::Array2<Float> {
     ndarray::arr2(&vec![

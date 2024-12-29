@@ -42,6 +42,26 @@ fn test_find_minimum_golden_section_none() {
     assert!(r.is_none());
 }
 
+/// Uses the golden section search algorithm to find the minimum of a function
+/// ### Examples
+/// ```
+/// # use num_opt::physics::solver::find_minimum_golden_section;
+/// let f = |x: &f64| (x - 0.5) * (x - 0.5) + 1.0;
+/// let r = find_minimum_golden_section(0.0, 1.0, f, 1e-6);
+/// assert!(r.is_some());
+/// assert!((r.unwrap().0 - 0.5).abs() < 1e-6);
+/// assert!((r.unwrap().1 - 1.0).abs() < 1e-6);
+/// ```
+/// 
+/// None when local minimum is not in interval
+/// 
+/// ```
+/// # use num_opt::physics::solver::find_minimum_golden_section;
+/// let f = |x: &f64| (x - 0.5) * (x - 0.5) + 1.0;
+/// let r = find_minimum_golden_section(1.0, 2.0, f, 1e-6);
+/// assert!(r.is_none());
+/// ```
+/// 
 pub fn find_minimum_golden_section<T: MyFloat>(
     a_: T,
     b_: T,

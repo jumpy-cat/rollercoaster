@@ -2,7 +2,6 @@
 
 use crate::{hermite, my_float::MyFloat, physics::{self, float}, point};
 use rug::Float;
-use crate::physics::PRECISION;
 
 /// Given initial state and curve, calculates the total cost of the curve
 /// 

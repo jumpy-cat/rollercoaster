@@ -1,4 +1,5 @@
 use crate::hermite;
+use crate::my_float::{MyFloat, MyFloatType};
 use crate::physics::StepBehavior;
 
 use super::linalg::MyVector3;
@@ -158,12 +159,12 @@ impl PhysicsState {
         (2.0 * k / self.mass).sqrt()
     }
 
-    pub fn hl_pos(&self, curve: &hermite::Spline<f64>) -> Option<MyVector3<f64>> {
-        curve.curve_at(&self.u)
+    pub fn hl_pos(&self, curve: &hermite::Spline<MyFloatType>) -> Option<MyVector3<f64>> {
+        curve.curve_at(&MyFloat::from_f64(self.u)).map(|v| MyVector3::<f64>::new(v.x.to_f64(), v.y.to_f64(), v.z.to_f64()))
     }
 
     /// Uses `-self.normal_force()` to determine offset direction
-    pub fn com_pos(&self, curve: &hermite::Spline<f64>) -> Option<MyVector3<f64>> {
+    pub fn com_pos(&self, curve: &hermite::Spline<MyFloatType>) -> Option<MyVector3<f64>> {
         self.hl_pos(curve).map(|hl| {
             let offset = self.normal_force.normalize() * self.com_offset_mag;
             hl - MyVector3::new_f64(offset.x, offset.y, offset.z) // (x, y, z)

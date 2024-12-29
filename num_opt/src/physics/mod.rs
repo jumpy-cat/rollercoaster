@@ -6,7 +6,7 @@ use crate::{hermite, my_float::MyFloat};
 
 pub mod legacy;
 pub mod linalg;
-mod solver;
+pub mod solver;
 
 /// Possible ways for the physics system to take a step  
 /// Steps are in `u`, the (0,1) parameterization of hermite curves
@@ -22,18 +22,19 @@ pub enum StepBehavior {
 }
 
 const FALLBACK_STEP: f64 = 0.001;
-pub const PRECISION: u32 = 64;
 
 macro_rules! float {
     () => {
         Float::with_val(PRECISION, 0.0)
     };
-    ($e:expr) => {
+    ($e:expr) => {{
+        use crate::my_float::PRECISION;
         Float::with_val(PRECISION, $e)
-    };
-    ($n:expr, $d: expr) => {
+    }};
+    ($n:expr, $d: expr) => {{
+        use crate::my_float::PRECISION;
         Float::with_val(PRECISION, $n) / Float::with_val(PRECISION, $d)
-    };
+    }};
 }
 
 pub(crate) use float;
@@ -192,18 +193,19 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             self.u.clone(),
             upper_bound,
             // (||r(u_next) + N * o - x_curr + a * dt^2|| - ||v_curr|| * dt)^2
+            // TODO: check is `self.hl_normal.clone()` is right here...
             |u| {
-                ((curve.curve_at(&u).unwrap() + self.hl_normal.clone() * self.o.clone()
-                    - self.x.clone()
-                    + self.g.clone() * step.clone().pow(2))
+                ((curve.curve_at(u).unwrap() + self.hl_normal.clone() * self.o.clone()
+                    - (self.x.clone()
+                    + self.g.clone() * step.clone().pow(2)))
                 .magnitude()
                     - self.v.magnitude() * step.clone())
                 .pow(2)
             },
-            1e-14f64,
+            1e-13f64,
         ) {
-            Some((u, _fu)) => Some(u),
-            None => None,
+            Some((u, _)) => Some(u),
+            None => self.calc_new_u_from_delta_t(step, init_bracket_amount * 2.0, curve),
         }
     }
 
@@ -269,6 +271,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             .unwrap();
         self.delta_u_ = new_u.clone() - self.u.clone();
 
+        // Calculate heart line acceleration
         let kappa = curve.curve_kappa_at(&new_u).unwrap();
         #[allow(non_snake_case)]
         let N = curve.curve_normal_at(&new_u).unwrap();
@@ -277,6 +280,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         // a = kappa * v^2
         let accel = N * kappa * self.hl_vel.clone().magnitude().pow(2);
 
+        // Calculate target hl normal
         self.ag_ = accel.clone() - self.g.clone();
         self.target_hl_normal_ = if self.torque_exceeded {
             self.hl_normal.clone()
@@ -287,27 +291,30 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             .normalize();
             (tmp.clone() - vector_projection(tmp.clone(), ortho_to.clone())).normalize()
         };
-        
-        self.delta_x_target_ = curve.curve_at(&new_u).unwrap()
-            - self.target_hl_normal_.clone() * self.o.clone()
-            - self.x.clone();
 
-        let step_too_big = accel.magnitude() * step.clone() > 0.00001 && step > MIN_STEP;
+        // TODO: this probably should use `self.hl_normal`
+        /*self.delta_x_target_ = curve.curve_at(&new_u).unwrap()
+        - self.target_hl_normal_.clone() * self.o.clone()
+        - self.x.clone();*/
+
+        /*let step_too_big = accel.magnitude() * step.clone() > 0.00001 && step > MIN_STEP;
         if step_too_big {
             self.step(step.clone() * T::from_f64(0.5), curve, behavior)
                 .unwrap();
             self.step(step * T::from_f64(0.5), curve, behavior).unwrap();
             return Some(());
-        }
+        }*/
 
-        self.F_N_ = (self.delta_x_target_.clone() / new_delta_t.clone().pow(2)
+        /*self.F_N_ = (self.delta_x_target_.clone() / new_delta_t.clone().pow(2)
             - self.v.clone() / new_delta_t.clone()
             - self.g.clone())
             * self.m.clone();
-        self.F_ = self.F_N_.clone() + self.g.clone() * self.m.clone();
+        self.F_ = self.F_N_.clone() + self.g.clone() * self.m.clone();*/
+
         // hl values
         let new_hl_vel = (curve.curve_at(&new_u)? - curve.curve_at(&self.u)?) / new_delta_t.clone();
         let new_hl_accel = (new_hl_vel.clone() - self.hl_vel.clone()) / (new_delta_t.clone());
+
         // rotation
         let cross = self.hl_normal.cross(&self.target_hl_normal_).normalize();
         self.delta_hl_normal_target_ =
@@ -322,10 +329,19 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         }
 
         // semi-implicit euler update rule
-        self.v = self.v.clone() + self.F_.clone() / self.m.clone() * new_delta_t.clone();
+        /*self.v = self.v.clone() + self.F_.clone() / self.m.clone() * new_delta_t.clone();
         let new_x = self.x.clone() + self.v.clone() * new_delta_t.clone();
         self.delta_x_actual_ = new_x.clone() - self.x.clone();
-        self.x = new_x.clone();
+        self.x = new_x.clone();*/
+
+        // new update rule
+        let future_pos_no_velocity = self.x.clone() + self.g.clone() * new_delta_t.clone().pow(2);
+        let rotated_v_direction =
+            (curve.curve_at(&new_u).unwrap() + self.hl_normal.clone() * self.o.clone() - future_pos_no_velocity).normalize();
+        let rotated_v = rotated_v_direction * self.v.clone().magnitude();
+        //let rotated_v =
+        self.v = rotated_v + self.g.clone() * new_delta_t.clone();
+        self.x = self.x.clone() + self.v.clone() * new_delta_t.clone();
 
         // cop-out update
         //self.x = curve.curve_at(new_u).unwrap();
@@ -337,18 +353,16 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
         self.delta_hl_normal_actual_ = self.w.clone() * new_delta_t.clone();
 
-        self.hl_normal = MyQuaternion::from_scaled_axis(self.delta_hl_normal_actual_.clone())
-            .rotate(self.hl_normal.clone());
+        //self.hl_normal = MyQuaternion::from_scaled_axis(self.delta_hl_normal_actual_.clone())
+           // .rotate(self.hl_normal.clone());
 
         // cop-out rotation
-        //self.hl_normal = self.target_hl_normal_.clone();
+        self.hl_normal = self.target_hl_normal_.clone();
         // updates
         self.hl_vel = new_hl_vel;
         self.hl_accel = new_hl_accel;
         self.u = new_u;
         self.delta_t_ = new_delta_t;
-
-        //godot_warn!("{:#?}", self);
 
         Some(())
     }
@@ -364,6 +378,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     pub fn description(&self, curve: &hermite::Spline<T>) -> String {
         format!(
             "x: {:.2?}
+u: {}
 E: {:.3?}
 speed: {:.3}
 hl speed: {:.2}
@@ -375,8 +390,9 @@ T-Exceeded: {}
 w: {:.3}
 Torque: {:.3}
 delta-t: {:.6} {}
-delta-u: {:.6?}",
+delta-u: {}",
             self.x,
+            self.u,
             self.energy(),
             self.v.magnitude(),
             self.hl_vel.magnitude(),

@@ -36,7 +36,7 @@ impl CoasterPhysics {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
             let u = phys.u();
-            if let Some(drdu) = curve.curve_1st_derivative_at(&u) {
+            if let Some(drdu) = curve.curve_1st_derivative_at(&MyFloat::from_f64(u)) {
                 phys.step(
                     drdu.x.to_f64(),
                     drdu.y.to_f64(),
