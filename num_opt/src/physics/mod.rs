@@ -1,5 +1,7 @@
 //! Physics solver and cost function
 
+use std::{cell::RefCell, time::Duration};
+
 use godot::global::{godot_print, godot_warn};
 use linalg::{scaler_projection, vector_projection, MyQuaternion, MyVector3, Silence};
 use solver::HitBoundary;
@@ -79,10 +81,11 @@ pub struct PhysicsStateV3<T: MyFloat> {
     delta_hl_normal_actual_: MyVector3<T>,
     delta_hl_normal_target_: MyVector3<T>,
     target_hl_normal_: MyVector3<T>,
-    ag_: MyVector3<T>,
+    ag_: RefCell<MyVector3<T>>,
     F_N_: MyVector3<T>,
     F_: MyVector3<T>,
     torque_: MyVector3<T>,
+    local_min_: T,
 }
 
 const MIN_STEP: f64 = 0.00001;
@@ -117,7 +120,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             u: T::from_f64(0.0), //0.0,
             // center of mass
             x: hl_pos.clone() - hl_normal.clone() * T::from_f64(o), //o,
-            v: MyVector3::new_f64(0.0, 1.0, 0.0),
+            v: MyVector3::new_f64(0.0, 0.0, 0.0),
             // heart line
             hl_pos,
             hl_normal,
@@ -139,6 +142,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             F_: Default::default(),
             ag_: Default::default(),
             torque_: Default::default(),
+            local_min_: T::from_f64(0.0),
         };
         s
     }
@@ -192,45 +196,10 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             return None;
         }
 
-        if let Some(r) = solver::find_root_bisection(
-            lower_bound,
-            upper_bound.clone(),
-            |u| {
-                (curve.curve_at(u).unwrap()
-                    - self.hl_normal.clone() * self.o.clone()
-                    - (self.x.clone() + self.g.clone() * step.clone().pow(2)))
-                .magnitude()
-                    - self.v.magnitude() * step.clone()
-            },
-            1e-12f64,
-        ) {
-            return Some(r);
-        } else {
-            return None;
-        }
-        /* } else if neg_dir {
-            return self.calc_new_u_from_delta_t(
-                step,
-                bracket_origin.clone() - bracket_size.clone(),
-                bracket_size,
-                curve,
-                neg_dir,
-            );
-        } else {
-            return self.calc_new_u_from_delta_t(
-                step,
-                bracket_origin.clone() + bracket_size.clone(),
-                bracket_size,
-                curve,
-                neg_dir,
-            );
-        }*/
-
         match solver::find_minimum_golden_section(
             self.u.clone(),
             upper_bound,
             // (||r(u_next) + N * o - x_curr + a * dt^2|| - ||v_curr|| * dt)^2
-            // TODO: check is `self.hl_normal.clone()` is right here...
             |u| {
                 ((curve.curve_at(u).unwrap()
                     - self.hl_normal.clone() * self.o.clone()
@@ -253,12 +222,18 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                 Some(u)
             }
             Err((u, v, hb)) => {
-                //if hb == HitBoundary::Lower {
-                //    Some(u)
-                //} else {
-                //self.calc_new_u_from_delta_t(step, init_bracket_amount * 2.0, curve)
-                //}
-                None
+                if hb == HitBoundary::Lower {
+                    Some(u)
+                } else {
+                    self.calc_new_u_from_delta_t(
+                        step,
+                        bracket_origin + bracket_size.clone(),
+                        bracket_size,
+                        curve,
+                        neg_dir,
+                    )
+                }
+                //None
             }
         }
     }
@@ -308,25 +283,11 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     ///
     /// `rot(v_curr, R) = x_tar / dt - x_curr / dt - a * dt`
     ///
-    pub fn step(
-        &mut self,
-        step: T,
-        curve: &hermite::Spline<T>,
-        behavior: StepBehavior,
-    ) -> Option<()> {
+    pub fn step(&mut self, step: T, curve: &hermite::Spline<T>) -> Option<()> {
         self.total_t_ = self.total_t_.clone() + step.clone();
         let new_delta_t = step.clone();
 
-        /*let next_hl_normal = |u| {
-            (self.hl_normal.clone()
-                - vector_projection(
-                    self.hl_normal.clone(),
-                    curve.curve_direction_at(&u).unwrap(),
-                ))
-            .normalize()
-        };*/
-
-        let mut next_hl_normal = |u| {
+        let next_hl_normal = |u| {
             // Calculate heart line acceleration
             let kappa = curve.curve_kappa_at(&u).unwrap();
             #[allow(non_snake_case)]
@@ -337,16 +298,17 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             let accel = N * kappa * self.hl_vel.clone().magnitude().pow(2);
 
             // Calculate target hl normal
-            self.ag_ = accel.clone() - self.g.clone();
+            *self.ag_.borrow_mut() = accel.clone() - self.g.clone();
 
-            if false {//self.torque_exceeded {
+            if false {
+                //self.torque_exceeded {
                 //} || self.ag_.magnitude() == 0.0 {
                 self.hl_normal.clone()
             } else {
-                let dir_to_use = if self.ag_.magnitude() == 0.0 {
+                let dir_to_use = if self.ag_.borrow().magnitude() == 0.0 {
                     MyVector3::new_f64(0.0, 1.0, 0.0)
                 } else {
-                    self.ag_.clone()
+                    self.ag_.borrow().clone()
                 };
                 let ortho_to = curve.curve_direction_at(&u).unwrap().normalize();
                 let tmp = (dir_to_use.clone().normalize()
@@ -356,50 +318,57 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             }
         };
 
-        let new_u = {
-            let candidate_coarse_step = 0.01;
-            let mut candidate = self.u.clone();
-            let mut target_position =
-                |u| curve.curve_at(&u).unwrap() - next_hl_normal(u) * self.o.clone();
-            let future_pos_no_vel = self.x.clone() + self.g.clone() * step.clone().pow(2);
-            let mut dist_between = |u| (target_position(u) - &future_pos_no_vel).magnitude();
-            let move_dist = self.v.clone().magnitude() * step.clone();
-            let mut inside = |u| dist_between(u) < move_dist;
+        let target_position =
+            |u| curve.curve_at(&u).unwrap() - next_hl_normal(u) * self.o.clone();
+        let future_pos_no_vel = self.x.clone() + self.g.clone() * step.clone().pow(2);
 
+        let new_u = {
+            let dist_between = |u| (target_position(u) - &future_pos_no_vel).magnitude();
+            let move_dist = self.v.clone().magnitude() * step.clone();
+            let inside = |u| dist_between(u) < move_dist;
+
+            let mut candidate_coarse_step = T::from_f64(0.01);
+            let candidate = self.u.clone();
+            let out;
             loop {
-                let ins = inside(candidate.clone());
-                if ins {
-                    candidate += candidate_coarse_step;
-                } else {
-                    break;
+                let res = solver::find_minimum_golden_section(
+                    candidate.clone(),
+                    candidate.clone() + candidate_coarse_step.clone(),
+                    |u| (dist_between(u.clone()) - move_dist.clone()).pow(2),
+                    1e-12f64,
+                );
+                match res {
+                    Ok((u, v)) => {
+                        out = Some(u.clone());
+                        self.local_min_ = dist_between(u.clone()) - move_dist;
+                        if self.local_min_.abs() > 1.0 {
+                            //std::thread::sleep(Duration::from_secs(0.2));
+                        }
+                        break;
+                    }
+                    Err((u, v, bounds)) => {
+                        match bounds {
+                            HitBoundary::Lower => {
+                                out = Some(u.clone());
+                                break;
+                            }
+                            HitBoundary::Upper => {
+                                candidate_coarse_step = T::from_f64(2.0) * candidate_coarse_step.clone();
+                            }
+                        }
+                    }
                 }
             }
-
-            candidate
-
-            // fine search
-            /*let fine = solver::find_root_bisection(
-                candidate.clone() - candidate_coarse_step,
-                candidate.clone(),
-                |u| dist_between(u.clone()) - move_dist.clone(),
-                1.0_e-12_f64,
-            );
-            match fine {
-                Some(value) => value,
-                None => candidate,
-            }*/
+            out.unwrap()
         };
         self.delta_u_ = new_u.clone() - self.u.clone();
-
-        
-
+        //let new_u = self.delta_u_ = new_u.clone() - self.u.clone();
 
         //self.target_hl_normal_ = self.hl_normal.clone();  // WORKS
 
         // PROBLEM REPRODUCED
         self.target_hl_normal_ = next_hl_normal(new_u.clone());
         //self.target_hl_normal_ = next_hl_normal(new_u.clone());
-
 
         // TODO: this probably should use `self.hl_normal`
         /*self.delta_x_target_ = curve.curve_at(&new_u).unwrap()
@@ -444,18 +413,14 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.x = new_x.clone();*/
 
         // new update rule
-        let future_pos_no_velocity = self.x.clone() + self.g.clone() * new_delta_t.clone().pow(2);
-        let rotated_v_direction = (curve.curve_at(&new_u).unwrap()
-            - self.hl_normal.clone() * self.o.clone()
-            - future_pos_no_velocity)
-            .normalize();
+        let rotated_v_direction = (target_position(new_u.clone()) - future_pos_no_vel).normalize();
         let rotated_v = rotated_v_direction * self.v.clone().magnitude();
-        //let rotated_v =
+
         self.v = rotated_v + self.g.clone() * new_delta_t.clone();
-        //self.x = self.x.clone() + self.v.clone() * new_delta_t.clone();
+        self.x = self.x.clone() + self.v.clone() * new_delta_t.clone();
 
         // cop-out update
-        self.x = curve.curve_at(&new_u).unwrap() - self.target_hl_normal_.clone() * self.o.clone();
+        //self.x = curve.curve_at(&new_u).unwrap() - self.target_hl_normal_.clone() * self.o.clone();
         //self.x = curve.curve_at(new_u).unwrap();
 
         // semi-implicit euler update rule, rotation
@@ -492,8 +457,9 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             "x: {:.2?}
 u: {}
 t: {}
+lm: {}
 E: {:.3?}
-speed: {:.3}
+speed: {:.3} ({:.3?})
 hl speed: {:.2}
 hl accel: {:.4}
 hl normal: {:.2?}
@@ -508,12 +474,14 @@ delta-u: {}",
             self.x,
             self.u,
             self.total_t_,
+            self.local_min_,
             self.energy(),
             self.v.magnitude(),
+            self.v,
             self.hl_vel.magnitude(),
             self.hl_accel.magnitude(),
             self.hl_normal,
-            self.ag_.magnitude() / self.g.magnitude(),
+            self.ag_.borrow().magnitude() / self.g.magnitude(),
             self.delta_x_target_.magnitude(),
             (self.delta_x_actual_.clone() - self.delta_x_target_.clone()).magnitude(),
             self.F_N_,
@@ -538,8 +506,8 @@ delta-u: {}",
         &self.v
     }
 
-    pub fn ag(&self) -> &MyVector3<T> {
-        &self.ag_
+    pub fn ag(&self) -> MyVector3<T> {
+        self.ag_.borrow().clone()
     }
 
     pub fn a(&self) -> &MyVector3<T> {

@@ -54,7 +54,7 @@ pub enum HitBoundary {
 pub fn find_minimum_golden_section<T: MyFloat>(
     a_: T,
     b_: T,
-    f: impl Fn(&T) -> T,
+    mut f: impl FnMut(&T) -> T,
     epsilon: f64,
 ) -> Result<(T, T), (T, T, HitBoundary)> {
     let r = T::from_f64((3.0 - 5.0_f64.sqrt()) / 2.0);

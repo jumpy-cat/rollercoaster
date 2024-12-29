@@ -273,7 +273,7 @@ impl CoasterPhysicsV3 {
             if rand::random::<f64>() > 0.5_f64 {
                 //step_size /= 2.0;
             }
-            if phys.step(MyFloatType::from_f64(step_size), curve, physics::StepBehavior::Constant).is_none() {
+            if phys.step(MyFloatType::from_f64(step_size), curve).is_none() {
                     //godot_warn!("Simulation Stuck");
             };
         }
@@ -318,7 +318,7 @@ impl CoasterPhysicsV3 {
     #[func]
     fn ag(&self) -> Variant {
         if let Some(phys) = &self.inner {
-            Variant::from(myvec_to_gd(phys.ag()))
+            Variant::from(myvec_to_gd(&phys.ag()))
         } else {
             Variant::nil()
         }
