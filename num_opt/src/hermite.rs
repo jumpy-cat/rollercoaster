@@ -7,6 +7,7 @@ use std::array;
 use std::num::NonZeroU32;
 use std::ops::{Add, Mul};
 
+use godot::global::godot_print;
 use ndarray::Array1;
 use num_traits::Pow;
 use rug::ops::CompleteRound;
@@ -290,6 +291,25 @@ impl<T> Spline<T> where T: MyFloat {
         (i, rem)
     }
 
+    pub fn curve_direction_at(&self, u: &T) -> Option<MyVector3<T>> {
+        let (i, rem) = self.u_to_i_rem(u);
+        if i >= self.params.len() {
+            return None;
+        }
+        let mut out = self.curve_1st_derivative_at(u).unwrap();
+        if out.magnitude() == 0.0 {
+            out = self.curve_2nd_derivative_at(u).unwrap();
+        }
+        if out.magnitude() == 0.0 {
+            out = self.curve_3rd_derivative_at(u).unwrap();
+        }
+        if out.magnitude() == 0.0 {
+            out = self.curve_4th_derivative_at(u).unwrap();
+        }
+        assert!(out.magnitude() != 0.0);
+        Some(out)
+    }
+
     /// Find the 1st derivative ("velocity") of the spline at `u`
     pub fn curve_1st_derivative_at(&self, u: &T) -> Option<MyVector3<T>> {
         spline_getter!(self, x_d1, y_d1, z_d1, u)
@@ -512,15 +532,19 @@ pub fn solve<T>(p: &point::Point<f64>, q: &point::Point<f64>) -> CurveParams<T> 
     let y_out = m.dot(&y_in);
     let z_out = m.dot(&z_in); //z_in;
 
-    /*print!("(");
+    /*godot_print!("(");
     for (i, p) in x_out.iter().enumerate() {
-        print!("{} * t^{} + ", p, 7 - i);
+        godot_print!("{} * t^{} + ", p, 7 - i);
     }
-    print!("0, ");
+    godot_print!("0, ");
     for (i, p) in y_out.iter().enumerate() {
-        print!("{} * t^{} + ", p, 7 - i);
+        godot_print!("{} * t^{} + ", p, 7 - i);
     }
-    println!("0)");*/
+    godot_print!("0, ");
+    for (i, p) in z_out.iter().enumerate() {
+        godot_print!("{} * t^{} + ", p, 7 - i);
+    }
+    godot_print!("0)");*/
     CurveParams::new(
         x_out.into_iter().map(|x| T::from_f64(x)).collect(),
         y_out.into_iter().map(|x| T::from_f64(x)).collect(),

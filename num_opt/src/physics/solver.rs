@@ -30,7 +30,7 @@ pub fn find_root_bisection<T: MyFloat>(a: T, b: T, f: impl Fn(&T) -> T, epsilon:
 fn test_find_minimum_golden_section() {
     let f = |x: &f64| (x - 0.5) * (x - 0.5) + 1.0;
     let r = find_minimum_golden_section(0.0, 1.0, f, 1e-6);
-    assert!(r.is_some());
+    assert!(r.is_ok());
     assert!((r.unwrap().0 - 0.5).abs() < 1e-6);
     assert!((r.unwrap().1 - 1.0).abs() < 1e-6);
 }
@@ -39,35 +39,24 @@ fn test_find_minimum_golden_section() {
 fn test_find_minimum_golden_section_none() {
     let f = |x: &f64| (x - 0.5) * (x - 0.5) + 1.0;
     let r = find_minimum_golden_section(1.0, 2.0, f, 1e-6);
-    assert!(r.is_none());
+    assert!(r.is_err());
+    assert!((r.err().unwrap().0 - 1.0).abs() < 1e-6);
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum HitBoundary {
+    Lower,
+    Upper,
 }
 
 /// Uses the golden section search algorithm to find the minimum of a function
-/// ### Examples
-/// ```
-/// # use num_opt::physics::solver::find_minimum_golden_section;
-/// let f = |x: &f64| (x - 0.5) * (x - 0.5) + 1.0;
-/// let r = find_minimum_golden_section(0.0, 1.0, f, 1e-6);
-/// assert!(r.is_some());
-/// assert!((r.unwrap().0 - 0.5).abs() < 1e-6);
-/// assert!((r.unwrap().1 - 1.0).abs() < 1e-6);
-/// ```
-/// 
-/// None when local minimum is not in interval
-/// 
-/// ```
-/// # use num_opt::physics::solver::find_minimum_golden_section;
-/// let f = |x: &f64| (x - 0.5) * (x - 0.5) + 1.0;
-/// let r = find_minimum_golden_section(1.0, 2.0, f, 1e-6);
-/// assert!(r.is_none());
-/// ```
-/// 
+///
 pub fn find_minimum_golden_section<T: MyFloat>(
     a_: T,
     b_: T,
     f: impl Fn(&T) -> T,
     epsilon: f64,
-) -> Option<(T, T)> {
+) -> Result<(T, T), (T, T, HitBoundary)> {
     let r = T::from_f64((3.0 - 5.0_f64.sqrt()) / 2.0);
 
     let mut a = a_.clone();
@@ -81,6 +70,8 @@ pub fn find_minimum_golden_section<T: MyFloat>(
     while (b.clone() - a.clone()).abs() > epsilon {
         let fc = f(&c);
         let fd = f(&d);
+        assert!(!fc.is_nan());
+        assert!(!fd.is_nan());
         if fc < fd {
             // minimum is between a and d
             b = d;
@@ -94,10 +85,16 @@ pub fn find_minimum_golden_section<T: MyFloat>(
         }
     }
     let potential = (b.clone() + a.clone()) / T::from_f64(2.0);
-    if potential > a_ + T::from_f64(epsilon) && potential < b_ - T::from_f64(epsilon) {
-        Some((potential.clone(), f(&potential)))
+    if potential > a_.clone() + T::from_f64(epsilon)
+        && potential < b_.clone() - T::from_f64(epsilon)
+    {
+        Ok((potential.clone(), f(&potential)))
     } else {
         // minimum is a boundary
-        None
+        if !(potential > a_.clone() + T::from_f64(epsilon)) {
+            Err((a_.clone(), f(&a_), HitBoundary::Lower))
+        } else {
+            Err((b_.clone(), f(&b_), HitBoundary::Upper))
+        }
     }
 }

@@ -3,7 +3,7 @@
 
 use std::{
     fmt::Display,
-    ops::{Add, Div, Mul, Neg, Sub},
+    ops::{Add, AddAssign, Div, Mul, Neg, Sub},
 };
 
 use num_traits::Pow;
@@ -11,7 +11,7 @@ use rug::Float;
 
 use crate::physics::float;
 
-pub type MyFloatType = Float;
+pub type MyFloatType = f64;
 pub const PRECISION: u32 = 640;
 
 
@@ -19,11 +19,13 @@ pub trait MyFloat:
     Clone
     + std::fmt::Debug + Display
     + Add<Output = Self>
+    + AddAssign<f64>
     + Pow<i32, Output = Self>
     + Mul<Output = Self>
     + Add<Output = Self>
     + Mul<f64, Output = Self>
     + Sub<Output = Self>
+    + Sub<f64, Output = Self>
     + Div<Output = Self> + Neg<Output = Self>
     + PartialEq<f64> + PartialOrd<f64> + PartialOrd<Self>
 {

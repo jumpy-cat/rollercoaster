@@ -37,14 +37,14 @@ fn main() {
     let curve: hermite::Spline<f64> = num_opt::hermite::Spline::new(&points);
     let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 5.0);
 
-    let max_time = 50.0;
+    let max_time = 75.0;
     let file_suffix = std::time::SystemTime::now().duration_since(UNIX_EPOCH);
     let mut file =
         std::fs::File::create(format!("{}.txt", file_suffix.unwrap().as_secs())).unwrap();
 
     while phys.total_t_() < &max_time {
-        if rand::random::<f64>() > 0.5_f64 {
-            phys.step(0.05, &curve, StepBehavior::Time);
+        if rand::random::<f64>() > 0.0_f64 {
+            phys.step(0.01, &curve, StepBehavior::Time);
         } else {
             phys.step(0.025, &curve, StepBehavior::Time);
         }
@@ -52,8 +52,8 @@ fn main() {
             format!(
                 "{}, {}, {}\n",
                 phys.total_t_(),
-                phys.hl_accel().magnitude(),
-                phys.F_().magnitude()
+                phys.u(),
+                phys.v().magnitude()
             )
             .as_bytes(),
         )

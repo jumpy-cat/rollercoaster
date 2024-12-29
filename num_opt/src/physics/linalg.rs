@@ -1,4 +1,4 @@
-use std::{any::TypeId, ops::{Div, Mul}};
+use std::{any::TypeId, ops::{Deref, Div, Mul}};
 
 use godot::global::godot_warn;
 
@@ -112,7 +112,19 @@ impl<T: MyFloat> std::ops::Add for MyVector3<T> {
     }
 }
 
-impl<T: MyFloat> std::ops::Sub for MyVector3<T> {
+
+impl<T: MyFloat> std::ops::Sub<&MyVector3<T>> for MyVector3<T> {
+    type Output = Self;
+    fn sub(self, other: &Self) -> Self {
+        Self {
+            x: self.x - other.x.clone(),
+            y: self.y - other.y.clone(),
+            z: self.z - other.z.clone(),
+        }
+    }
+}
+
+impl<T: MyFloat> std::ops::Sub<MyVector3<T>> for MyVector3<T> {
     type Output = Self;
     fn sub(self, other: Self) -> Self {
         Self {

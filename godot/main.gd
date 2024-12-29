@@ -132,7 +132,8 @@ func _process(_delta: float) -> void:
 		push_warning("hi2")
 		curve = optimizer.get_curve()
 		push_warning("hi3")
-		physics = CoasterPhysicsV3.create(mass, gravity, curve, 5.0)	
+		#physics = CoasterPhysicsV3.create(mass, gravity, curve, 5.0)
+		physics = CoasterPhysicsV3.create(mass, 0, curve, 5.0)	
 		push_warning("hi4")	
 	
 	# update physics simulation
@@ -149,7 +150,7 @@ func _process(_delta: float) -> void:
 		m.clear_surfaces()
 		m.surface_begin(Mesh.PRIMITIVE_LINES)
 
-		const MULT = 200;
+		const MULT = 20;
 
 		m.surface_set_color(Color.ORANGE)
 		m.surface_add_vertex(anim_pos)
@@ -159,12 +160,7 @@ func _process(_delta: float) -> void:
 		m.surface_set_color(Color.RED)
 		m.surface_add_vertex(anim_pos)
 		m.surface_set_color(Color.RED)
-		m.surface_add_vertex(anim_pos + MULT * physics.a())
-
-		m.surface_set_color(Color.YELLOW)
-		m.surface_add_vertex(anim_pos + MULT * physics.a())
-		m.surface_set_color(Color.YELLOW)
-		m.surface_add_vertex(anim_pos + MULT * physics.a() - MULT * physics.g())
+		m.surface_add_vertex(anim_pos + MULT * physics.hl_normal())
 
 		# blue velocity
 		m.surface_set_color(Color.BLUE)
