@@ -53,10 +53,8 @@ fn main() {
             format!(
                 "{}, {}, {}\n",
                 phys.total_t_(),
-                phys.hl_accel().magnitude(),
-                /*phys.F_().magnitude(),
-                phys.vel().magnitude(),*/
                 phys.vel().magnitude(),
+                phys.hl_vel().magnitude(),
             )
             .as_bytes(),
         )

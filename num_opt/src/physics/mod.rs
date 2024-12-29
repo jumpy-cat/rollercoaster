@@ -242,7 +242,13 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         // Advance the parametric value u by delta_u and calculate the new position along the curve.
         // The displacement vector delta_x is the difference between the new position and the current position.
         //let new_u = self.u + self.delta_u_;
-        self.ag_ = self.hl_accel.clone() - self.g.clone();
+        let kappa = curve.curve_kappa_at(&new_u).unwrap();
+        let N = curve.curve_normal_at(&new_u).unwrap();
+        // a = v^2 / r
+        // r = 1 / kappa
+        // a = kappa * v^2
+        let accel = N * kappa * self.hl_vel.clone().magnitude().pow(2);
+        self.ag_ = /*self.hl_accel.clone()*/accel.clone() - self.g.clone();
         self.target_hl_normal_ = if self.torque_exceeded {
             self.hl_normal.clone()
         } else {
@@ -256,16 +262,17 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             - self.target_hl_normal_.clone() * self.o.clone()
             - self.x.clone();
 
-        let step_too_big = {
+        /*let step_too_big = {
             self.vel().angle(&self.delta_x_target_) > MAX_CURVE_ANGLE
                 //&& self.delta_u_ != FALLBACK_STEP
                 && step > MIN_STEP //&& step > self.delta_t_.clone() * T::from_f64(STEP_ADJUSTMENT)
             //&& self.delta_x_target_.magnitude() > MIN_DELTA_X
-        };
+        };*/
+        let step_too_big = accel.magnitude() * step.clone() > 0.00001 && step > MIN_STEP;
         if step_too_big {
             self.step(step.clone() * T::from_f64(0.5), curve, behavior).unwrap();
             self.step(step * T::from_f64(0.5), curve, behavior).unwrap();
-            //return Some(());
+            return Some(());
         }
 
         // Normal Force: Derived from displacement, velocity, and gravity.
