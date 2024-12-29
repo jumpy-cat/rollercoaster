@@ -309,6 +309,22 @@ impl<T> Spline<T> where T: MyFloat {
     pub fn curve_4th_derivative_at(&self, u: &T) -> Option<MyVector3<T>> {
         spline_getter!(self, x_d4, y_d4, z_d4, u)
     }
+
+    /// Unit normal of the spline at `u`
+    pub fn curve_normal_at(&self, u: &T) -> Option<MyVector3<T>> {
+        let (i, rem) = self.u_to_i_rem(u);
+        if i >= self.params.len() {
+            return None;
+        }
+        Some(self.params[i].curve_normal_at(&rem))
+    }
+    pub fn curve_kappa_at(&self, u: &T) -> Option<T> {
+        let (i, rem) = self.u_to_i_rem(u);
+        if i >= self.params.len() {
+            return None;
+        }
+        Some(self.params[i].curve_kappa_at(&rem))
+    }
 }
 
 /// A single hermite curve
@@ -399,6 +415,41 @@ macro_rules! curve_params_getter {
 }
 
 impl<T> CurveParams<T> where T: MyFloat {
+    pub fn curve_normal_at(&self, u: &T) -> MyVector3<T> {
+        assert!(*u >= 0.0 && *u <= 1.0);
+        // midpoint approximation
+        const DELTA: f64 = 0.0001;
+        let u1 = u.clone() + T::from_f64(DELTA);
+        let u2 = u.clone() - T::from_f64(DELTA);
+        let t1 = self.d1(&u1).normalize();
+        let t2 = self.d1(&u2).normalize();
+        (t1 - t2).normalize()
+    }
+
+    pub fn curve_kappa_at(&self, u: &T) -> T {
+        self.d1(u).cross(&self.d2(u)).magnitude() / self.d1(u).magnitude().pow(3)
+    }
+    pub fn d0(&self, u: &T) -> MyVector3<T> {
+        MyVector3::new(
+            self.x_d0(u),
+            self.y_d0(u),
+            self.z_d0(u),
+        )
+    }
+    pub fn d1(&self, u: &T) -> MyVector3<T> {
+        MyVector3::new(
+            self.x_d1(u),
+            self.y_d1(u),
+            self.z_d1(u),
+        )
+    }
+    pub fn d2(&self, u: &T) -> MyVector3<T> {
+        MyVector3::new(
+            self.x_d2(u),
+            self.y_d2(u),
+            self.z_d2(u),
+        )
+    }
 
     // getters for position and 1st derivative
     curve_params_getter!(x_d0, Self::D0, x);

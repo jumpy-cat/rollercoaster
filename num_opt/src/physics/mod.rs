@@ -231,7 +231,16 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         // Advance the parametric value u by delta_u and calculate the new position along the curve.
         // The displacement vector delta_x is the difference between the new position and the current position.
         //let new_u = self.u + self.delta_u_;
-        self.ag_ = self.hl_accel.clone() - self.g.clone();
+
+        let kappa = curve.curve_kappa_at(&new_u).unwrap();
+        let N = curve.curve_normal_at(&new_u).unwrap();
+        // a = v^2 / r
+        // r = 1 / kappa
+        // a = kappa * v^2
+        let accel = N * kappa * self.hl_vel.clone().magnitude().pow(2);
+
+        self.ag_ = /*self.hl_accel.clone()*/accel.clone() - self.g.clone();
+        //self.ag_ = self.hl_accel.clone() - self.g.clone();
         self.target_hl_normal_ = if self.torque_exceeded {
             self.hl_normal.clone()
         } else {
@@ -245,16 +254,17 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             - self.target_hl_normal_.clone() * self.o.clone()
             - self.x.clone();
 
-        let step_too_big = {
+        /*let step_too_big = {
             self.v.angle(&self.delta_x_target_) > MAX_CURVE_ANGLE
                 //&& self.delta_u_ != FALLBACK_STEP
                 && step > MIN_STEP
                 //&& self.delta_x_target_.magnitude() > MIN_DELTA_X
-        };
+        };*/
+        let step_too_big = accel.magnitude() * step.clone() > 0.00001 && step > MIN_STEP;
         if step_too_big {
-            //self.step(step.clone() * T::from_f64(0.5), curve, behavior).unwrap();
-            //self.step(step * T::from_f64(0.5), curve, behavior).unwrap();
-            //return Some(());
+            self.step(step.clone() * T::from_f64(0.5), curve, behavior).unwrap();
+            self.step(step * T::from_f64(0.5), curve, behavior).unwrap();
+            return Some(());
         }
         //self.delta_t_ = self.calc_delta_t_from_delta_u(step).unwrap();
 
@@ -286,7 +296,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                 - self.w.clone() / new_delta_t.clone())
                 * self.I.clone();
         }
-        if !self.torque_exceeded
+        /*if !self.torque_exceeded
             && self.torque_.magnitude() > MAX_TORQUE
             && self.delta_hl_normal_target_.magnitude() > ALLOWED_ANGULAR_WIGGLE
         {
@@ -300,7 +310,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             // REMEMBER TO REMOVE
             std::thread::sleep(std::time::Duration::from_millis(200));
             return self.step(step, curve, behavior);
-        }
+        }*/
 
         // semi-implicit euler update rule
         self.v = self.v.clone() + self.F_.clone() / self.m.clone() * new_delta_t.clone();
