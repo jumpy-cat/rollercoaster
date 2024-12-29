@@ -12,7 +12,7 @@ use rug::Float;
 use crate::physics::float;
 
 pub type MyFloatType = Float;
-pub const PRECISION: u32 = 128;
+pub const PRECISION: u32 = 640;
 
 
 pub trait MyFloat:

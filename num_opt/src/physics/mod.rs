@@ -195,7 +195,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             // (||r(u_next) + N * o - x_curr + a * dt^2|| - ||v_curr|| * dt)^2
             // TODO: check is `self.hl_normal.clone()` is right here...
             |u| {
-                ((curve.curve_at(u).unwrap() + self.hl_normal.clone() * self.o.clone()
+                ((curve.curve_at(u).unwrap() - self.hl_normal.clone() * self.o.clone()
                     - (self.x.clone()
                     + self.g.clone() * step.clone().pow(2)))
                 .magnitude()
@@ -337,7 +337,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         // new update rule
         let future_pos_no_velocity = self.x.clone() + self.g.clone() * new_delta_t.clone().pow(2);
         let rotated_v_direction =
-            (curve.curve_at(&new_u).unwrap() + self.hl_normal.clone() * self.o.clone() - future_pos_no_velocity).normalize();
+            (curve.curve_at(&new_u).unwrap() - self.hl_normal.clone() * self.o.clone() - future_pos_no_velocity).normalize();
         let rotated_v = rotated_v_direction * self.v.clone().magnitude();
         //let rotated_v =
         self.v = rotated_v + self.g.clone() * new_delta_t.clone();
