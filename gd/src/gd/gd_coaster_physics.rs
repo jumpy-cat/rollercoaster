@@ -270,12 +270,11 @@ impl CoasterPhysicsV3 {
     fn step(&mut self, curve: Gd<CoasterCurve>, mut step_size: f64) {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
-            if rand::random::<f64>() > 0.5_f64 {
-                //step_size /= 2.0;
-            }
-            if phys.step(MyFloatType::from_f64(step_size), curve, physics::StepBehavior::Constant).is_none() {
-                    //godot_warn!("Simulation Stuck");
-            };
+            //for _ in 0..((1.0 / 10.0 / step_size).ceil() as u32) {
+                if phys.step(MyFloatType::from_f64(step_size), curve, physics::StepBehavior::Constant).is_none() {
+                        //godot_warn!("Simulation Stuck");
+                };
+           // }
         }
     }
 
@@ -300,7 +299,7 @@ impl CoasterPhysicsV3 {
     #[func]
     fn vel(&self) -> Variant {
         if let Some(phys) = &self.inner {
-            Variant::from(myvec_to_gd(phys.vel()))
+            Variant::from(myvec_to_gd(&phys.vel()))
         } else {
             Variant::nil()
         }
