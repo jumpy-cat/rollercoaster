@@ -155,7 +155,7 @@ func _process(_delta: float) -> void:
 		m.surface_set_color(Color.ORANGE)
 		m.surface_add_vertex(anim_pos)
 		m.surface_set_color(Color.ORANGE)
-		m.surface_add_vertex(anim_pos + MULT * physics.ag())
+		m.surface_add_vertex(physics.target_pos(curve))
 
 		m.surface_set_color(Color.RED)
 		m.surface_add_vertex(anim_pos)

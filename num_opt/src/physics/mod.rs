@@ -238,6 +238,37 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         }
     }
 
+    pub fn next_hl_normal(u: T, curve: &hermite::Spline<T>, g: &MyVector3<T>, hl_vel: &MyVector3<T>, ag_: &mut MyVector3<T>) -> MyVector3<T> {
+        // Calculate heart line acceleration
+        let kappa = curve.curve_kappa_at(&u).unwrap();
+        #[allow(non_snake_case)]
+        let N = curve.curve_normal_at(&u).unwrap();
+        // a = v^2 / r
+        // r = 1 / kappa
+        // a = kappa * v^2
+        let accel = N * kappa * hl_vel.clone().magnitude().pow(2);
+
+        // Calculate target hl normal
+        *ag_ = accel.clone() - g.clone();
+
+
+        let dir_to_use = if ag_.magnitude() == 0.0 {
+            MyVector3::new_f64(0.0, 1.0, 0.0)
+        } else {
+            ag_.clone()
+        };
+        let ortho_to = curve.curve_direction_at(&u).unwrap().normalize();
+        let tmp = (dir_to_use.clone().normalize()
+            - vector_projection(dir_to_use.clone().normalize(), ortho_to.clone()))
+        .normalize();
+        (tmp.clone() - vector_projection(tmp.clone(), ortho_to.clone())).normalize()
+    
+    }
+
+    pub fn target_pos(&self, u: T, curve: &hermite::Spline<T>) -> MyVector3<T> {
+        curve.curve_at(&u).unwrap() - Self::next_hl_normal(u, curve, &self.g, &self.hl_vel, &mut self.ag_.borrow_mut()) * self.o.clone()
+    }
+
     /// Steps forward in time by `step`, may choose to perform smaller step(s)
     ///
     /// ### Implementation Details
@@ -287,39 +318,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.total_t_ = self.total_t_.clone() + step.clone();
         let new_delta_t = step.clone();
 
-        let next_hl_normal = |u| {
-            // Calculate heart line acceleration
-            let kappa = curve.curve_kappa_at(&u).unwrap();
-            #[allow(non_snake_case)]
-            let N = curve.curve_normal_at(&u).unwrap();
-            // a = v^2 / r
-            // r = 1 / kappa
-            // a = kappa * v^2
-            let accel = N * kappa * self.hl_vel.clone().magnitude().pow(2);
-
-            // Calculate target hl normal
-            *self.ag_.borrow_mut() = accel.clone() - self.g.clone();
-
-            if false {
-                //self.torque_exceeded {
-                //} || self.ag_.magnitude() == 0.0 {
-                self.hl_normal.clone()
-            } else {
-                let dir_to_use = if self.ag_.borrow().magnitude() == 0.0 {
-                    MyVector3::new_f64(0.0, 1.0, 0.0)
-                } else {
-                    self.ag_.borrow().clone()
-                };
-                let ortho_to = curve.curve_direction_at(&u).unwrap().normalize();
-                let tmp = (dir_to_use.clone().normalize()
-                    - vector_projection(dir_to_use.clone().normalize(), ortho_to.clone()))
-                .normalize();
-                (tmp.clone() - vector_projection(tmp.clone(), ortho_to.clone())).normalize()
-            }
-        };
-
         let target_position =
-            |u| curve.curve_at(&u).unwrap() - next_hl_normal(u) * self.o.clone();
+            |u| curve.curve_at(&u).unwrap() - Self::next_hl_normal(u, curve, &self.g, &self.hl_vel, &mut self.ag_.borrow_mut()) * self.o.clone();
         let future_pos_no_vel = self.x.clone() + self.g.clone() * step.clone().pow(2);
 
         let new_u = {
@@ -367,7 +367,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         //self.target_hl_normal_ = self.hl_normal.clone();  // WORKS
 
         // PROBLEM REPRODUCED
-        self.target_hl_normal_ = next_hl_normal(new_u.clone());
+        self.target_hl_normal_ = Self::next_hl_normal(new_u.clone(), curve, &self.g, &self.hl_vel, &mut self.ag_.borrow_mut());
         //self.target_hl_normal_ = next_hl_normal(new_u.clone());
 
         // TODO: this probably should use `self.hl_normal`

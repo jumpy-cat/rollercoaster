@@ -1,11 +1,24 @@
 use godot::prelude::*;
 
-use num_opt::{hermite, my_float::MyFloatType};
+use num_opt::{hermite, my_float::{MyFloat, MyFloatType}};
+
+use super::myvec_to_gd;
 
 /// Wrapper around hermite::Spline  
-/// A handle opaque to GDScript
 #[derive(GodotClass)]
 #[class(init)]
 pub struct CoasterCurve {
     pub inner: hermite::Spline<MyFloatType>,
+}
+
+#[godot_api]
+impl CoasterCurve {
+    #[func]
+    fn pos_at(&self, u: f64) -> Variant {
+        if let Some(pos) = self.inner.curve_at(&MyFloat::from_f64(u)) {
+            Variant::from(myvec_to_gd(&pos))
+        } else {
+            Variant::nil()
+        }
+    }
 }

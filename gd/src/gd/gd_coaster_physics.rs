@@ -341,4 +341,22 @@ impl CoasterPhysicsV3 {
             Variant::nil()
         }
     }
+
+    #[func]
+    fn u(&self) -> Variant {
+        if let Some(phys) = &self.inner {
+            Variant::from(*phys.u())
+        } else {
+            Variant::nil()
+        }
+    }
+
+    #[func]
+    fn target_pos(&self, curve: Gd<CoasterCurve>) -> Variant {
+        if let Some(phys) = &self.inner {
+            Variant::from(myvec_to_gd(&phys.target_pos(*phys.u(), &curve.bind().inner)))
+        } else {
+            Variant::nil()
+        }
+    }
 }

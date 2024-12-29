@@ -15,6 +15,7 @@ height = 2.0
 radius = 1.0
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_q7vat"]
+transparency = 1
 diffuse_mode = 2
 
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_ncu23"]
@@ -36,6 +37,7 @@ shape = SubResource("SphereShape3D_r0wmb")
 
 [node name="MeshInstance3D2" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.70093, 0)
+transparency = 0.5
 mesh = SubResource("CapsuleMesh_ncu23")
 
 [node name="MeshInstance3D3" type="MeshInstance3D" parent="."]
