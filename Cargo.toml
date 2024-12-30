@@ -1,7 +1,7 @@
 [workspace]
 
-members = [
-    "num_opt",
+members = [ "gd",
+    "num_opt", "testbed",
 ]
 
 [profile.dev]

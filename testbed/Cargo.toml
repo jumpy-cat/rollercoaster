@@ -1,0 +1,8 @@
+[package]
+name = "testbed"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+num_opt = { path = "../num_opt" }
+rand = "0.8.5"
