@@ -2,7 +2,7 @@
 
 use godot::prelude::*;
 
-// this adds all the godot exports
+/// this adds all the godot exports
 mod gd;
 
 struct MyExtension;

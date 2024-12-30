@@ -118,9 +118,13 @@ func _ready() -> void:
 	gravity_edit.set_value(gravity)
 	friction_edit.set_value(friction)
 	anim_step_edit.set_value(anim_step_size)
+	var conf = DebugDraw2D.get_config()
+	conf.set_text_default_size(30)
+	DebugDraw2D.set_config(conf)
 
 
 func _process(_delta: float) -> void:
+	DebugDraw2D.set_text("FPS", Engine.get_frames_per_second())
 
 	# handle key input
 	if Input.is_action_just_pressed("reset_curve"):
@@ -132,6 +136,7 @@ func _process(_delta: float) -> void:
 		push_warning("hi2")
 		curve = optimizer.get_curve()
 		push_warning("hi3")
+
 		physics = CoasterPhysicsV3.create(mass, gravity, curve, 5.0)	
 		push_warning("hi4")	
 	
@@ -145,34 +150,19 @@ func _process(_delta: float) -> void:
 		#var anim_vel = physics.velocity()
 		var anim_vel = physics.vel()
 		var anim_up = physics.hl_normal()
-		var m: ImmediateMesh = hl_normal_mi.mesh
-		m.clear_surfaces()
-		m.surface_begin(Mesh.PRIMITIVE_LINES)
 
-		const MULT = 200;
+		const MULT = 20;
 
-		m.surface_set_color(Color.ORANGE)
-		m.surface_add_vertex(anim_pos)
-		m.surface_set_color(Color.ORANGE)
-		m.surface_add_vertex(anim_pos + MULT * physics.ag())
+		DebugDraw3D.draw_line(anim_pos, physics.target_pos(curve), Color.ORANGE)
+		DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * physics.hl_normal(), Color.RED)
+		DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_vel, Color.BLUE)
+		
+		DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.5, Color.GREEN)
 
-		m.surface_set_color(Color.RED)
-		m.surface_add_vertex(anim_pos)
-		m.surface_set_color(Color.RED)
-		m.surface_add_vertex(anim_pos + MULT * physics.a())
+		var tgt_positions = physics.next_target_positions(curve)
+		for i in range(len(tgt_positions) - 1):
+			DebugDraw3D.draw_line(tgt_positions[i], tgt_positions[i + 1], Color.PINK)
 
-		m.surface_set_color(Color.YELLOW)
-		m.surface_add_vertex(anim_pos + MULT * physics.a())
-		m.surface_set_color(Color.YELLOW)
-		m.surface_add_vertex(anim_pos + MULT * physics.a() - MULT * physics.g())
-
-		# blue velocity
-		m.surface_set_color(Color.BLUE)
-		m.surface_add_vertex(anim_pos)
-		m.surface_set_color(Color.BLUE)
-		m.surface_add_vertex(anim_pos + MULT * anim_vel)
-
-		m.surface_end()
 		#var anim_up = Vector3.UP
 		if anim_pos != null:
 			if anim_pos != anim_pos + anim_vel:
@@ -192,49 +182,11 @@ func _process(_delta: float) -> void:
 		Utils.cylinder_line(m, optimizer.as_segment_points(), 0.2)
 				
 		m.surface_end();
-	
-	# update ui
-	#var format_values;
-	#if physics != null:
-	#	var v = physics.velocity()
-	#	var n = physics.hl_normal()
-	#	format_values = [
-	#		optimizer.cost(),
-	#		physics.speed(),
-	#		physics.accel(),
-	#		physics.g_force(),
-	#		physics.max_g_force(),
-	#		physics.cost(),
-	#		v,
-	#		n,
-	#		90 - rad_to_deg(v.signed_angle_to(n, v.cross(n)))
-	#	]
-	#else:
-	#	format_values = [
-	#		optimizer.cost(),
-	#		0.0,
-	#		0.0,
-	#		0.0,
-	#		0.0,
-	#		0.0,
-	#		Vector3.ZERO,
-	#		Vector3.ZERO,
-	#		0.0
-	#	]
-	#label.text = """Cost: %.3f
-		
-	#	Speed: %.3f
-	#	Accel: %.3f
-	#	Gs: %.3f
-	#	Max Gs: %.3f
-	#	Cost: %.3f
-	#	Velocity: %.3v
-	#	Normal Force: %.3v
-	#	Angle Error: %.3f""" % format_values
+
 	if physics == null:
 		label.text = "physics not initialized"
 	else:
-		label.text = physics.description(curve)
+		label.text = physics.description()
 	var ips = optimizer.iters_per_second()
 	if ips == null:
 		optimizer_speed_label.text = "-- iter/s"

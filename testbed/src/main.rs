@@ -2,7 +2,7 @@ use std::{io::Write, time::UNIX_EPOCH};
 
 use num_opt::{
     hermite,
-    physics::{self, StepBehavior},
+    physics::{self},
 };
 
 fn main() {
@@ -37,24 +37,25 @@ fn main() {
     let curve: hermite::Spline<f64> = num_opt::hermite::Spline::new(&points);
     let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 5.0);
 
-    let max_time = 500.0;
+    let max_time = 75.0;
+
     let file_suffix = std::time::SystemTime::now().duration_since(UNIX_EPOCH);
     let mut file =
         std::fs::File::create(format!("{}.txt", file_suffix.unwrap().as_secs())).unwrap();
 
     while phys.total_t_() < &max_time {
-        //if rand::random::<f64>() > 1.0_f64 {
-        if (phys.total_t_() / 5.0).floor() as i64 % 2 == 0 {
-            phys.step(0.05, &curve, StepBehavior::Time);
+        println!("{}", phys.total_t_());
+        if rand::random::<f64>() > 0.0_f64 {
+            phys.step(0.01, &curve);
         } else {
-            phys.step(0.05 * 0.9, &curve, StepBehavior::Time);
+            phys.step(0.025, &curve);
         }
         file.write_all(
             format!(
                 "{}, {}, {}\n",
                 phys.total_t_(),
-                phys.vel().magnitude(),
-                phys.hl_vel().magnitude(),
+                phys.u(),
+                phys.v().magnitude()
             )
             .as_bytes(),
         )

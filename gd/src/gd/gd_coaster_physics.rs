@@ -1,9 +1,8 @@
 use godot::prelude::*;
 
+use num_opt::my_float::MyFloat;
 use num_opt::my_float::MyFloatType;
 use num_opt::physics;
-use num_opt::my_float::MyFloat;
-
 
 use super::{myvec_to_gd, na_to_gd, CoasterCurve};
 
@@ -36,7 +35,8 @@ impl CoasterPhysics {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
             let u = phys.u();
-            if let Some(drdu) = curve.curve_1st_derivative_at(&MyFloatType::from_f64(u)) {
+
+            if let Some(drdu) = curve.curve_1st_derivative_at(&MyFloat::from_f64(u)) {
                 phys.step(
                     drdu.x.to_f64(),
                     drdu.y.to_f64(),
@@ -131,119 +131,6 @@ impl CoasterPhysics {
     }
 }
 
-/*/// Wrapper around physics::PhysicsStateV2
-#[derive(GodotClass)]
-#[class(init)]
-#[deprecated]
-pub struct CoasterPhysicsV2 {
-    inner: Option<physics::legacy::PhysicsStateV2>,
-}
-
-#[godot_api]
-impl CoasterPhysicsV2 {
-    /// Initialize with mass and gravity
-    #[func]
-    fn create(mass: f64, gravity: f64, com_offset_mag: f64) -> Gd<Self> {
-        Gd::from_object(Self {
-            inner: Some(physics::legacy::PhysicsStateV2::new(
-                mass,
-                na::Vector3::new(0.0, gravity, 0.0),
-                com_offset_mag,
-            )),
-        })
-    }
-
-    /// Progress the simulation given a curve
-    #[func]
-    fn step(&mut self, curve: Gd<CoasterCurve>, step_size: f64) {
-        if let Some(phys) = &mut self.inner {
-            let curve = &curve.bind().inner;
-            phys.step(curve, step_size, physics::StepBehavior::Time);
-        }
-    }
-
-    /// Current position
-    #[func]
-    fn pos(&self, curve: Gd<CoasterCurve>) -> Variant {
-        if let Some(phys) = &self.inner
-            && let Some(pos) = phys.com_pos(&curve.bind().inner)
-        {
-            Variant::from(na_to_gd(pos))
-        } else {
-            Variant::nil()
-        }
-    }
-
-    /// Current speed
-    #[func]
-    fn speed(&self) -> Variant {
-        if let Some(phys) = &self.inner {
-            Variant::from(phys.speed())
-        } else {
-            Variant::nil()
-        }
-    }
-
-    /// Current acceleration (scaler)
-    #[func]
-    fn accel(&self) -> Variant {
-        if let Some(phys) = &self.inner {
-            Variant::from(phys.a())
-        } else {
-            Variant::nil()
-        }
-    }
-
-    /// Current g force
-    #[func]
-    fn g_force(&self) -> Variant {
-        if let Some(phys) = &self.inner {
-            Variant::from(-phys.a() / phys.gravity())
-        } else {
-            Variant::nil()
-        }
-    }
-
-    /// Max g force experienced
-    #[func]
-    fn max_g_force(&self) -> Variant {
-        if let Some(phys) = &self.inner {
-            Variant::from(phys.max_g_force())
-        } else {
-            Variant::nil()
-        }
-    }
-
-    /// Accumulating cost value
-    #[func]
-    fn cost(&self) -> Variant {
-        if let Some(phys) = &self.inner {
-            Variant::from(phys.cost())
-        } else {
-            Variant::nil()
-        }
-    }
-
-    /// Velocity vector
-    #[func]
-    fn velocity(&self) -> Variant {
-        if let Some(phys) = &self.inner {
-            Variant::from(na_to_gd(phys.v()))
-        } else {
-            Variant::nil()
-        }
-    }
-
-    #[func]
-    fn hl_normal(&self) -> Variant {
-        if let Some(phys) = &self.inner {
-            Variant::from(na_to_gd(phys.hl_normal()))
-        } else {
-            Variant::nil()
-        }
-    }
-}
-*/
 /// Wrapper around physics::PhysicsStateV3
 #[derive(GodotClass)]
 #[class(init)]
@@ -267,21 +154,17 @@ impl CoasterPhysicsV3 {
     }
 
     #[func]
-    fn step(&mut self, curve: Gd<CoasterCurve>, mut step_size: f64) {
+    fn step(&mut self, curve: Gd<CoasterCurve>, step_size: f64) {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
-            //for _ in 0..((1.0 / 10.0 / step_size).ceil() as u32) {
-                if phys.step(MyFloatType::from_f64(step_size), curve, physics::StepBehavior::Constant).is_none() {
-                        //godot_warn!("Simulation Stuck");
-                };
-           // }
+            let _ = phys.step(MyFloatType::from_f64(step_size), curve).is_none();
         }
     }
 
     #[func]
-    fn description(&self, curve: Gd<CoasterCurve>) -> String {
+    fn description(&self) -> String {
         if let Some(phys) = &self.inner {
-            phys.description(&curve.bind().inner)
+            phys.description()
         } else {
             String::new()
         }
@@ -299,7 +182,7 @@ impl CoasterPhysicsV3 {
     #[func]
     fn vel(&self) -> Variant {
         if let Some(phys) = &self.inner {
-            Variant::from(myvec_to_gd(&phys.vel()))
+            Variant::from(myvec_to_gd(phys.v()))
         } else {
             Variant::nil()
         }
@@ -317,7 +200,7 @@ impl CoasterPhysicsV3 {
     #[func]
     fn ag(&self) -> Variant {
         if let Some(phys) = &self.inner {
-            Variant::from(myvec_to_gd(phys.ag()))
+            Variant::from(myvec_to_gd(&phys.ag()))
         } else {
             Variant::nil()
         }
@@ -336,6 +219,44 @@ impl CoasterPhysicsV3 {
     fn g(&self) -> Variant {
         if let Some(phys) = &self.inner {
             Variant::from(myvec_to_gd(phys.g()))
+        } else {
+            Variant::nil()
+        }
+    }
+
+    #[func]
+    fn u(&self) -> Variant {
+        if let Some(phys) = &self.inner {
+            Variant::from(phys.u().to_f64())
+        } else {
+            Variant::nil()
+        }
+    }
+
+    #[func]
+    fn target_pos(&self, curve: Gd<CoasterCurve>) -> Variant {
+        if let Some(phys) = &self.inner {
+            Variant::from(myvec_to_gd(
+                &phys.target_pos(*phys.u(), &curve.bind().inner),
+            ))
+        } else {
+            Variant::nil()
+        }
+    }
+
+    #[func]
+    fn next_target_positions(&self, curve: Gd<CoasterCurve>) -> Variant {
+        if let Some(phys) = &self.inner {
+            let mut out = vec![];
+            let init = phys.u().to_f64();
+            for i in 0..101 {
+                let u = MyFloat::from_f64(init + i as f64 / 100.0);
+                if u > curve.bind().inner.max_u() {
+                    break;
+                }
+                out.push(myvec_to_gd(&phys.target_pos(u, &curve.bind().inner)));
+            }
+            Variant::from(out)
         } else {
             Variant::nil()
         }
