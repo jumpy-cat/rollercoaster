@@ -3,6 +3,7 @@
 [sub_resource type="GDScript" id="GDScript_gxknm"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_38yrt"]
+transparency = 1
 diffuse_mode = 2
 albedo_color = Color(1, 0.682353, 0.682353, 1)
 
@@ -41,4 +42,5 @@ transparency = 0.5
 mesh = SubResource("CapsuleMesh_ncu23")
 
 [node name="MeshInstance3D3" type="MeshInstance3D" parent="."]
+transparency = 0.5
 mesh = SubResource("ImmediateMesh_teg0u")

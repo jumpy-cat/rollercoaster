@@ -2,7 +2,7 @@ use std::{io::Write, time::UNIX_EPOCH};
 
 use num_opt::{
     hermite,
-    physics::{self, StepBehavior},
+    physics::{self},
 };
 
 fn main() {
@@ -43,6 +43,7 @@ fn main() {
         std::fs::File::create(format!("{}.txt", file_suffix.unwrap().as_secs())).unwrap();
 
     while phys.total_t_() < &max_time {
+        println!("{}", phys.total_t_());
         if rand::random::<f64>() > 0.0_f64 {
             phys.step(0.01, &curve);
         } else {

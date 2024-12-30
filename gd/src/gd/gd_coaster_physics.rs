@@ -1,9 +1,8 @@
 use godot::prelude::*;
 
+use num_opt::my_float::MyFloat;
 use num_opt::my_float::MyFloatType;
 use num_opt::physics;
-use num_opt::my_float::MyFloat;
-
 
 use super::{myvec_to_gd, na_to_gd, CoasterCurve};
 
@@ -274,7 +273,7 @@ impl CoasterPhysicsV3 {
                 //step_size /= 2.0;
             }
             if phys.step(MyFloatType::from_f64(step_size), curve).is_none() {
-                    //godot_warn!("Simulation Stuck");
+                //godot_warn!("Simulation Stuck");
             };
         }
     }
@@ -345,7 +344,7 @@ impl CoasterPhysicsV3 {
     #[func]
     fn u(&self) -> Variant {
         if let Some(phys) = &self.inner {
-            Variant::from(*phys.u())
+            Variant::from(phys.u().to_f64())
         } else {
             Variant::nil()
         }
@@ -354,7 +353,30 @@ impl CoasterPhysicsV3 {
     #[func]
     fn target_pos(&self, curve: Gd<CoasterCurve>) -> Variant {
         if let Some(phys) = &self.inner {
-            Variant::from(myvec_to_gd(&phys.target_pos(*phys.u(), &curve.bind().inner)))
+            Variant::from(myvec_to_gd(
+                &phys.target_pos(phys.u().clone(), &curve.bind().inner),
+            ))
+        } else {
+            Variant::nil()
+        }
+    }
+
+    #[func]
+    fn next_target_positions(&self, curve: Gd<CoasterCurve>) -> Variant {
+        if let Some(phys) = &self.inner {
+            let mut out = vec![];
+            let init = phys.u().to_f64();
+            for i in 0..101 {
+                let u = MyFloat::from_f64(init + i as f64 / 100.0);
+                if u > curve.bind().inner.max_u() {
+                    break;
+                }
+                out.push(myvec_to_gd(&phys.target_pos(
+                    u,
+                    &curve.bind().inner,
+                )));
+            }
+            Variant::from(out)
         } else {
             Variant::nil()
         }

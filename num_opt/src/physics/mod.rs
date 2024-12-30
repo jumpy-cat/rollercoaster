@@ -238,19 +238,28 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         }
     }
 
-    pub fn next_hl_normal(u: T, curve: &hermite::Spline<T>, g: &MyVector3<T>, hl_vel: &MyVector3<T>, ag_: &mut MyVector3<T>) -> MyVector3<T> {
-        // Calculate heart line acceleration
+    pub fn next_hl_normal(
+        u: T,
+        curve: &hermite::Spline<T>,
+        g: &MyVector3<T>,
+        v: &MyVector3<T>,
+        o: &T,
+        ag_: &mut MyVector3<T>,
+    ) -> MyVector3<T> {
+        // Calculate heart line acceleration, using center of mass values
         let kappa = curve.curve_kappa_at(&u).unwrap();
+        let r = T::from_f64(1.0) / kappa + o.clone();
         #[allow(non_snake_case)]
         let N = curve.curve_normal_at(&u).unwrap();
         // a = v^2 / r
         // r = 1 / kappa
         // a = kappa * v^2
-        let accel = N * kappa * hl_vel.clone().magnitude().pow(2);
+        let accel = N * v.clone().magnitude().pow(2) / r;
+
+        // use com velocity
 
         // Calculate target hl normal
         *ag_ = accel.clone() - g.clone();
-
 
         let dir_to_use = if ag_.magnitude() == 0.0 {
             MyVector3::new_f64(0.0, 1.0, 0.0)
@@ -262,11 +271,12 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             - vector_projection(dir_to_use.clone().normalize(), ortho_to.clone()))
         .normalize();
         (tmp.clone() - vector_projection(tmp.clone(), ortho_to.clone())).normalize()
-    
     }
 
     pub fn target_pos(&self, u: T, curve: &hermite::Spline<T>) -> MyVector3<T> {
-        curve.curve_at(&u).unwrap() - Self::next_hl_normal(u, curve, &self.g, &self.hl_vel, &mut self.ag_.borrow_mut()) * self.o.clone()
+        curve.curve_at(&u).unwrap()
+            - Self::next_hl_normal(u, curve, &self.g, &self.v, &self.o, &mut self.ag_.borrow_mut())
+                * self.o.clone()
     }
 
     /// Steps forward in time by `step`, may choose to perform smaller step(s)
@@ -318,8 +328,11 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.total_t_ = self.total_t_.clone() + step.clone();
         let new_delta_t = step.clone();
 
-        let target_position =
-            |u| curve.curve_at(&u).unwrap() - Self::next_hl_normal(u, curve, &self.g, &self.hl_vel, &mut self.ag_.borrow_mut()) * self.o.clone();
+        let target_position = |u| {
+            curve.curve_at(&u).unwrap()
+                - Self::next_hl_normal(u, curve, &self.g, &self.v, &self.o, &mut self.ag_.borrow_mut())
+                    * self.o.clone()
+        };
         let future_pos_no_vel = self.x.clone() + self.g.clone() * step.clone().pow(2);
 
         let new_u = {
@@ -327,10 +340,11 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             let move_dist = self.v.clone().magnitude() * step.clone();
             let inside = |u| dist_between(u) < move_dist;
 
-            let mut candidate_coarse_step = T::from_f64(0.01);
-            let candidate = self.u.clone();
-            let out;
-            loop {
+            let candidate_coarse_step = T::from_f64(0.01);
+            let mut candidate = self.u.clone();
+            let mut solution_list = vec![];
+            let mut out = None;
+            while candidate.clone() < self.u.clone() + T::from_f64(1.0) {
                 let res = solver::find_minimum_golden_section(
                     candidate.clone(),
                     candidate.clone() + candidate_coarse_step.clone(),
@@ -339,26 +353,33 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                 );
                 match res {
                     Ok((u, v)) => {
-                        out = Some(u.clone());
-                        self.local_min_ = dist_between(u.clone()) - move_dist;
-                        if self.local_min_.abs() > 1.0 {
-                            //std::thread::sleep(Duration::from_secs(0.2));
+                        if out.is_none() {
+                            out = Some(u.clone());
+                            self.local_min_ = dist_between(u.clone()) - move_dist.clone();
                         }
-                        break;
+                        solution_list.push((u.to_f64() - self.u.to_f64(), v.to_f64()));
+                        break
                     }
                     Err((u, v, bounds)) => {
                         match bounds {
                             HitBoundary::Lower => {
-                                out = Some(u.clone());
+                                if out.is_none() {
+                                    out = Some(u.clone());
+                                }
+                                //solution_list.push((u.clone() - self.u.clone(), v));
                                 break;
                             }
                             HitBoundary::Upper => {
-                                candidate_coarse_step = T::from_f64(2.0) * candidate_coarse_step.clone();
+                                
                             }
                         }
                     }
                 }
+                candidate += candidate_coarse_step.to_f64();
+                //candidate_coarse_step =
+                //                    T::from_f64(2.0) * candidate_coarse_step.clone();
             }
+            //godot_print!("Minimums: {:#?}", solution_list);
             out.unwrap()
         };
         self.delta_u_ = new_u.clone() - self.u.clone();
@@ -367,7 +388,14 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         //self.target_hl_normal_ = self.hl_normal.clone();  // WORKS
 
         // PROBLEM REPRODUCED
-        self.target_hl_normal_ = Self::next_hl_normal(new_u.clone(), curve, &self.g, &self.hl_vel, &mut self.ag_.borrow_mut());
+        self.target_hl_normal_ = Self::next_hl_normal(
+            new_u.clone(),
+            curve,
+            &self.g,
+            &self.v,
+            &self.o,
+            &mut self.ag_.borrow_mut(),
+        );
         //self.target_hl_normal_ = next_hl_normal(new_u.clone());
 
         // TODO: this probably should use `self.hl_normal`
@@ -456,7 +484,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         format!(
             "x: {:.2?}
 u: {}
-t: {}
+t: {:.3}
 lm: {}
 E: {:.3?}
 speed: {:.3} ({:.3?})
@@ -472,9 +500,9 @@ Torque: {:.3}
 delta-t: {:.6} {}
 delta-u: {}",
             self.x,
-            self.u,
-            self.total_t_,
-            self.local_min_,
+            self.u.to_f64(),
+            self.total_t_.to_f64(),
+            self.local_min_.to_f64(),
             self.energy(),
             self.v.magnitude(),
             self.v,
@@ -488,13 +516,13 @@ delta-u: {}",
             self.torque_exceeded,
             self.w.magnitude(),
             self.torque_.magnitude(),
-            self.delta_t_,
+            self.delta_t_.to_f64(),
             if self.delta_t_ < MIN_STEP {
                 "##MIN##"
             } else {
                 ""
             },
-            self.delta_u_
+            self.delta_u_.to_f64()
         )
     }
 
