@@ -9,8 +9,8 @@ albedo_color = Color(1, 0.682353, 0.682353, 1)
 
 [sub_resource type="SphereMesh" id="SphereMesh_su52i"]
 material = SubResource("StandardMaterial3D_38yrt")
-radius = 1.0
-height = 2.0
+radius = 0.1
+height = 0.2
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_r0wmb"]
 radius = 1.0
@@ -21,6 +21,7 @@ diffuse_mode = 2
 
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_ncu23"]
 material = SubResource("StandardMaterial3D_q7vat")
+radius = 0.1
 height = 5.0
 
 [sub_resource type="ImmediateMesh" id="ImmediateMesh_teg0u"]
@@ -29,6 +30,7 @@ height = 5.0
 script = SubResource("GDScript_gxknm")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transparency = 0.9
 mesh = SubResource("SphereMesh_su52i")
 
 [node name="StaticBody3D" type="StaticBody3D" parent="."]

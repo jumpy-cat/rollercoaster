@@ -95,6 +95,12 @@ impl<T: MyFloat> MyVector3<T> {
     }
 }
 
+impl<T: MyFloat> AsRef<MyVector3<T>> for MyVector3<T> {
+    fn as_ref(&self) -> &MyVector3<T> {
+        self
+    }
+}
+
 impl<T: MyFloat> std::fmt::Debug for MyVector3<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MV")

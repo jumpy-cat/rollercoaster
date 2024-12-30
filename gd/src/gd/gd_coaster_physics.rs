@@ -3,6 +3,7 @@ use godot::prelude::*;
 use num_opt::my_float::MyFloat;
 use num_opt::my_float::MyFloatType;
 use num_opt::physics;
+use num_opt::physics::PhysicsStateV3;
 
 use super::{myvec_to_gd, na_to_gd, CoasterCurve};
 
@@ -131,13 +132,44 @@ impl CoasterPhysics {
     }
 }
 
+type Inner = physics::PhysicsStateV3<MyFloatType>;
+
 /// Wrapper around physics::PhysicsStateV3
 #[derive(GodotClass)]
 #[class(init)]
 pub struct CoasterPhysicsV3 {
-    inner: Option<physics::PhysicsStateV3<MyFloatType>>,
+    inner: Option<Inner>,
 }
 
+macro_rules! impl_physics_v3_getter {
+    ($self:ident, $closure:expr) => {
+        if let Some(phys) = &$self.inner {
+            Variant::from($closure(phys))
+        } else {
+            Variant::nil()
+        }
+    };
+}
+
+macro_rules! impl_physics_v3_getter_v2 {
+    ($self:ident, $closure:expr) => {
+        if let Some(phys) = &$self.inner {
+            Variant::from($closure(phys))
+        } else {
+            Variant::nil()
+        }
+    };
+}
+
+macro_rules! fn_maker {
+    () => {
+        #[func]
+        fn hi(&self) {}
+    };
+}
+
+// TODO: Consider a proc macro to reduce boilerplate
+// #[]
 #[godot_api]
 impl CoasterPhysicsV3 {
     /// Initialize with mass and gravity
@@ -157,7 +189,10 @@ impl CoasterPhysicsV3 {
     fn step(&mut self, curve: Gd<CoasterCurve>, step_size: f64) {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
-            let _ = phys.step(MyFloatType::from_f64(step_size), curve).is_none();
+            for _ in 0..1 {
+                let _ = phys.step(MyFloatType::from_f64(step_size), curve).is_none();
+
+            }
         }
     }
 
@@ -172,93 +207,86 @@ impl CoasterPhysicsV3 {
 
     #[func]
     fn pos(&self) -> Variant {
-        if let Some(phys) = &self.inner {
-            Variant::from(myvec_to_gd(phys.pos()))
-        } else {
-            Variant::nil()
-        }
+        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.x()))
     }
 
     #[func]
     fn vel(&self) -> Variant {
-        if let Some(phys) = &self.inner {
-            Variant::from(myvec_to_gd(phys.v()))
-        } else {
-            Variant::nil()
-        }
+        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.v()))
     }
 
     #[func]
     fn hl_normal(&self) -> Variant {
-        if let Some(phys) = &self.inner {
-            Variant::from(myvec_to_gd(phys.hl_normal()))
-        } else {
-            Variant::nil()
-        }
+        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.hl_normal()))
     }
 
     #[func]
     fn ag(&self) -> Variant {
-        if let Some(phys) = &self.inner {
-            Variant::from(myvec_to_gd(&phys.ag()))
-        } else {
-            Variant::nil()
-        }
+        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.ag()))
     }
 
     #[func]
     fn a(&self) -> Variant {
-        if let Some(phys) = &self.inner {
-            Variant::from(myvec_to_gd(phys.a()))
-        } else {
-            Variant::nil()
-        }
+        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.a()))
     }
 
     #[func]
     fn g(&self) -> Variant {
-        if let Some(phys) = &self.inner {
-            Variant::from(myvec_to_gd(phys.g()))
-        } else {
-            Variant::nil()
-        }
+        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.g()))
     }
 
     #[func]
     fn u(&self) -> Variant {
-        if let Some(phys) = &self.inner {
-            Variant::from(phys.u().to_f64())
-        } else {
-            Variant::nil()
-        }
+        impl_physics_v3_getter!(self, |phys: &Inner| *phys.u())
     }
 
     #[func]
     fn target_pos(&self, curve: Gd<CoasterCurve>) -> Variant {
-        if let Some(phys) = &self.inner {
-            Variant::from(myvec_to_gd(
-                &phys.target_pos(*phys.u(), &curve.bind().inner),
-            ))
-        } else {
-            Variant::nil()
-        }
+        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(
+            phys.target_pos_simple(*phys.u(), &curve.bind().inner)
+        ))
     }
 
     #[func]
     fn next_target_positions(&self, curve: Gd<CoasterCurve>) -> Variant {
-        if let Some(phys) = &self.inner {
+        impl_physics_v3_getter!(self, |phys: &Inner| {
             let mut out = vec![];
-            let init = phys.u().to_f64();
+            let init = MyFloatType::to_f64(phys.u());
             for i in 0..101 {
                 let u = MyFloat::from_f64(init + i as f64 / 100.0);
                 if u > curve.bind().inner.max_u() {
                     break;
                 }
-                out.push(myvec_to_gd(&phys.target_pos(u, &curve.bind().inner)));
+                out.push(myvec_to_gd(phys.target_pos_simple(u, &curve.bind().inner)));
             }
-            Variant::from(out)
-        } else {
-            Variant::nil()
-        }
+            out
+        })
+    }
+
+    #[func]
+    fn prev_target_positions(&self, curve: Gd<CoasterCurve>) -> Variant {
+        impl_physics_v3_getter!(self, |phys: &Inner| {
+            let mut out = vec![];
+            let init = MyFloatType::to_f64(phys.u());
+            for i in 0..101 {
+                let u = MyFloat::from_f64(init - i as f64 / 100.0);
+                if u < 0.0 {
+                    break;
+                }
+                out.push(myvec_to_gd(phys.target_pos_simple(u, &curve.bind().inner)));
+            }
+            out
+        })
+    }
+
+    #[func]
+    fn future_pos_no_vel(&self, step: f64) -> Variant {
+        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys
+            .future_pos_no_vel(MyFloatType::from_f64(step))))
+    }
+
+    #[func]
+    fn found_exact_solution_(&self) -> Variant {
+        impl_physics_v3_getter!(self, |phys: &Inner| *phys.found_exact_solution_())
     }
 }

@@ -86,9 +86,11 @@ pub struct PhysicsStateV3<T: MyFloat> {
     F_: MyVector3<T>,
     torque_: MyVector3<T>,
     local_min_: T,
+    found_exact_solution_: bool,
 }
 
 const MIN_STEP: f64 = 0.00001;
+const TOL: f64 = 1e-12f64;
 
 impl<T: MyFloat> PhysicsStateV3<T> {
     /// Initialize the physics state: `m` mass, `g` Gravity vector,
@@ -141,6 +143,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             ag_: Default::default(),
             torque_: Default::default(),
             local_min_: T::from_f64(0.0),
+            found_exact_solution_: false,
         };
         s
     }
@@ -149,7 +152,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         u: T,
         curve: &hermite::Spline<T>,
         g: &MyVector3<T>,
-        v: &MyVector3<T>,
+        speed: &T,
         o: &T,
         ag_: &mut MyVector3<T>,
     ) -> MyVector3<T> {
@@ -161,7 +164,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         // a = v^2 / r
         // r = 1 / kappa + o
         // a = v^2 / r
-        let accel = N * v.clone().magnitude().pow(2) / r;
+        let accel = N * speed.clone().pow(2) / r;
 
         // Calculate target hl normal
         *ag_ = accel.clone() - g.clone();
@@ -178,16 +181,66 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         (tmp.clone() - vector_projection(tmp.clone(), ortho_to.clone())).normalize()
     }
 
-    pub fn target_pos(&self, u: T, curve: &hermite::Spline<T>) -> MyVector3<T> {
-        curve.curve_at(&u).unwrap()
-            - Self::next_hl_normal(
-                u,
-                curve,
-                &self.g,
-                &self.v,
-                &self.o,
-                &mut self.ag_.borrow_mut(),
-            ) * self.o.clone()
+    pub fn target_pos_simple(&self, u: T, curve: &hermite::Spline<T>) -> MyVector3<T> {
+        Self::target_pos(
+            u,
+            curve,
+            &self.x,
+            &self.v,
+            self.m.clone(),
+            &self.g,
+            &self.o,
+            &mut self.ag_.borrow_mut(),
+        )
+    }
+
+    pub fn target_pos(
+        u: T,
+        curve: &hermite::Spline<T>,
+        x: &MyVector3<T>,
+        v: &MyVector3<T>,
+        m: T,
+        g: &MyVector3<T>,
+        o: &T,
+        ag_: &mut MyVector3<T>,
+    ) -> MyVector3<T> {
+        let future_speed = |future_position: MyVector3<T>| {
+            // uses energy
+            let dy = (future_position - x.clone()).y;
+            let future_k = v.magnitude().pow(2) * 0.5 * m.clone() + m.clone() * g.y.clone() * dy;
+            (future_k * 2.0 / m.clone()).sqrt()
+        };
+        // target position guess
+        let mut guess_pos_using_speed = |speed| {
+            curve.curve_at(&u).unwrap()
+                - Self::next_hl_normal(u.clone(), curve, &g, &speed, &o, ag_) * o.clone()
+        };
+        let mut speed = v.magnitude();
+        let mut guess;
+        let mut guess_speed;
+        let mut error = None;
+        loop {
+            godot_print!("hii");
+            guess = guess_pos_using_speed(speed.clone());
+            guess_speed = future_speed(guess.clone());
+            let new_error = (speed - guess_speed.clone()).abs();
+            if new_error < TOL {
+                break;
+            }
+            if let Some(error) = error
+                && error <= new_error
+            {
+                godot_warn!("Solver diverged?");
+                break;
+            }
+            error = Some(new_error);
+            speed = guess_speed;
+        }
+        guess
+    }
+
+    pub fn future_pos_no_vel(&self, step: T) -> MyVector3<T> {
+        self.x.clone() + self.g.clone() * step.clone().pow(2)
     }
 
     /// Steps forward in time by `step`, may choose to perform smaller step(s)
@@ -239,21 +292,47 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.total_t_ = self.total_t_.clone() + step.clone();
         let new_delta_t = step.clone();
 
-        let target_position = |u| {
+        // Target_position(u) determination process
+        // 1. Get position assuming speed doesn't change
+        // 2. Calculate speed change based off of precision
+        // 3. Apply new speed to 1, repeat
+
+        // This ignores that the speed of the com is affected by gravity/friction
+        let naive_target_position = |u| {
             curve.curve_at(&u).unwrap()
                 - Self::next_hl_normal(
                     u,
                     curve,
                     &self.g,
-                    &self.v,
+                    &self.v.magnitude(), // TODO: make accurate
                     &self.o,
                     &mut self.ag_.borrow_mut(),
                 ) * self.o.clone()
         };
-        let future_pos_no_vel = self.x.clone() + self.g.clone() * step.clone().pow(2);
+        let future_speed = |future_position: MyVector3<T>| {
+            // uses energy
+            let dy = (future_position - self.x.clone()).y;
+            let future_k = self.v.magnitude().pow(2) * 0.5 * self.m.clone()
+                + self.m.clone() * self.g.y.clone() * dy;
+            (future_k * 2.0 / self.m.clone()).sqrt()
+        };
+
+        let future_pos_no_vel = self.future_pos_no_vel(step.clone());
 
         let new_u = {
-            let dist_between = |u| (target_position(u) - &future_pos_no_vel).magnitude();
+            let dist_between = |u| {
+                (Self::target_pos(
+                    u,
+                    curve,
+                    &self.x,
+                    &self.v,
+                    self.m.clone(),
+                    &self.g,
+                    &self.o,
+                    &mut self.ag_.borrow_mut(),
+                ) - &future_pos_no_vel)
+                    .magnitude()
+            };
             let move_dist = self.v.clone().magnitude() * step.clone();
             //let inside = |u| dist_between(u) < move_dist;
 
@@ -262,15 +341,27 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             let mut solution_list = vec![];
             let mut out = None;
             while candidate.clone() < self.u.clone() + T::from_f64(1.0) {
+                let exact_res = solver::find_root_bisection(
+                    candidate.clone(),
+                    candidate.clone() + candidate_coarse_step.clone(),
+                    |u| dist_between(u.clone()) - move_dist.clone(),
+                    TOL,
+                );
                 let res = solver::find_minimum_golden_section(
                     candidate.clone(),
                     candidate.clone() + candidate_coarse_step.clone(),
                     |u| (dist_between(u.clone()) - move_dist.clone()).pow(2),
-                    1e-12f64,
+                    TOL,
                 );
+                if let Some(res) = exact_res {
+                    self.found_exact_solution_ = true;
+                    out = Some(res);
+                    break;
+                }
                 match res {
                     Ok((u, v)) => {
                         if out.is_none() {
+                            self.found_exact_solution_ = false;
                             out = Some(u.clone());
                             self.local_min_ = dist_between(u.clone()) - move_dist.clone();
                         }
@@ -280,11 +371,11 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                     Err((u, v, bounds)) => {
                         match bounds {
                             HitBoundary::Lower => {
-                                if out.is_none() {
+                                /*if out.is_none() {
                                     out = Some(u.clone());
                                 }
                                 //solution_list.push((u.clone() - self.u.clone(), v));
-                                break;
+                                break;*/
                             }
                             HitBoundary::Upper => {}
                         }
@@ -296,30 +387,39 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         };
         self.delta_u_ = new_u.clone() - self.u.clone();
 
-        self.target_hl_normal_ = Self::next_hl_normal(
-            new_u.clone(),
-            curve,
-            &self.g,
-            &self.v,
-            &self.o,
-            &mut self.ag_.borrow_mut(),
-        );
-
         // hl values
         let new_hl_vel = (curve.curve_at(&new_u)? - curve.curve_at(&self.u)?) / new_delta_t.clone();
         let new_hl_accel = (new_hl_vel.clone() - self.hl_vel.clone()) / (new_delta_t.clone());
 
-        // rotation
-        let cross = self.hl_normal.cross(&self.target_hl_normal_).normalize();
-        self.delta_hl_normal_target_ =
-            cross * self.hl_normal.angle_dbg::<Silence>(&self.target_hl_normal_);
-
         // new update rule
-        let rotated_v_direction = (target_position(new_u.clone()) - future_pos_no_vel).normalize();
+        let rotated_v_direction = (Self::target_pos(
+            new_u.clone(),
+            curve,
+            &self.x,
+            &self.v,
+            self.m.clone(),
+            &self.g,
+            &self.o,
+            &mut self.ag_.borrow_mut(),
+        ) - future_pos_no_vel)
+            .normalize();
         let rotated_v = rotated_v_direction * self.v.clone().magnitude();
 
         self.v = rotated_v + self.g.clone() * new_delta_t.clone();
         self.x = self.x.clone() + self.v.clone() * new_delta_t.clone();
+
+        // rotation
+        self.target_hl_normal_ = Self::next_hl_normal(
+            new_u.clone(),
+            curve,
+            &self.g,
+            &self.v.magnitude(),
+            &self.o,
+            &mut self.ag_.borrow_mut(),
+        );
+        let cross = self.hl_normal.cross(&self.target_hl_normal_).normalize();
+        self.delta_hl_normal_target_ =
+            cross * self.hl_normal.angle_dbg::<Silence>(&self.target_hl_normal_);
 
         // cop-out rotation
         // TODO: replace with proper rotation
@@ -389,10 +489,6 @@ delta-u: {}",
             },
             self.delta_u_.to_f64()
         )
-    }
-
-    pub fn pos(&self) -> &MyVector3<T> {
-        &self.x
     }
 
     pub fn ag(&self) -> MyVector3<T> {
