@@ -186,7 +186,7 @@ func _process(_delta: float) -> void:
 	if physics == null:
 		label.text = "physics not initialized"
 	else:
-		label.text = physics.description(curve)
+		label.text = physics.description()
 	var ips = optimizer.iters_per_second()
 	if ips == null:
 		optimizer_speed_label.text = "-- iter/s"

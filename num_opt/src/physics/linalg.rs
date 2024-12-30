@@ -1,9 +1,11 @@
-use std::{any::TypeId, ops::{Deref, Div, Mul}};
+use std::{
+    any::TypeId,
+    ops::{Div, Mul},
+};
 
 use godot::global::godot_warn;
 
 use crate::my_float::MyFloat;
-
 
 /// Projects `a` onto `b`
 pub fn vector_projection<T: MyFloat>(a: MyVector3<T>, b: MyVector3<T>) -> MyVector3<T> {
@@ -39,7 +41,9 @@ impl<T: MyFloat> MyVector3<T> {
     }
 
     fn dot(&self, other: &MyVector3<T>) -> T {
-        self.x.clone() * other.x.clone() + self.y.clone() * other.y.clone() + self.z.clone() * other.z.clone()
+        self.x.clone() * other.x.clone()
+            + self.y.clone() * other.y.clone()
+            + self.z.clone() * other.z.clone()
     }
 
     pub fn magnitude(&self) -> T {
@@ -47,7 +51,9 @@ impl<T: MyFloat> MyVector3<T> {
     }
 
     pub fn magnitude_squared(&self) -> T {
-        self.x.clone() * self.x.clone() + self.y.clone() * self.y.clone() + self.z.clone() * self.z.clone()
+        self.x.clone() * self.x.clone()
+            + self.y.clone() * self.y.clone()
+            + self.z.clone() * self.z.clone()
     }
 
     pub fn normalize(self) -> Self {
@@ -59,10 +65,6 @@ impl<T: MyFloat> MyVector3<T> {
         }
     }
 
-   // struct Checks;
-
-
-
     pub fn angle(&self, other: &MyVector3<T>) -> T {
         self.angle_dbg::<Silence>(other)
     }
@@ -73,12 +75,10 @@ impl<T: MyFloat> MyVector3<T> {
         let mag2 = other.magnitude();
         let cos = (dot.clone() / (mag1.clone() * mag2.clone())).clamp(-1.0, 1.0);
         if TypeId::of::<Q>() == TypeId::of::<()>() {
-                godot_warn!("cos: {} mag1: {} mag2: {} dot: {}", cos, mag1, mag2, dot); //godot_warn!("cos: {} mag1: {} mag2: {}", cos, mag1, mag2); //godot_warn!("cos: {}", cos);
-            //}
+            godot_warn!("cos: {} mag1: {} mag2: {} dot: {}", cos, mag1, mag2, dot);
         } else if TypeId::of::<Q>() != TypeId::of::<Silence>() {
             panic!();
         }
-        
         cos.acos()
     }
 
@@ -97,7 +97,11 @@ impl<T: MyFloat> MyVector3<T> {
 
 impl<T: MyFloat> std::fmt::Debug for MyVector3<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MV").field("x", &self.x).field("y", &self.y).field("z", &self.z).finish()
+        f.debug_struct("MV")
+            .field("x", &self.x)
+            .field("y", &self.y)
+            .field("z", &self.z)
+            .finish()
     }
 }
 
@@ -111,7 +115,6 @@ impl<T: MyFloat> std::ops::Add for MyVector3<T> {
         }
     }
 }
-
 
 impl<T: MyFloat> std::ops::Sub<&MyVector3<T>> for MyVector3<T> {
     type Output = Self;
@@ -202,7 +205,7 @@ impl<T: MyFloat> MyQuaternion<T> {
         let mag = ((self.q0.clone() * self.q0.clone() + self.q1.clone() * self.q1.clone())
             + self.q2.clone() * self.q2.clone()
             + self.q3.clone() * self.q3.clone())
-            .sqrt();
+        .sqrt();
         Self {
             q0: self.q0 / mag.clone(),
             q1: self.q1 / mag.clone(),
@@ -230,7 +233,11 @@ impl<T: MyFloat> MyQuaternion<T> {
         let s = self.normalize();
         let inv = s.clone().unit_inverse();
         let other = inv * other * s;
-        MyVector3 { x: other.q1, y: other.q2, z: other.q3 }
+        MyVector3 {
+            x: other.q1,
+            y: other.q2,
+            z: other.q3,
+        }
     }
 }
 
@@ -241,12 +248,14 @@ impl<T: MyFloat> Mul<MyQuaternion<T>> for MyQuaternion<T> {
             q0: (self.q0.clone() * other.q0.clone() - self.q1.clone() * other.q1.clone())
                 - self.q2.clone() * other.q2.clone()
                 - self.q3.clone() * other.q3.clone(),
-            q1: (self.q0.clone() * other.q1.clone() + self.q1.clone() * other.q0.clone()) - self.q2.clone() * other.q3.clone()
+            q1: (self.q0.clone() * other.q1.clone() + self.q1.clone() * other.q0.clone())
+                - self.q2.clone() * other.q3.clone()
                 + self.q3.clone() * other.q2.clone(),
             q2: (self.q0.clone() * other.q2.clone() + self.q1.clone() * other.q3.clone())
                 + self.q2.clone() * other.q0.clone()
                 - self.q3.clone() * other.q1.clone(),
-            q3: (self.q0.clone() * other.q3.clone() - self.q1.clone() * other.q2.clone()) + self.q2.clone() * other.q1.clone()
+            q3: (self.q0.clone() * other.q3.clone() - self.q1.clone() * other.q2.clone())
+                + self.q2.clone() * other.q1.clone()
                 + self.q3.clone() * other.q0.clone(),
         }
     }

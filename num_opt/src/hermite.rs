@@ -5,12 +5,7 @@
 use std::array;
 // ensure segments for curve sampling are not zero
 use std::num::NonZeroU32;
-use std::ops::{Add, Mul};
 
-use godot::global::godot_print;
-use ndarray::Array1;
-use num_traits::Pow;
-use rug::ops::CompleteRound;
 use rug::Float;
 
 use crate::my_float::MyFloat;
@@ -22,92 +17,7 @@ use crate::{physics::float, point};
 /// derivatives into polynomial coefficients(x(t),y(t),z(t)).  
 /// It operates on one dimension at a time, as we don't have tensors.
 //#[rustfmt::skip]
-use crate::physics::{linalg::MyVector3};
-
-fn get_matrix_p() -> ndarray::Array2<Float> {
-    ndarray::arr2(&vec![
-        [
-            float!(20.0),
-            float!(10.0),
-            float!(2.0),
-            float!(1.0, 6.0),
-            float!(-20.0),
-            float!(10.0),
-            float!(-2.0),
-            float!(1.0, 6.0),
-        ],
-        [
-            float!(-70.0),
-            float!(-36.0),
-            float!(-15.0, 2.0),
-            float!(-2.0, 3.0),
-            float!(70.0),
-            float!(-34.0),
-            float!(13.0, 2.0),
-            float!(-1.0, 2.0),
-        ],
-        [
-            float!(84.0),
-            float!(45.0),
-            float!(10.0),
-            float!(1.0),
-            float!(-84.0),
-            float!(39.0),
-            float!(-7.0),
-            float!(1.0, 2.0),
-        ],
-        [
-            float!(-35.0),
-            float!(-20.0),
-            float!(-5.0),
-            float!(-2.0, 3.0),
-            float!(35.0),
-            float!(-15.0),
-            float!(5.0, 2.0),
-            float!(-1.0, 6.0),
-        ],
-        [
-            float!(0.0),
-            float!(0.0),
-            float!(0.0),
-            float!(1.0 / 6.0),
-            float!(0.0),
-            float!(0.0),
-            float!(0.0),
-            float!(0.0),
-        ],
-        [
-            float!(0.0),
-            float!(0.0),
-            float!(1.0, 2.0),
-            float!(0.0),
-            float!(0.0),
-            float!(0.0),
-            float!(0.0),
-            float!(0.0),
-        ],
-        [
-            float!(0.0),
-            float!(1.0),
-            float!(0.0),
-            float!(0.0),
-            float!(0.0),
-            float!(0.0),
-            float!(0.0),
-            float!(0.0),
-        ],
-        [
-            float!(1.0),
-            float!(0.0),
-            float!(0.0),
-            float!(0.0),
-            float!(0.0),
-            float!(0.0),
-            float!(0.0),
-            float!(0.0),
-        ],
-    ])
-}
+use crate::physics::linalg::MyVector3;
 
 fn get_matrix() -> ndarray::Array2<f64> {
     ndarray::arr2(&vec![
@@ -151,74 +61,26 @@ fn get_matrix() -> ndarray::Array2<f64> {
             (5.0 / 2.0),
             (-1.0 / 6.0),
         ],
-        [
-            (0.0),
-            (0.0),
-            (0.0),
-            (1.0 / 6.0),
-            (0.0),
-            (0.0),
-            (0.0),
-            (0.0),
-        ],
-        [
-            (0.0),
-            (0.0),
-            (1.0 / 2.0),
-            (0.0),
-            (0.0),
-            (0.0),
-            (0.0),
-            (0.0),
-        ],
-        [
-            (0.0),
-            (1.0),
-            (0.0),
-            (0.0),
-            (0.0),
-            (0.0),
-            (0.0),
-            (0.0),
-        ],
-        [
-            (1.0),
-            (0.0),
-            (0.0),
-            (0.0),
-            (0.0),
-            (0.0),
-            (0.0),
-            (0.0),
-        ],
-    ])
-}
-
-/// Create an 8X8 matrix to interplolate Hermite splines.  
-/// This matrix transforms given points, tangents, and higher 
-/// derivatives into polynomial coefficients(x(t),y(t),z(t)).  
-/// It operates on one dimension at a time, as we don't have tensors.
-#[rustfmt::skip]
-fn get_matrix_precise() -> na::SMatrix<f64, 8,8> {
-    na::SMatrix::<f64, 8,8>::from_row_slice(&vec![    
-         20.0,  10.0,       2.0,     1.0/6.0, -20.0,  10.0,     -2.0,  1.0/6.0,
-        -70.0, -36.0, -15.0/2.0,    -2.0/3.0,  70.0, -34.0, 13.0/2.0, -1.0/2.0,
-         84.0,  45.0,      10.0,         1.0, -84.0,  39.0,     -7.0,  1.0/2.0,
-        -35.0, -20.0,      -5.0,    -2.0/3.0,  35.0, -15.0,  5.0/2.0, -1.0/6.0,
-          0.0,   0.0,      0.0,      1.0/6.0,   0.0,   0.0,      0.0,      0.0,
-          0.0,   0.0,      1.0/2.0,      0.0,   0.0,   0.0,      0.0,      0.0,
-          0.0,   1.0,      0.0,          0.0,   0.0,   0.0,      0.0,      0.0,
-          1.0,   0.0,      0.0,          0.0,   0.0,   0.0,      0.0,      0.0,
+        [(0.0), (0.0), (0.0), (1.0 / 6.0), (0.0), (0.0), (0.0), (0.0)],
+        [(0.0), (0.0), (1.0 / 2.0), (0.0), (0.0), (0.0), (0.0), (0.0)],
+        [(0.0), (1.0), (0.0), (0.0), (0.0), (0.0), (0.0), (0.0)],
+        [(1.0), (0.0), (0.0), (0.0), (0.0), (0.0), (0.0), (0.0)],
     ])
 }
 
 /// A hermite spline, each curve parameterized by CurveParms.
 #[derive(Clone)]
-pub struct Spline<T> where T: MyFloat {
+pub struct Spline<T>
+where
+    T: MyFloat,
+{
     params: Vec<CurveParams<T>>,
 }
 
-impl<T> Default for Spline<T> where T: MyFloat {
+impl<T> Default for Spline<T>
+where
+    T: MyFloat,
+{
     /// Creates an empty spline
     fn default() -> Self {
         Self { params: vec![] }
@@ -240,7 +102,10 @@ macro_rules! spline_getter {
     }};
 }
 
-impl<T> Spline<T> where T: MyFloat {
+impl<T> Spline<T>
+where
+    T: MyFloat,
+{
     /// Creates a spline from the given points  
     /// For each pair of points, we need to find a Hermite polynomial  
     /// that smoothly interpolates between them.
@@ -260,7 +125,7 @@ impl<T> Spline<T> where T: MyFloat {
     }
 
     /// Iterate through the hermite curves of the spline
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a CurveParams<T>> {
+    pub fn iter(&self) -> impl Iterator<Item = &CurveParams<T>> {
         self.params.iter()
     }
 
@@ -292,8 +157,7 @@ impl<T> Spline<T> where T: MyFloat {
     }
 
     pub fn curve_direction_at(&self, u: &T) -> Option<MyVector3<T>> {
-        let (i, rem) = self.u_to_i_rem(u);
-        if i >= self.params.len() {
+        if u > &self.max_u() {
             return None;
         }
         let mut out = self.curve_1st_derivative_at(u).unwrap();
@@ -350,16 +214,22 @@ impl<T> Spline<T> where T: MyFloat {
 
 /// A single hermite curve
 #[derive(Clone)]
-pub struct CurveParams<T> where T: MyFloat {
+pub struct CurveParams<T>
+where
+    T: MyFloat,
+{
     x: [T; 8], // x(t) = x[0] * t^7 + x[1] * t^6 + ... + x[7] * t^0
     y: [T; 8], // y(t) = y[0] * t^7 + y[1] * t^6 + ... + y[7] * t^0
     z: [T; 8], // z(t) = z[0] * t^7 + z[1] * t^6 + ... + z[7] * t^0
 }
 
 // Stores polynomial coefficients for x(t), y(t), z(t), each up to t7.
-impl<T> CurveParams<T> where T: MyFloat {
+impl<T> CurveParams<T>
+where
+    T: MyFloat,
+{
     /// Create a new hermite curve
-    pub fn new(x: Box<[T]>, y: Box<[T]>, z: Box<[T]>) -> Self // -> CurveParams[Float], y: [Float], z: [Float]) -> Self {
+    pub fn new(x: &[T], y: &[T], z: &[T]) -> Self // -> CurveParams[Float], y: [Float], z: [Float]) -> Self {
     {
         assert_eq!(x.len(), 8);
         assert_eq!(y.len(), 8);
@@ -434,7 +304,10 @@ macro_rules! curve_params_getter {
     };
 }
 
-impl<T> CurveParams<T> where T: MyFloat {
+impl<T> CurveParams<T>
+where
+    T: MyFloat,
+{
     pub fn curve_normal_at(&self, u: &T) -> MyVector3<T> {
         assert!(*u >= 0.0 && *u <= 1.0);
         // midpoint approximation
@@ -450,53 +323,13 @@ impl<T> CurveParams<T> where T: MyFloat {
         self.d1(u).cross(&self.d2(u)).magnitude() / self.d1(u).magnitude().pow(3)
     }
     pub fn d0(&self, u: &T) -> MyVector3<T> {
-        MyVector3::new(
-            self.x_d0(u),
-            self.y_d0(u),
-            self.z_d0(u),
-        )
+        MyVector3::new(self.x_d0(u), self.y_d0(u), self.z_d0(u))
     }
     pub fn d1(&self, u: &T) -> MyVector3<T> {
-        MyVector3::new(
-            self.x_d1(u),
-            self.y_d1(u),
-            self.z_d1(u),
-        )
+        MyVector3::new(self.x_d1(u), self.y_d1(u), self.z_d1(u))
     }
     pub fn d2(&self, u: &T) -> MyVector3<T> {
-        MyVector3::new(
-            self.x_d2(u),
-            self.y_d2(u),
-            self.z_d2(u),
-        )
-    }
-
-    pub fn curve_kappa_at(&self, u: &T) -> T {
-        self.d1(u).cross(&self.d2(u)).magnitude() / self.d1(u).magnitude().pow(3)
-    }
-
-    pub fn d0(&self, u: &T) -> MyVector3<T> {
-        MyVector3::new(
-            self.x_d0(u),
-            self.y_d0(u),
-            self.z_d0(u),
-        )
-    }
-
-    pub fn d1(&self, u: &T) -> MyVector3<T> {
-        MyVector3::new(
-            self.x_d1(u),
-            self.y_d1(u),
-            self.z_d1(u),
-        )
-    }
-
-    pub fn d2(&self, u: &T) -> MyVector3<T> {
-        MyVector3::new(
-            self.x_d2(u),
-            self.y_d2(u),
-            self.z_d2(u),
-        )
+        MyVector3::new(self.x_d2(u), self.y_d2(u), self.z_d2(u))
     }
 
     // getters for position and derivatives
@@ -518,41 +351,18 @@ impl<T> CurveParams<T> where T: MyFloat {
 }
 
 /// Given two points, finds a hermite curve interpolating them.
+///
 /// This step constructs the coefficients of the Hermite polynomial
 /// that interpolates two points, ensuring that the curve satisfies
 /// conditions for position, velocity, accerlation, and jerk continuity.
-pub fn solve<T>(p: &point::Point<f64>, q: &point::Point<f64>) -> CurveParams<T> where T: MyFloat {
+pub fn solve<T>(p: &point::Point<f64>, q: &point::Point<f64>) -> CurveParams<T>
+where
+    T: MyFloat,
+{
     let m = get_matrix();
-    let x_in = ndarray::arr1(&[
-        p.x,
-        p.xp,
-        p.xpp,
-        p.xppp,
-        q.x,
-        q.xp,
-        q.xpp,
-        q.xppp,
-    ]);
-    let y_in = ndarray::arr1(&[
-        p.y,
-        p.yp,
-        p.ypp,
-        p.yppp,
-        q.y,
-        q.yp,
-        q.ypp,
-        q.yppp,
-    ]);
-    let z_in = ndarray::arr1(&[
-        p.z,
-        p.zp,
-        p.zpp,
-        p.zppp,
-        q.z,
-        q.zp,
-        q.zpp,
-        q.zppp,
-    ]);
+    let x_in = ndarray::arr1(&[p.x, p.xp, p.xpp, p.xppp, q.x, q.xp, q.xpp, q.xppp]);
+    let y_in = ndarray::arr1(&[p.y, p.yp, p.ypp, p.yppp, q.y, q.yp, q.ypp, q.yppp]);
+    let z_in = ndarray::arr1(&[p.z, p.zp, p.zpp, p.zppp, q.z, q.zp, q.zpp, q.zppp]);
 
     let x_out = m.dot(&x_in);
     let y_out = m.dot(&y_in);
@@ -572,16 +382,19 @@ pub fn solve<T>(p: &point::Point<f64>, q: &point::Point<f64>) -> CurveParams<T> 
     }
     godot_print!("0)");*/
 
-    CurveParams::new(
-        x_out.into_iter().map(|x| T::from_f64(x)).collect(),
-        y_out.into_iter().map(|x| T::from_f64(x)).collect(),
-        z_out.into_iter().map(|x| T::from_f64(x)).collect(),
-    )
+    let x_params: Box<[T]> = x_out.into_iter().map(|x| T::from_f64(x)).collect();
+    let y_params: Box<[T]> = y_out.into_iter().map(|x| T::from_f64(x)).collect();
+    let z_params: Box<[T]> = z_out.into_iter().map(|x| T::from_f64(x)).collect();
+
+    CurveParams::new(&x_params, &y_params, &z_params)
 }
 
 /// Samples a hermite curve, splitting it into `segments` segments
 /// The segments are __not__ equal in length
-pub fn curve_points<T>(params: &CurveParams<T>, segments: NonZeroU32) -> Vec<(f64, f64, f64)> where T: MyFloat {
+pub fn curve_points<T>(params: &CurveParams<T>, segments: NonZeroU32) -> Vec<(f64, f64, f64)>
+where
+    T: MyFloat,
+{
     (0..segments.get() + 1)
         .map(|t| {
             let t = T::from_f64_fraction(t as f64, segments.get() as f64);
@@ -602,7 +415,7 @@ pub fn curve_points<T>(params: &CurveParams<T>, segments: NonZeroU32) -> Vec<(f6
 /// tangents based on neighboring points.
 ///
 /// Returns a vector the derivatives.
-pub fn catmull_rom(values: &Vec<f64>, coeff: f64) -> Vec<f64> {
+pub fn catmull_rom(values: &[f64], coeff: f64) -> Vec<f64> {
     if values.len() < 2 {
         return vec![0.0; values.len()];
     }

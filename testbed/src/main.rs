@@ -49,7 +49,6 @@ fn main() {
             phys.step(0.01, &curve);
         } else {
             phys.step(0.025, &curve);
-
         }
         file.write_all(
             format!(
@@ -57,7 +56,6 @@ fn main() {
                 phys.total_t_(),
                 phys.u(),
                 phys.v().magnitude()
-
             )
             .as_bytes(),
         )

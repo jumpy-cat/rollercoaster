@@ -91,10 +91,10 @@ pub fn find_minimum_golden_section<T: MyFloat>(
         Ok((potential.clone(), f(&potential)))
     } else {
         // minimum is a boundary
-        if !(potential > a_.clone() + T::from_f64(epsilon)) {
-            Err((a_.clone(), f(&a_), HitBoundary::Lower))
-        } else {
+        if potential > a_.clone() + T::from_f64(epsilon) {
             Err((b_.clone(), f(&b_), HitBoundary::Upper))
+        } else {
+            Err((a_.clone(), f(&a_), HitBoundary::Lower))
         }
     }
 }

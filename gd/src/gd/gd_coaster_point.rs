@@ -1,7 +1,6 @@
 use godot::prelude::*;
 use num_opt::point;
 
-
 #[derive(GodotClass)]
 #[class(init)]
 
@@ -49,5 +48,3 @@ impl CoasterPoint {
         self.inner.z = z;
     }
 }
-
-

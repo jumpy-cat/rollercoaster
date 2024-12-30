@@ -4,8 +4,7 @@
 extern crate nalgebra as na;
 
 pub mod hermite;
+pub mod my_float;
 pub mod optimizer;
 pub mod physics;
 pub mod point;
-pub mod my_float;
-

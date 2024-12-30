@@ -1,7 +1,9 @@
 use godot::prelude::*;
 
-use num_opt::{hermite, my_float::{MyFloat, MyFloatType}};
-
+use num_opt::{
+    hermite,
+    my_float::{MyFloat, MyFloatType},
+};
 
 use super::myvec_to_gd;
 
@@ -11,7 +13,6 @@ use super::myvec_to_gd;
 pub struct CoasterCurve {
     pub inner: hermite::Spline<MyFloatType>,
 }
-
 
 #[godot_api]
 impl CoasterCurve {
@@ -24,4 +25,3 @@ impl CoasterCurve {
         }
     }
 }
-

@@ -94,7 +94,7 @@ impl INode for Optimizer {
                         ToWorker::SetGravity(v) => gravity = Some(v),
                         ToWorker::SetMu(v) => mu = Some(v),
                         ToWorker::SetLR(v) => lr = Some(v),
-                        ToWorker::SetComOffsetMag(v) => com_offset_mag = Some(v)
+                        ToWorker::SetComOffsetMag(v) => com_offset_mag = Some(v),
                     }
                 }
                 if active
@@ -197,10 +197,7 @@ impl Optimizer {
         self.curve = hermite::Spline::new(&self.points);
         let _ = self
             .to_worker
-            .send(ToWorker::SetPoints(
-                self.points.clone(),
-                Derivatives::Keep,
-            ))
+            .send(ToWorker::SetPoints(self.points.clone(), Derivatives::Keep))
             .map_err(|e| godot_error!("{:#?}", e));
     }
 
@@ -224,9 +221,7 @@ impl Optimizer {
 
     #[func]
     fn set_com_offset_mag(&mut self, mag: f64) {
-        self.to_worker
-            .send(ToWorker::SetComOffsetMag(mag))
-            .unwrap();
+        self.to_worker.send(ToWorker::SetComOffsetMag(mag)).unwrap();
     }
 
     /// Enable the optimizer
@@ -247,23 +242,19 @@ impl Optimizer {
     /// Get the optimized curve as an array of points forming line segments
     fn as_segment_points(&mut self) -> Array<Vector3> {
         if let Some(cache) = &self.segment_points_cache {
-            cache
-                .iter()
-                .map(|p| Vector3::new(p.x as f32, p.y as f32, p.z as f32))
-                .collect()
+            cache.iter().map(|p| Vector3::new(p.x, p.y, p.z)).collect()
         } else {
             self.curve = hermite::Spline::new(&self.points);
 
             let pts: Vec<Vector3> = self
                 .curve
                 .iter()
-                .map(|params| {
+                .flat_map(|params| {
                     let pts = hermite::curve_points(params, NonZero::new(10).unwrap());
                     pts.iter()
                         .map(|(x, y, z)| Vector3::new(x.as_(), y.as_(), z.as_()))
                         .collect::<Vec<_>>()
                 })
-                .flatten()
                 .collect();
             self.segment_points_cache = Some(pts.clone());
             self.as_segment_points()

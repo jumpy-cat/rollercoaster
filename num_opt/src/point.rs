@@ -6,7 +6,7 @@ use num_traits::{AsPrimitive, Float};
 
 /// We use nudge to explore the effect of small changes to each derivative while
 /// keeping the position(x,y,z) fixed
-/// 
+///
 /// macro ensures consistency of code
 macro_rules! nudge {
     ($to_nudge:expr, $amount:expr, $out:expr, $s:expr) => {
@@ -18,19 +18,19 @@ macro_rules! nudge {
 
 /// `adjust!` is used to modify specific derivatives of a Point during the
 /// optimization
-/// 
+///
 /// `$target` is the specific derivative being adjusted (ex.xp,xpp,xppp,...)  
 /// `$i`: the index in the array `v` corresponding to the derivative being
 /// adjusted  
 /// `$v`: A slice of `Option<T>` values representing how much to adjust each
 /// derivative.
 /// `$lr`: A learning rate that scales the adjustment.  
-/// 
+///
 /// if `v[i]` is `Some`, the adjustment is calculated as `value*lr` and
 /// subtracted from the target.  
 /// if `v[i]` is `None`, it defaults to `0`, meaning there is no adjustment for
 /// that derivative.
-/// 
+///
 /// So, to sum up, this macro applies a scaled adjustment to a derivative of the
 /// point if an adjustment value is provided.
 macro_rules! adjust {
@@ -60,17 +60,19 @@ impl<T> Point<T>
 where
     T: Default + Copy + AsPrimitive<f32> + AddAssign + SubAssign + Float,
 {
-
     pub fn new(x: T, y: T, z: T) -> Self {
         Self {
-            x, y, z, ..Default::default()
+            x,
+            y,
+            z,
+            ..Default::default()
         }
     }
 
     /// Descends derivatives specified in `v`  
     /// Used by the optimizer to adjust the parameters of each point
     /// Format is xp, xpp, xppp, yp, ypp, ypp, ...
-    /// 
+    ///
     /// This function is part of an optimization process, adjusting points to
     /// minimize a cost function improving curve smoothness.  
     /// `lr` parameter controls how large the adjustments are, ensuring the
@@ -100,7 +102,7 @@ where
         // This vector, out, will hold all the nudged variations of the point.
         // Each derivaitve is temporarily increased by amount, and the modified
         // state of the point is added to out.
-        // I.E.: 
+        // I.E.:
         // s.xp is increased by amount
         // A clone of the modified s is pushed to out
         // s.xp is then restored to its original value.
@@ -124,7 +126,7 @@ impl<T> Default for Point<T>
 where
     T: Default,
 {
-    /// Create a Point with all fields initialized to their default values. 
+    /// Create a Point with all fields initialized to their default values.
     fn default() -> Self {
         Self {
             x: Default::default(),

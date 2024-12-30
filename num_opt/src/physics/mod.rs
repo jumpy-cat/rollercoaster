@@ -1,9 +1,9 @@
 //! Physics solver and cost function
 
-use std::{cell::RefCell, time::Duration};
+use std::cell::RefCell;
 
 use godot::global::{godot_print, godot_warn};
-use linalg::{scaler_projection, vector_projection, MyQuaternion, MyVector3, Silence};
+use linalg::{vector_projection, MyVector3, Silence};
 use solver::HitBoundary;
 
 use crate::{hermite, my_float::MyFloat};
@@ -25,8 +25,6 @@ pub enum StepBehavior {
     Time,
 }
 
-const FALLBACK_STEP: f64 = 0.001;
-
 macro_rules! float {
     () => {
         Float::with_val(PRECISION, 0.0)
@@ -44,10 +42,11 @@ macro_rules! float {
 pub(crate) use float;
 
 /// Physics solver v3
-/// ### Overview
+/// ### Overview (check `Self::step` for details)
 /// Store simulation parameters (m,g)
 /// Track the state of the particle (position, velocity, u(curve parameter))
-/// Compute intermediate values like delta_x(displacement), F_N(force), and delta_t(time step).
+/// Compute intermediate values like delta_x(displacement), F_N(force), and
+/// delta_t(time step).
 /// Use a quadratic equation to determine the correcr time step(roots).
 #[derive(Debug, getset::Getters)]
 #[getset(get = "pub")]
@@ -61,8 +60,7 @@ pub struct PhysicsStateV3<T: MyFloat> {
     u: T,
     // center of mass
     x: MyVector3<T>,
-    x_prev: MyVector3<T>,
-    //v: MyVector3<T>,
+    v: MyVector3<T>,
     // heart line
     hl_normal: MyVector3<T>,
     hl_pos: MyVector3<T>,
@@ -91,10 +89,6 @@ pub struct PhysicsStateV3<T: MyFloat> {
 }
 
 const MIN_STEP: f64 = 0.00001;
-const MAX_CURVE_ANGLE: f64 = 0.0001;
-const MIN_DELTA_X: f64 = 0.0001;
-const MAX_TORQUE: f64 = 10.0;
-const ALLOWED_ANGULAR_WIGGLE: f64 = 0.01;
 
 impl<T: MyFloat> PhysicsStateV3<T> {
     /// Initialize the physics state: `m` mass, `g` Gravity vector,
@@ -116,7 +110,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             // constants
             m: T::from_f64(m),
             I: T::from_f64(1.0),
-            g:g.clone(),
+            g: g.clone(),
             o: T::from_f64(o),
             // simulation state
             u: T::from_f64(0.0), //0.0,
@@ -151,103 +145,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         s
     }
 
-    #[deprecated]
-    fn calc_new_u_from_delta_t_old(
-        &self,
-        step: &T,
-        init_bracket_amount: T,
-        curve: &hermite::Spline<T>,
-    ) -> Option<T> {
-        // Semi-implicit euler position update
-        //let new_pos =
-        //    self.x.clone() + (self.v.clone() + self.g.clone() * step.clone()) * step.clone();
-        // verlet position update
-        let new_pos = self.x.clone()
-            + (self.x.clone() - self.x_prev.clone()) * step.clone() / self.delta_t_.clone()
-            + self.g.clone() * step.clone() * (step.clone() + self.delta_t_.clone())
-                / T::from_f64(2.0);
-
-        let u_lower_bound = (self.u.clone() - init_bracket_amount.clone()).max(&T::from_f64(0.0));
-        let u_upper_bound =
-            (self.u.clone() + init_bracket_amount.clone()).min(&T::from_f64(curve.max_u()));
-        if u_upper_bound == curve.max_u() {
-            return None;
-        }
-        let roots = solver::find_root_bisection(
-            u_lower_bound,
-            u_upper_bound,
-            |u| {
-                scaler_projection(
-                    new_pos.clone() - curve.curve_at(u).unwrap(),
-                    curve.curve_1st_derivative_at(u).unwrap(),
-                )
-            },
-            1e-14f64,
-        );
-        match roots {
-            Some(root) => Some(root),
-            None => self.calc_new_u_from_delta_t_old(step, init_bracket_amount * 2.0, curve),
-        }
-    }
-
-    fn calc_new_u_from_delta_t(
-        &self,
-        step: &T,
-        bracket_origin: T,
-        bracket_size: T,
-        curve: &hermite::Spline<T>,
-
-        neg_dir: bool,
-    ) -> Option<T> {
-        let lower_bound = bracket_origin.clone();
-        let upper_bound = bracket_origin.clone() + bracket_size.clone();
-        if upper_bound > curve.max_u().min(self.u.to_f64() + 1.0) {
-            godot_print!("Failed due to upper bound exceeded\n{:#?}", self);
-            return None;
-        }
-
-        match solver::find_minimum_golden_section(
-            self.u.clone(),
-            upper_bound,
-            // (||r(u_next) + N * o - x_curr + a * dt^2|| - ||v_curr|| * dt)^2
-            |u| {
-                ((curve.curve_at(u).unwrap()
-                    - self.hl_normal.clone() * self.o.clone()
-                    - (self.x.clone() + self.g.clone() * step.clone().pow(2)))
-                .magnitude()
-                    - self.v.magnitude() * step.clone())
-                .pow(2)
-            },
-            1e-12f64,
-        ) {
-            Ok((u, v)) => {
-                if v.abs() > 1e-10 {
-                    godot_warn!(
-                        "NONZERO: {} {} {}",
-                        v,
-                        bracket_size,
-                        self.v.clone().magnitude()
-                    )
-                }
-                Some(u)
-            }
-            Err((u, v, hb)) => {
-                if hb == HitBoundary::Lower {
-                    Some(u)
-                } else {
-                    self.calc_new_u_from_delta_t(
-                        step,
-                        bracket_origin + bracket_size.clone(),
-                        bracket_size,
-                        curve,
-                        neg_dir,
-                    )
-                }
-                //None
-            }
-        }
-    }
-
     pub fn next_hl_normal(
         u: T,
         curve: &hermite::Spline<T>,
@@ -262,11 +159,9 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         #[allow(non_snake_case)]
         let N = curve.curve_normal_at(&u).unwrap();
         // a = v^2 / r
-        // r = 1 / kappa
-        // a = kappa * v^2
+        // r = 1 / kappa + o
+        // a = v^2 / r
         let accel = N * v.clone().magnitude().pow(2) / r;
-
-        // use com velocity
 
         // Calculate target hl normal
         *ag_ = accel.clone() - g.clone();
@@ -285,8 +180,14 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
     pub fn target_pos(&self, u: T, curve: &hermite::Spline<T>) -> MyVector3<T> {
         curve.curve_at(&u).unwrap()
-            - Self::next_hl_normal(u, curve, &self.g, &self.v, &self.o, &mut self.ag_.borrow_mut())
-                * self.o.clone()
+            - Self::next_hl_normal(
+                u,
+                curve,
+                &self.g,
+                &self.v,
+                &self.o,
+                &mut self.ag_.borrow_mut(),
+            ) * self.o.clone()
     }
 
     /// Steps forward in time by `step`, may choose to perform smaller step(s)
@@ -294,7 +195,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     /// ### Implementation Details
     /// The physics is based off semi-implicit euler integration, with
     /// corrective forces choosen to keep the position perfectly correct at all
-    /// times.
+    /// times (assuming such is possible while conserving energy).
     ///
     /// The basic rule would be:  
     /// `v_next = v_curr + a * dt`  
@@ -340,15 +241,21 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
         let target_position = |u| {
             curve.curve_at(&u).unwrap()
-                - Self::next_hl_normal(u, curve, &self.g, &self.v, &self.o, &mut self.ag_.borrow_mut())
-                    * self.o.clone()
+                - Self::next_hl_normal(
+                    u,
+                    curve,
+                    &self.g,
+                    &self.v,
+                    &self.o,
+                    &mut self.ag_.borrow_mut(),
+                ) * self.o.clone()
         };
         let future_pos_no_vel = self.x.clone() + self.g.clone() * step.clone().pow(2);
 
         let new_u = {
             let dist_between = |u| (target_position(u) - &future_pos_no_vel).magnitude();
             let move_dist = self.v.clone().magnitude() * step.clone();
-            let inside = |u| dist_between(u) < move_dist;
+            //let inside = |u| dist_between(u) < move_dist;
 
             let candidate_coarse_step = T::from_f64(0.01);
             let mut candidate = self.u.clone();
@@ -368,7 +275,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                             self.local_min_ = dist_between(u.clone()) - move_dist.clone();
                         }
                         solution_list.push((u.to_f64() - self.u.to_f64(), v.to_f64()));
-                        break
+                        break;
                     }
                     Err((u, v, bounds)) => {
                         match bounds {
@@ -379,25 +286,16 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                                 //solution_list.push((u.clone() - self.u.clone(), v));
                                 break;
                             }
-                            HitBoundary::Upper => {
-                                
-                            }
+                            HitBoundary::Upper => {}
                         }
                     }
                 }
                 candidate += candidate_coarse_step.to_f64();
-                //candidate_coarse_step =
-                //                    T::from_f64(2.0) * candidate_coarse_step.clone();
             }
-            //godot_print!("Minimums: {:#?}", solution_list);
             out.unwrap()
         };
         self.delta_u_ = new_u.clone() - self.u.clone();
-        //let new_u = self.delta_u_ = new_u.clone() - self.u.clone();
 
-        //self.target_hl_normal_ = self.hl_normal.clone();  // WORKS
-
-        // PROBLEM REPRODUCED
         self.target_hl_normal_ = Self::next_hl_normal(
             new_u.clone(),
             curve,
@@ -406,26 +304,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             &self.o,
             &mut self.ag_.borrow_mut(),
         );
-        //self.target_hl_normal_ = next_hl_normal(new_u.clone());
-
-        // TODO: this probably should use `self.hl_normal`
-        /*self.delta_x_target_ = curve.curve_at(&new_u).unwrap()
-        - self.target_hl_normal_.clone() * self.o.clone()
-        - self.x.clone();*/
-
-        /*let step_too_big = accel.magnitude() * step.clone() > 0.00001 && step > MIN_STEP;
-        if step_too_big {
-            self.step(step.clone() * T::from_f64(0.5), curve, behavior)
-                .unwrap();
-            self.step(step * T::from_f64(0.5), curve, behavior).unwrap();
-            return Some(());
-        }*/
-
-        /*self.F_N_ = (self.delta_x_target_.clone() / new_delta_t.clone().pow(2)
-            - self.v.clone() / new_delta_t.clone()
-            - self.g.clone())
-            * self.m.clone();
-        self.F_ = self.F_N_.clone() + self.g.clone() * self.m.clone();*/
 
         // hl values
         let new_hl_vel = (curve.curve_at(&new_u)? - curve.curve_at(&self.u)?) / new_delta_t.clone();
@@ -436,22 +314,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.delta_hl_normal_target_ =
             cross * self.hl_normal.angle_dbg::<Silence>(&self.target_hl_normal_);
 
-        if self.torque_exceeded {
-            self.w = MyVector3::default();
-        } else {
-            /*self.torque_ = (self.delta_hl_normal_target_.clone() / new_delta_t.clone().pow(2)
-            - self.w.clone() / new_delta_t.clone())
-            * self.I.clone();*/
-
-            // TODO: new expression for torque
-        }
-
-        // semi-implicit euler update rule
-        /*self.v = self.v.clone() + self.F_.clone() / self.m.clone() * new_delta_t.clone();
-        let new_x = self.x.clone() + self.v.clone() * new_delta_t.clone();
-        self.delta_x_actual_ = new_x.clone() - self.x.clone();
-        self.x = new_x.clone();*/
-
         // new update rule
         let rotated_v_direction = (target_position(new_u.clone()) - future_pos_no_vel).normalize();
         let rotated_v = rotated_v_direction * self.v.clone().magnitude();
@@ -459,24 +321,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.v = rotated_v + self.g.clone() * new_delta_t.clone();
         self.x = self.x.clone() + self.v.clone() * new_delta_t.clone();
 
-        // cop-out update
-        //self.x = curve.curve_at(&new_u).unwrap() - self.target_hl_normal_.clone() * self.o.clone();
-        //self.x = curve.curve_at(new_u).unwrap();
-
-        // semi-implicit euler update rule, rotation
-        /*if !self.torque_exceeded {
-            self.w = self.w.clone() + self.torque_.clone() * new_delta_t.clone() / self.I.clone();
-        }*/
-
-        // TODO: verlet update rule, rotation
-
-        //self.delta_hl_normal_actual_ = self.w.clone() * new_delta_t.clone();
-
-        //self.hl_normal = MyQuaternion::from_scaled_axis(self.delta_hl_normal_actual_.clone())
-
-        // .rotate(self.hl_normal.clone());
-
         // cop-out rotation
+        // TODO: replace with proper rotation
         self.hl_normal = self.target_hl_normal_.clone();
 
         // updates
@@ -492,17 +338,14 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     }
 
     fn energy(&self) -> T {
-        ((self.x.clone() - self.x_prev.clone()) / self.delta_t_.clone()).magnitude_squared()
-            * 0.5
-            * self.m.clone()
-            + self.potential_energy()
+        self.v.clone().magnitude_squared() * 0.5 * self.m.clone() + self.potential_energy()
     }
 
     fn potential_energy(&self) -> T {
         self.m.clone() * self.g.magnitude() * self.x.y.clone()
     }
 
-    pub fn description(&self, curve: &hermite::Spline<T>) -> String {
+    pub fn description(&self) -> String {
         format!(
             "x: {:.2?}
 u: {}
@@ -550,10 +393,6 @@ delta-u: {}",
 
     pub fn pos(&self) -> &MyVector3<T> {
         &self.x
-    }
-
-    pub fn vel(&self) -> MyVector3<T> {
-        (self.x.clone() - self.x_prev.clone()) / self.delta_t_.clone()
     }
 
     pub fn ag(&self) -> MyVector3<T> {
