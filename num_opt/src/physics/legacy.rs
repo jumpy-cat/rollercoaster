@@ -4,7 +4,6 @@ use crate::physics::StepBehavior;
 
 use super::linalg::MyVector3;
 
-
 /// Physics solver
 #[derive(Debug, Clone, getset::CopyGetters)]
 #[getset(get_copy = "pub")]
@@ -161,6 +160,7 @@ impl PhysicsState {
 
     pub fn hl_pos(&self, curve: &hermite::Spline<MyFloatType>) -> Option<MyVector3<f64>> {
         curve.curve_at(&MyFloat::from_f64(self.u)).map(|v| MyVector3::<f64>::new(v.x.to_f64(), v.y.to_f64(), v.z.to_f64()))
+
     }
 
     /// Uses `-self.normal_force()` to determine offset direction
@@ -171,7 +171,7 @@ impl PhysicsState {
         })
     }
 }
-/* 
+/*
 /// Physics solver v2
 /// See `Design: adding rotation to physics` in the doc
 #[derive(Debug, Clone)]

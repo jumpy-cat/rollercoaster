@@ -338,6 +338,7 @@ impl<T> Spline<T> where T: MyFloat {
         }
         Some(self.params[i].curve_normal_at(&rem))
     }
+
     pub fn curve_kappa_at(&self, u: &T) -> Option<T> {
         let (i, rem) = self.u_to_i_rem(u);
         if i >= self.params.len() {
@@ -425,7 +426,6 @@ macro_rules! curve_params_getter {
         /// Evaluates the polynomial defined by the coefficients in `$c` at `u`,
         /// using the $v coordinate
         pub fn $name(&self, u: &T) -> T {
-            use rug::ops::Pow;
             $c.iter()
                 .zip(&self.$v)
                 .map(|((coeff, power), param)| param.clone() * *coeff * u.clone().pow(*power))
@@ -471,7 +471,35 @@ impl<T> CurveParams<T> where T: MyFloat {
         )
     }
 
-    // getters for position and 1st derivative
+    pub fn curve_kappa_at(&self, u: &T) -> T {
+        self.d1(u).cross(&self.d2(u)).magnitude() / self.d1(u).magnitude().pow(3)
+    }
+
+    pub fn d0(&self, u: &T) -> MyVector3<T> {
+        MyVector3::new(
+            self.x_d0(u),
+            self.y_d0(u),
+            self.z_d0(u),
+        )
+    }
+
+    pub fn d1(&self, u: &T) -> MyVector3<T> {
+        MyVector3::new(
+            self.x_d1(u),
+            self.y_d1(u),
+            self.z_d1(u),
+        )
+    }
+
+    pub fn d2(&self, u: &T) -> MyVector3<T> {
+        MyVector3::new(
+            self.x_d2(u),
+            self.y_d2(u),
+            self.z_d2(u),
+        )
+    }
+
+    // getters for position and derivatives
     curve_params_getter!(x_d0, Self::D0, x);
     curve_params_getter!(y_d0, Self::D0, y);
     curve_params_getter!(z_d0, Self::D0, z);
@@ -495,8 +523,6 @@ impl<T> CurveParams<T> where T: MyFloat {
 /// conditions for position, velocity, accerlation, and jerk continuity.
 pub fn solve<T>(p: &point::Point<f64>, q: &point::Point<f64>) -> CurveParams<T> where T: MyFloat {
     let m = get_matrix();
-    //type SMatrix8x1 = na::SMatrix<f64, 8, 1>;
-    // let x_in = SMatrix8x1::from_row_slice(&[p.x, p.xp, p.xpp, p.xppp, q.x, q.xp, q.xpp, q.xppp]);
     let x_in = ndarray::arr1(&[
         p.x,
         p.xp,
@@ -545,6 +571,7 @@ pub fn solve<T>(p: &point::Point<f64>, q: &point::Point<f64>) -> CurveParams<T> 
         godot_print!("{} * t^{} + ", p, 7 - i);
     }
     godot_print!("0)");*/
+
     CurveParams::new(
         x_out.into_iter().map(|x| T::from_f64(x)).collect(),
         y_out.into_iter().map(|x| T::from_f64(x)).collect(),

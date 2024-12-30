@@ -38,6 +38,7 @@ fn main() {
     let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 5.0);
 
     let max_time = 75.0;
+
     let file_suffix = std::time::SystemTime::now().duration_since(UNIX_EPOCH);
     let mut file =
         std::fs::File::create(format!("{}.txt", file_suffix.unwrap().as_secs())).unwrap();
@@ -48,6 +49,7 @@ fn main() {
             phys.step(0.01, &curve);
         } else {
             phys.step(0.025, &curve);
+
         }
         file.write_all(
             format!(
@@ -55,6 +57,7 @@ fn main() {
                 phys.total_t_(),
                 phys.u(),
                 phys.v().magnitude()
+
             )
             .as_bytes(),
         )

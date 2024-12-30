@@ -61,12 +61,14 @@ pub struct PhysicsStateV3<T: MyFloat> {
     u: T,
     // center of mass
     x: MyVector3<T>,
-    v: MyVector3<T>,
+    x_prev: MyVector3<T>,
+    //v: MyVector3<T>,
     // heart line
     hl_normal: MyVector3<T>,
     hl_pos: MyVector3<T>,
     hl_vel: MyVector3<T>,
     hl_accel: MyVector3<T>,
+    hl_accel_ema: MyVector3<T>,
     // rotation
     torque_exceeded: bool,
     w: MyVector3<T>, // angular velocity
@@ -114,18 +116,20 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             // constants
             m: T::from_f64(m),
             I: T::from_f64(1.0),
-            g,
+            g:g.clone(),
             o: T::from_f64(o),
             // simulation state
             u: T::from_f64(0.0), //0.0,
             // center of mass
             x: hl_pos.clone() - hl_normal.clone() * T::from_f64(o), //o,
             v: MyVector3::new_f64(0.0, 0.0, 0.0),
+
             // heart line
             hl_pos,
             hl_normal,
             hl_vel: Default::default(),
             hl_accel: Default::default(),
+            hl_accel_ema: -g,
             // rotation
             torque_exceeded: false,
             w: Default::default(),
@@ -155,8 +159,13 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         curve: &hermite::Spline<T>,
     ) -> Option<T> {
         // Semi-implicit euler position update
-        let new_pos =
-            self.x.clone() + (self.v.clone() + self.g.clone() * step.clone()) * step.clone();
+        //let new_pos =
+        //    self.x.clone() + (self.v.clone() + self.g.clone() * step.clone()) * step.clone();
+        // verlet position update
+        let new_pos = self.x.clone()
+            + (self.x.clone() - self.x_prev.clone()) * step.clone() / self.delta_t_.clone()
+            + self.g.clone() * step.clone() * (step.clone() + self.delta_t_.clone())
+                / T::from_f64(2.0);
 
         let u_lower_bound = (self.u.clone() - init_bracket_amount.clone()).max(&T::from_f64(0.0));
         let u_upper_bound =
@@ -187,6 +196,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         bracket_origin: T,
         bracket_size: T,
         curve: &hermite::Spline<T>,
+
         neg_dir: bool,
     ) -> Option<T> {
         let lower_bound = bracket_origin.clone();
@@ -429,9 +439,11 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         if self.torque_exceeded {
             self.w = MyVector3::default();
         } else {
-            self.torque_ = (self.delta_hl_normal_target_.clone() / new_delta_t.clone().pow(2)
-                - self.w.clone() / new_delta_t.clone())
-                * self.I.clone();
+            /*self.torque_ = (self.delta_hl_normal_target_.clone() / new_delta_t.clone().pow(2)
+            - self.w.clone() / new_delta_t.clone())
+            * self.I.clone();*/
+
+            // TODO: new expression for torque
         }
 
         // semi-implicit euler update rule
@@ -452,20 +464,27 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         //self.x = curve.curve_at(new_u).unwrap();
 
         // semi-implicit euler update rule, rotation
-        if !self.torque_exceeded {
+        /*if !self.torque_exceeded {
             self.w = self.w.clone() + self.torque_.clone() * new_delta_t.clone() / self.I.clone();
-        }
+        }*/
 
-        self.delta_hl_normal_actual_ = self.w.clone() * new_delta_t.clone();
+        // TODO: verlet update rule, rotation
+
+        //self.delta_hl_normal_actual_ = self.w.clone() * new_delta_t.clone();
 
         //self.hl_normal = MyQuaternion::from_scaled_axis(self.delta_hl_normal_actual_.clone())
+
         // .rotate(self.hl_normal.clone());
 
         // cop-out rotation
         self.hl_normal = self.target_hl_normal_.clone();
+
         // updates
         self.hl_vel = new_hl_vel;
         self.hl_accel = new_hl_accel;
+        const EMA_ALPHA: f64 = 0.99999;
+        self.hl_accel_ema = self.hl_accel_ema.clone() * T::from_f64(EMA_ALPHA)
+            + self.hl_accel.clone() * T::from_f64(1.0 - EMA_ALPHA);
         self.u = new_u;
         self.delta_t_ = new_delta_t;
 
@@ -473,7 +492,10 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     }
 
     fn energy(&self) -> T {
-        self.v.magnitude_squared() * 0.5 * self.m.clone() + self.potential_energy()
+        ((self.x.clone() - self.x_prev.clone()) / self.delta_t_.clone()).magnitude_squared()
+            * 0.5
+            * self.m.clone()
+            + self.potential_energy()
     }
 
     fn potential_energy(&self) -> T {
@@ -530,8 +552,8 @@ delta-u: {}",
         &self.x
     }
 
-    pub fn vel(&self) -> &MyVector3<T> {
-        &self.v
+    pub fn vel(&self) -> MyVector3<T> {
+        (self.x.clone() - self.x_prev.clone()) / self.delta_t_.clone()
     }
 
     pub fn ag(&self) -> MyVector3<T> {
