@@ -1,16 +1,27 @@
-[gd_scene load_steps=10 format=3 uid="uid://br738eihq2cus"]
+[gd_scene load_steps=15 format=3 uid="uid://br738eihq2cus"]
 
 [ext_resource type="Script" path="res://main.gd" id="1_w5dqp"]
 [ext_resource type="PackedScene" uid="uid://c3vuka4b0smhh" path="res://control_point.tscn" id="2_o72i1"]
 [ext_resource type="Script" path="res://camera_3d.gd" id="3_l1r6g"]
+[ext_resource type="Script" path="res://main_ui.gd" id="4_ejjj1"]
 [ext_resource type="PackedScene" uid="uid://dp1iulbnn6wvy" path="res://anim.tscn" id="4_s6s4g"]
-[ext_resource type="PackedScene" uid="uid://c67u65ecjmmot" path="res://MainUI.tscn" id="4_y5a5k"]
+[ext_resource type="PackedScene" uid="uid://j0eftcg8cqve" path="res://FloatEdit.tscn" id="5_svsvn"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pnvk0"]
 diffuse_mode = 2
 emission = Color(0.120418, 0.120418, 0.120418, 1)
 
 [sub_resource type="ImmediateMesh" id="ImmediateMesh_hneuq"]
+
+[sub_resource type="SystemFont" id="SystemFont_k2qav"]
+
+[sub_resource type="Theme" id="Theme_p2p34"]
+Label/colors/font_color = Color(1, 1, 1, 1)
+LineEdit/colors/font_color = Color(0.875, 0.875, 0.875, 1)
+
+[sub_resource type="Theme" id="Theme_kxmhj"]
+
+[sub_resource type="Theme" id="Theme_b8h1k"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_mwvwa"]
 shading_mode = 0
@@ -39,7 +50,83 @@ mesh = SubResource("ImmediateMesh_hneuq")
 [node name="Anim" parent="." instance=ExtResource("4_s6s4g")]
 script = null
 
-[node name="VBoxContainer" parent="." instance=ExtResource("4_y5a5k")]
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+offset_left = 40.0
+offset_top = 40.0
+offset_right = 165.0
+offset_bottom = 395.0
+script = ExtResource("4_ejjj1")
+
+[node name="MainStats" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_fonts/font = SubResource("SystemFont_k2qav")
+theme_override_font_sizes/font_size = 0
+text = "Cost: 556756
+
+Speed: 44
+Accel: 444
+Gs: 5
+Max Gs: 40"
+
+[node name="CheckButton" type="CheckButton" parent="VBoxContainer"]
+layout_mode = 2
+text = "Optimizer"
+
+[node name="OptimizerSpdLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "-- iter/s"
+
+[node name="CheckBox" type="CheckBox" parent="VBoxContainer"]
+layout_mode = 2
+text = "Manual Physics"
+
+[node name="AnimStepEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
+layout_mode = 2
+_name = "Anim Step:"
+value = 0.01
+
+[node name="LREdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
+layout_mode = 2
+_name = "LR:"
+value = 1.0
+
+[node name="MassEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
+layout_mode = 2
+_name = "m:"
+value = 1.0
+
+[node name="GravityEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
+layout_mode = 2
+_name = "g:"
+value = -0.01
+
+[node name="FrictionEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
+layout_mode = 2
+_name = "μ"
+value = 0.05
+
+[node name="XEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
+layout_mode = 2
+theme = SubResource("Theme_p2p34")
+_name = "x:"
+
+[node name="YEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
+layout_mode = 2
+theme = SubResource("Theme_kxmhj")
+_name = "y:"
+
+[node name="ZEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
+layout_mode = 2
+theme = SubResource("Theme_b8h1k")
+_name = "z:"
+
+[node name="LoadButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Load Points"
+
+[node name="SaveButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Save Points"
 
 [node name="LoadDialogue" type="FileDialog" parent="."]
 title = "Open a File"
@@ -66,6 +153,7 @@ mesh = SubResource("ImmediateMesh_oh57q")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.941918)
 script = ExtResource("3_l1r6g")
 
+[connection signal="toggled" from="VBoxContainer/CheckBox" to="." method="_on_check_box_toggled"]
 [connection signal="file_selected" from="LoadDialogue" to="." method="_on_load_dialogue_file_selected"]
 [connection signal="file_selected" from="LoadDialogue" to="." method="_on_file_dialog_file_selected"]
 [connection signal="confirmed" from="SaveDialogue" to="." method="_on_save_dialogue_confirmed"]

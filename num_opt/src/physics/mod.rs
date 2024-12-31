@@ -18,11 +18,11 @@ enum NewUSolution<T: MyFloat> {
 }
 
 #[derive(Debug)]
-struct PhysicsAdditionalInfo<T: MyFloat> {
-    delta_u_: Option<T>,
-    delta_t_: Option<T>,
-    total_t_: Option<T>,
-    found_exact_solution_: Option<bool>,
+pub struct PhysicsAdditionalInfo<T: MyFloat> {
+    pub delta_u_: Option<T>,
+    pub delta_t_: Option<T>,
+    pub total_t_: Option<T>,
+    pub found_exact_solution_: Option<bool>,
 }
 
 impl<T: MyFloat> Default for PhysicsAdditionalInfo<T> {

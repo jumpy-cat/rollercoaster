@@ -156,10 +156,31 @@ func _process(_delta: float) -> void:
 
 		if camera_follow_anim:
 			camera.op = anim_pos
+		
+		var target_pos = physics.future_target_pos(curve)
+		for i in range(len(target_pos) - 1): 
+			DebugDraw3D.draw_line(
+				target_pos[i],
+				target_pos[i + 1],
+				Color.RED
+			)
+		target_pos = physics.past_target_pos(curve)
+		for i in range(len(target_pos) - 1):
+			DebugDraw3D.draw_line(
+				target_pos[i],
+				target_pos[i + 1],
+				Color.MAROON
+			)
 
-		const MULT = 1;
+		const MULT = 40;
 
 		DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_vel, Color.BLUE)
+		DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_up, Color.GREEN)
+
+		if physics.found_exact_solution():
+			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.2, Color.YELLOW)
+		else:
+			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.4, Color.RED)
 
 		var big_step = MULT * anim_step_size * 1
 		

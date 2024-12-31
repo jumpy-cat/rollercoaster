@@ -12,4 +12,5 @@ godot = { version = "0.2.1", features = ["register-docs"] }
 num-traits = "0.2.19"
 nalgebra = "0.33.2"
 rand = "0.8.5"
+num = "0.4.3"
 

@@ -188,9 +188,8 @@ impl CoasterPhysicsV3 {
     fn step(&mut self, curve: Gd<CoasterCurve>, step_size: f64) {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
-            for _ in 0..10 {
+            for _ in 0..5 {
                 let _ = phys.step(MyFloatType::from_f64(step_size), curve).is_none();
-
             }
         }
     }
@@ -231,7 +230,56 @@ impl CoasterPhysicsV3 {
 
     #[func]
     fn future_pos_no_vel(&self, step: f64) -> Variant {
-        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys
-            .future_pos_no_vel(&MyFloatType::from_f64(step))))
+        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(
+            phys.future_pos_no_vel(&MyFloatType::from_f64(step))
+        ))
+    }
+
+    #[func]
+    fn future_target_pos(&self, curve: Gd<CoasterCurve>) -> Variant {
+        impl_physics_v3_getter!(self, |phys: &Inner| {
+            let curve = &curve.bind().inner;
+            let u = phys.u().to_f64();
+            let mut o = 0.005;
+            let mut out = vec![];
+            while o < 0.5 {
+                if u + o > curve.max_u() {
+                    break;
+                }
+                out.push(myvec_to_gd(
+                    phys.target_pos(MyFloatType::from_f64(u + o), curve),
+                ));
+                o += 0.01;
+            }
+            out
+        })
+    }
+
+    #[func]
+    fn past_target_pos(&self, curve: Gd<CoasterCurve>) -> Variant {
+        impl_physics_v3_getter!(self, |phys: &Inner| {
+            let curve = &curve.bind().inner;
+            let u = phys.u().to_f64();
+            let mut o = 0.005;
+            let mut out = vec![];
+            while o < 0.5 {
+                if u - o < 0.0 {
+                    break;
+                }
+                out.push(myvec_to_gd(
+                    phys.target_pos(MyFloatType::from_f64(u - o), curve),
+                ));
+                o += 0.01;
+            }
+            out
+        })
+    }
+
+    #[func]
+    fn found_exact_solution(&self) -> Variant {
+        impl_physics_v3_getter!(self, |phys: &Inner| phys
+            .additional_info()
+            .found_exact_solution_
+            .unwrap())
     }
 }
