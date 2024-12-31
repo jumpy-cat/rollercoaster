@@ -169,52 +169,66 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     }
 
     pub fn target_pos_simple(&self, u: T, curve: &hermite::Spline<T>) -> MyVector3<T> {
-        Self::target_pos(
+        Self::target_pos_norm(
             u,
             curve,
             &self.x,
             &self.v,
-            self.m.clone(),
+            &self.hl_normal,
+            &self.m,
             &self.g,
             &self.o,
             &mut self.ag_.borrow_mut(),
-            false // don't store ag
+            false, // don't store ag
         )
+        .0
     }
 
-    pub fn target_pos(
+    pub fn target_pos_norm(
         u: T,
         curve: &hermite::Spline<T>,
         x: &MyVector3<T>,
         v: &MyVector3<T>,
-        m: T,
+        //w: &MyVector3<T>,
+        hl_normal: &MyVector3<T>,
+        m: &T,
+        //rot_inertia: &T,
         g: &MyVector3<T>,
         o: &T,
         ag_: &mut MyVector3<T>,
         store_to_ag: bool,
-    ) -> MyVector3<T> {
+    ) -> (MyVector3<T>, MyVector3<T>) {
         let future_speed = |future_position: MyVector3<T>| {
             // uses energy
             let dy = (future_position - x.clone()).y;
-            let future_k = v.magnitude().pow(2) * 0.5 * m.clone() + m.clone() * g.y.clone() * dy;
-            (future_k * 2.0 / m.clone()).max(&T::from_f64(0.0)).sqrt()
+            let d_potential = -m.clone() * g.y.clone() * dy;
+            //let current_k_rot = w.magnitude_squared() * 0.5 * rot_inertia.clone();
+            //let future_k_rot = 0.5 * rot_inertia.clone();
+            let current_k_trans = v.magnitude_squared() * 0.5 * m.clone();
+            let future_k_trans = current_k_trans - d_potential;
+            (future_k_trans * 2.0 / m.clone())
+                .max(&T::from_f64(0.0))
+                .sqrt()
         };
         // target position guess
-        let mut guess_pos_using_speed = |speed| {
-            curve.curve_at(&u).unwrap()
-                - Self::next_hl_normal(u.clone(), curve, &g, &speed, &o, ag_, store_to_ag) * o.clone()
+        // TODO: use norm
+        let mut guess_pos_norm_using_speed = |speed| {
+            let norm = Self::next_hl_normal(u.clone(), curve, &g, &speed, &o, ag_, store_to_ag)
+                * o.clone();
+            (curve.curve_at(&u).unwrap() - norm.clone(), norm)
         };
         let mut speed = v.magnitude();
-        let mut guess = x.clone();
+        let mut guess_pos = x.clone();
+        let mut guess_norm = hl_normal.clone();
         let mut guess_speed;
         let mut _error = None;
         for _ in 0..100 {
-            guess = guess_pos_using_speed(speed.clone());
-            if guess.has_nan() {
+            (guess_pos, guess_norm) = guess_pos_norm_using_speed(speed.clone());
+            if guess_pos.has_nan() {
                 godot_warn!("NaN in guess");
                 break;
             }
-            guess_speed = future_speed(guess.clone());
+            guess_speed = future_speed(guess_pos.clone());
             if guess_speed.is_nan() {
                 godot_warn!("NaN in guess_speed");
                 break;
@@ -223,7 +237,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             _error = Some(new_error);
             speed = guess_speed;
         }
-        guess
+        (guess_pos, guess_norm)
     }
 
     pub fn future_pos_no_vel(&self, step: T) -> MyVector3<T> {
@@ -296,17 +310,19 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
         let new_u = {
             let dist_between = |u| {
-                (Self::target_pos(
+                (Self::target_pos_norm(
                     u,
                     curve,
                     &self.x,
                     &self.v,
-                    self.m.clone(),
+                    &self.hl_normal,
+                    &self.m,
                     &self.g,
                     &self.o,
                     &mut self.ag_.borrow_mut(),
                     false, // don't store ag
-                ) - &future_pos_no_vel)
+                )
+                .0 - &future_pos_no_vel)
                     .magnitude()
             };
             let move_dist = self.v.clone().magnitude() * step.clone();
@@ -390,25 +406,41 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let new_hl_accel = (new_hl_vel.clone() - self.hl_vel.clone()) / (new_delta_t.clone());
 
         // new update rule
-        let rotated_v_direction = (Self::target_pos(
+        let (target_pos, target_norm) = Self::target_pos_norm(
             new_u.clone(),
             curve,
             &self.x,
             &self.v,
-            self.m.clone(),
+            &self.hl_normal,
+            &self.m,
             &self.g,
             &self.o,
             &mut self.ag_.borrow_mut(),
-            false
-        ) - future_pos_no_vel)
-            .normalize();
-        let rotated_v = rotated_v_direction * self.v.clone().magnitude();
+            false,
+        );
+        let rotated_v_direction = (target_pos - future_pos_no_vel).normalize();
+        // use simple finite difference approximation for w
+        let new_w = self.hl_normal.scaled_axis_rotating_to(&target_norm) / new_delta_t.clone();
+        godot_print!("{:?}", new_w);
+        // TODO: add correction for angular kinetic energy
+        //let rotated_v_magnitude = self.v.clone().magnitude();
+        let new_rot_energy = new_w.magnitude_squared() * 0.5 * self.rot_inertia.clone();
+        let delta_rot_energy = new_rot_energy - self.rotational_energy();
+        let new_kinetic = self.kinetic_energy() - delta_rot_energy;
+        let rotated_v_magnitude = if new_kinetic > 0.0 {
+            self.speed_from_kinetic_energy(new_kinetic)
+        } else {
+            T::from_f64(0.0)
+        };
+        let rotated_v = rotated_v_direction * rotated_v_magnitude;
 
         self.v = rotated_v + self.g.clone() * new_delta_t.clone();
         self.x = self.x.clone() + self.v.clone() * new_delta_t.clone();
 
         // rotation
-        self.target_hl_normal_ = Self::next_hl_normal(
+        // this implies slight inaccuracies in hl_normal
+        self.target_hl_normal_ = target_norm;
+        /*self.target_hl_normal_ = Self::next_hl_normal(
             new_u.clone(),
             curve,
             &self.g,
