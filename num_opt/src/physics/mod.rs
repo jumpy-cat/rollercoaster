@@ -103,7 +103,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let s = Self {
             // constants
             m: T::from_f64(m),
-            rot_inertia: T::from_f64(1.0),
+            rot_inertia: T::from_f64(0.0),
             g: g.clone(),
             o: T::from_f64(o),
             // simulation state
@@ -168,14 +168,17 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         (tmp.clone() - vector_projection(tmp.clone(), ortho_to.clone())).normalize()
     }
 
-    pub fn target_pos_simple(&self, u: T, curve: &hermite::Spline<T>) -> MyVector3<T> {
+    pub fn target_pos_simple(&self, u: T, step: T, curve: &hermite::Spline<T>) -> MyVector3<T> {
         Self::target_pos_norm(
             u,
+            step,
             curve,
             &self.x,
             &self.v,
+            &self.w,
             &self.hl_normal,
             &self.m,
+            &self.rot_inertia,
             &self.g,
             &self.o,
             &mut self.ag_.borrow_mut(),
@@ -184,28 +187,60 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         .0
     }
 
+    fn next_v_w(
+        target_pos: MyVector3<T>,
+        future_pos_no_vel: MyVector3<T>,
+        hl_normal: &MyVector3<T>,
+        target_norm: MyVector3<T>,
+        step_size: T,
+        rot_inertia: T,
+        rotational_energy: T,
+        kinetic_energy: T,
+        g: MyVector3<T>,
+        m: T,
+    ) -> (MyVector3<T>, MyVector3<T>) {
+        let rotated_v_direction = (target_pos - future_pos_no_vel).normalize();
+        // use simple finite difference approximation for w
+        let new_w = hl_normal.scaled_axis_rotating_to(&target_norm) / step_size.clone();
+        godot_print!("{:?}", new_w);
+        //let rotated_v_magnitude = self.v.clone().magnitude();
+        let new_rot_energy = new_w.magnitude_squared() * 0.5 * rot_inertia.clone();
+        let delta_rot_energy = new_rot_energy - rotational_energy;
+        let new_kinetic = kinetic_energy - delta_rot_energy;
+        let rotated_v_magnitude = if new_kinetic > 0.0 {
+            Self::speed_from_kinetic_energy(new_kinetic, m)
+        } else {
+            T::from_f64(0.0)
+        };
+        let rotated_v = rotated_v_direction * rotated_v_magnitude;
+        (rotated_v + g.clone() * step_size.clone(), new_w)
+    }
+
     pub fn target_pos_norm(
         u: T,
+        step: T,
         curve: &hermite::Spline<T>,
         x: &MyVector3<T>,
         v: &MyVector3<T>,
-        //w: &MyVector3<T>,
+        w: &MyVector3<T>,
         hl_normal: &MyVector3<T>,
         m: &T,
-        //rot_inertia: &T,
+        rot_inertia: &T,
         g: &MyVector3<T>,
         o: &T,
         ag_: &mut MyVector3<T>,
         store_to_ag: bool,
     ) -> (MyVector3<T>, MyVector3<T>) {
-        let future_speed = |future_position: MyVector3<T>| {
+        let future_speed = |future_position: MyVector3<T>, future_norm: MyVector3<T>| {
             // uses energy
             let dy = (future_position - x.clone()).y;
             let d_potential = -m.clone() * g.y.clone() * dy;
-            //let current_k_rot = w.magnitude_squared() * 0.5 * rot_inertia.clone();
-            //let future_k_rot = 0.5 * rot_inertia.clone();
+            let current_k_rot = w.magnitude_squared() * 0.5 * rot_inertia.clone();
+            let future_w = hl_normal.scaled_axis_rotating_to(&future_norm) / step.clone();
+            let future_k_rot = future_w.magnitude_squared() * 0.5 * rot_inertia.clone();
+            let d_k_rot = future_k_rot - current_k_rot;
             let current_k_trans = v.magnitude_squared() * 0.5 * m.clone();
-            let future_k_trans = current_k_trans - d_potential;
+            let future_k_trans = current_k_trans - d_potential - d_k_rot;
             (future_k_trans * 2.0 / m.clone())
                 .max(&T::from_f64(0.0))
                 .sqrt()
@@ -213,9 +248,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         // target position guess
         // TODO: use norm
         let mut guess_pos_norm_using_speed = |speed| {
-            let norm = Self::next_hl_normal(u.clone(), curve, &g, &speed, &o, ag_, store_to_ag)
-                * o.clone();
-            (curve.curve_at(&u).unwrap() - norm.clone(), norm)
+            let norm = Self::next_hl_normal(u.clone(), curve, g, &speed, o, ag_, store_to_ag);
+            (curve.curve_at(&u).unwrap() - norm.clone()* o.clone(), norm)
         };
         let mut speed = v.magnitude();
         let mut guess_pos = x.clone();
@@ -228,7 +262,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                 godot_warn!("NaN in guess");
                 break;
             }
-            guess_speed = future_speed(guess_pos.clone());
+            guess_speed = future_speed(guess_pos.clone(), guess_norm.clone());
             if guess_speed.is_nan() {
                 godot_warn!("NaN in guess_speed");
                 break;
@@ -308,15 +342,19 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
         let future_pos_no_vel = self.future_pos_no_vel(step.clone());
 
+        //const MIN_DU: f64 = 0.0000001;
         let new_u = {
             let dist_between = |u| {
                 (Self::target_pos_norm(
                     u,
+                    new_delta_t.clone(),
                     curve,
                     &self.x,
                     &self.v,
+                    &self.w,
                     &self.hl_normal,
                     &self.m,
+                    &self.rot_inertia,
                     &self.g,
                     &self.o,
                     &mut self.ag_.borrow_mut(),
@@ -398,7 +436,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                 candidate += candidate_coarse_step.to_f64();
             }
             out
-        }?;
+        }?;//.max(&T::from_f64(MIN_DU));
         self.delta_u_ = new_u.clone() - self.u.clone();
 
         // hl values
@@ -408,11 +446,14 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         // new update rule
         let (target_pos, target_norm) = Self::target_pos_norm(
             new_u.clone(),
+            new_delta_t.clone(),
             curve,
             &self.x,
             &self.v,
+            &self.w,
             &self.hl_normal,
             &self.m,
+            &self.rot_inertia,
             &self.g,
             &self.o,
             &mut self.ag_.borrow_mut(),
@@ -428,19 +469,31 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let delta_rot_energy = new_rot_energy - self.rotational_energy();
         let new_kinetic = self.kinetic_energy() - delta_rot_energy;
         let rotated_v_magnitude = if new_kinetic > 0.0 {
-            self.speed_from_kinetic_energy(new_kinetic)
+            Self::speed_from_kinetic_energy(new_kinetic, self.m.clone())
         } else {
             T::from_f64(0.0)
         };
         let rotated_v = rotated_v_direction * rotated_v_magnitude;
+        let new_v = rotated_v + self.g.clone() * new_delta_t.clone();
 
-        self.v = rotated_v + self.g.clone() * new_delta_t.clone();
+        /*let (new_v, new_w) = Self::next_v_w(
+            target_pos,
+            future_pos_no_vel,
+            &self.hl_normal,
+            target_norm.clone(),
+            new_delta_t.clone(),
+            self.rot_inertia.clone(),
+            self.rotational_energy(),
+            self.kinetic_energy(),
+            self.g.clone(),
+            self.m.clone(),
+        );*/
         self.x = self.x.clone() + self.v.clone() * new_delta_t.clone();
 
         // rotation
         // this implies slight inaccuracies in hl_normal
-        self.target_hl_normal_ = target_norm;
-        /*self.target_hl_normal_ = Self::next_hl_normal(
+        //self.target_hl_normal_ = target_norm.clone();
+        self.target_hl_normal_ = Self::next_hl_normal(
             new_u.clone(),
             curve,
             &self.g,
@@ -448,7 +501,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             &self.o,
             &mut self.ag_.borrow_mut(),
             true // DO store ag
-        );*/
+        );
         //let cross = self.hl_normal.cross(&self.target_hl_normal_).normalize();
         //self.delta_hl_normal_target_ =
         //    cross * self.hl_normal.angle_dbg::<Silence>(&self.target_hl_normal_);
@@ -459,8 +512,9 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         // cop-out rotation
         // now slightly less cop-out
         // TODO: replace with proper rotation
-        self.hl_normal = MyQuaternion::from_scaled_axis(new_w.clone() * new_delta_t.clone())
-            .rotate(self.hl_normal.clone());
+        /*self.hl_normal = MyQuaternion::from_scaled_axis(new_w.clone() * new_delta_t.clone())
+            .rotate(self.hl_normal.clone()).normalize();*/
+        self.hl_normal = self.target_hl_normal_.clone();
 
         // updates
         self.hl_vel = new_hl_vel;
@@ -468,6 +522,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.u = new_u;
         self.delta_t_ = new_delta_t;
         self.w = new_w;
+        self.v = new_v;
 
         Some(())
     }
@@ -476,9 +531,9 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.kinetic_energy() + self.potential_energy() + self.rotational_energy()
     }
 
-    fn speed_from_kinetic_energy(&self, k: T) -> T {
-        assert!(k.clone() * 2.0 / self.m.clone() > 0.0);
-        (k * 2.0 / self.m.clone()).sqrt()
+    fn speed_from_kinetic_energy(k: T, m: T) -> T {
+        assert!(k.clone() * 2.0 / m.clone() > 0.0);
+        (k * 2.0 / m.clone()).sqrt()
     }
 
     fn kinetic_energy(&self) -> T {

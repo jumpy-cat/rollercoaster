@@ -240,14 +240,16 @@ impl CoasterPhysicsV3 {
     }
 
     #[func]
-    fn target_pos(&self, curve: Gd<CoasterCurve>) -> Variant {
-        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(
-            phys.target_pos_simple(*phys.u(), &curve.bind().inner)
-        ))
+    fn target_pos(&self, step: f64, curve: Gd<CoasterCurve>) -> Variant {
+        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.target_pos_simple(
+            *phys.u(),
+            f64::from_f64(step),
+            &curve.bind().inner
+        )))
     }
 
     #[func]
-    fn next_target_positions(&self, curve: Gd<CoasterCurve>) -> Variant {
+    fn next_target_positions(&self, step: f64, curve: Gd<CoasterCurve>) -> Variant {
         impl_physics_v3_getter!(self, |phys: &Inner| {
             let mut out = vec![];
             let mut offset = 0.005;
@@ -257,7 +259,11 @@ impl CoasterPhysicsV3 {
                 if u > curve.bind().inner.max_u() {
                     break;
                 }
-                out.push(myvec_to_gd(phys.target_pos_simple(u, &curve.bind().inner)));
+                out.push(myvec_to_gd(phys.target_pos_simple(
+                    u,
+                    f64::from_f64(step),
+                    &curve.bind().inner,
+                )));
                 offset *= 1.01;
             }
             out
@@ -265,7 +271,7 @@ impl CoasterPhysicsV3 {
     }
 
     #[func]
-    fn prev_target_positions(&self, curve: Gd<CoasterCurve>) -> Variant {
+    fn prev_target_positions(&self, step: f64, curve: Gd<CoasterCurve>) -> Variant {
         impl_physics_v3_getter!(self, |phys: &Inner| {
             let mut out = vec![];
             let mut offset = 0.01;
@@ -275,7 +281,11 @@ impl CoasterPhysicsV3 {
                 if u < 0.0 {
                     break;
                 }
-                out.push(myvec_to_gd(phys.target_pos_simple(u, &curve.bind().inner)));
+                out.push(myvec_to_gd(phys.target_pos_simple(
+                    u,
+                    f64::from_f64(step),
+                    &curve.bind().inner,
+                )));
                 offset *= 1.05;
             }
             out
@@ -284,8 +294,9 @@ impl CoasterPhysicsV3 {
 
     #[func]
     fn future_pos_no_vel(&self, step: f64) -> Variant {
-        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys
-            .future_pos_no_vel(MyFloatType::from_f64(step))))
+        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(
+            phys.future_pos_no_vel(MyFloatType::from_f64(step))
+        ))
     }
 
     #[func]
