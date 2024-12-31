@@ -3,9 +3,6 @@ extends Node3D
 # Used to show control points
 @export var control_point_scene: PackedScene
 
-# Anim Vectors
-@onready var hl_normal_mi: MeshInstance3D = $HLNormal
-
 # Relevant child nodes
 @onready var camera: Camera3D = $PanOrbitCamera;
 @onready var basic_lines: MeshInstance3D = $BasicLines;
@@ -119,6 +116,7 @@ func _ready() -> void:
 	gravity_edit.set_value(gravity)
 	friction_edit.set_value(friction)
 	anim_step_edit.set_value(anim_step_size)
+	
 	var conf = DebugDraw2D.get_config()
 	conf.set_text_default_size(30)
 	DebugDraw2D.set_config(conf)
@@ -152,9 +150,7 @@ func _process(_delta: float) -> void:
 		var physics_did_step = (!manual_physics || Input.is_action_just_pressed("step_physics"))
 		if physics_did_step:
 			physics.step(curve, anim_step_size)
-		#var anim_pos = physics.pos(curve)
 		var anim_pos = physics.pos()
-		#var anim_vel = physics.velocity()
 		var anim_vel = physics.vel()
 		var anim_up = physics.hl_normal()
 
@@ -163,49 +159,23 @@ func _process(_delta: float) -> void:
 
 		const MULT = 1;
 
-		var tgt_pos = physics.target_pos(curve)
-		DebugDraw3D.draw_line(anim_pos, tgt_pos, Color.ORANGE)
-		DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * 10 * physics.ag(), Color.RED)
 		DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_vel, Color.BLUE)
 
 		var big_step = MULT * anim_step_size * 1
 		
-		if physics.found_exact_solution_():
-			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.5, Color.GREEN)
-		else:
-			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.5, Color.RED)
 		if anim_prev_pos != null:
 			DebugDraw3D.draw_sphere(
 				anim_pos
 					+ (physics.future_pos_no_vel(big_step) - anim_pos),
 				big_step * physics.vel().length(), Color.GREEN
 			)
-		#DebugDraw3D.draw_line(anim_pos, anim_pos + (anim_pos - tgt_pos), Color.PURPLE)
 
-		var tgt_positions = physics.next_target_positions(curve)
-		if physics_did_step:
-			for p in tgt_positions:
-				if not p.is_finite():
-					#print(tgt_positions)
-					break
-		for i in range(len(tgt_positions) - 1):
-			DebugDraw3D.draw_line(tgt_positions[i], tgt_positions[i + 1], Color.PINK)
-		
-		"""var p_tgt_positions = physics.prev_target_positions(curve)
-		for i in range(len(p_tgt_positions) - 1):
-			DebugDraw3D.draw_line(p_tgt_positions[i], p_tgt_positions[i + 1], Color.PURPLE)"""
-
-		#var anim_up = Vector3.UP
 		if anim_pos != null:
 			anim_prev_pos = anim_pos
 			if anim_pos != anim_pos + anim_vel:
 				anim.look_at_from_position(anim_pos, anim_pos + anim_vel, anim_up)
-			#anim.position = anim_pos
-			#anim. = Quaternion(anim_up, Vector3.UP).get_euler()
 		else:
-			#pass
 			anim.visible = false
-		
 
 	# generate mesh for curves between control points
 	var curve_points = optimizer.as_segment_points();

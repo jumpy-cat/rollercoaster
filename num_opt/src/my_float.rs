@@ -9,8 +9,19 @@ use std::{
 use num_traits::Pow;
 use rug::Float;
 
-use crate::physics::float;
-
+macro_rules! float {
+    () => {
+        Float::with_val(PRECISION, 0.0)
+    };
+    ($e:expr) => {{
+        use crate::my_float::PRECISION;
+        Float::with_val(PRECISION, $e)
+    }};
+    ($n:expr, $d: expr) => {{
+        use crate::my_float::PRECISION;
+        Float::with_val(PRECISION, $n) / Float::with_val(PRECISION, $d)
+    }};
+}
 /// What float to use for physics
 pub type MyFloatType = f64;
 /// Bits of precision if `rug::Float` is used

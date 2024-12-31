@@ -43,24 +43,7 @@ fn main() {
     let mut file =
         std::fs::File::create(format!("{}.txt", file_suffix.unwrap().as_secs())).unwrap();
 
-    while phys.total_t_() < &max_time {
-        println!("{}", phys.total_t_());
-        if rand::random::<f64>() > 0.0_f64 {
-            phys.step(0.01, &curve);
-        } else {
-            phys.step(0.025, &curve);
-        }
-        file.write_all(
-            format!(
-                "{}, {}, {}\n",
-                phys.total_t_(),
-                phys.u(),
-                phys.v().magnitude()
-            )
-            .as_bytes(),
-        )
-        .unwrap();
-    }
+    
 
     println!("{:#?}", phys);
 }

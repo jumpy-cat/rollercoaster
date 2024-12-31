@@ -46,7 +46,7 @@ fn cost<T: MyFloat>(
             drdu.x.to_f64(),
             drdu.y.to_f64(),
             drdu.z.to_f64(),
-            physics::StepBehavior::Distance,
+            physics::legacy::StepBehavior::Distance,
             1.0,
         );
     }

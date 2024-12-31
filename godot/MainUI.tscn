@@ -1,0 +1,87 @@
+[gd_scene load_steps=5 format=3 uid="uid://c67u65ecjmmot"]
+
+[ext_resource type="PackedScene" uid="uid://j0eftcg8cqve" path="res://FloatEdit.tscn" id="1_8121d"]
+
+[sub_resource type="Theme" id="Theme_p2p34"]
+Label/colors/font_color = Color(1, 1, 1, 1)
+LineEdit/colors/font_color = Color(0.875, 0.875, 0.875, 1)
+
+[sub_resource type="Theme" id="Theme_kxmhj"]
+
+[sub_resource type="Theme" id="Theme_b8h1k"]
+
+[node name="VBoxContainer" type="VBoxContainer"]
+offset_left = 40.0
+offset_top = 40.0
+offset_right = 165.0
+offset_bottom = 395.0
+scale = Vector2(2, 2)
+
+[node name="MainStats" type="Label" parent="."]
+layout_mode = 2
+text = "Cost: 556756
+
+Speed: 44
+Accel: 444
+Gs: 5
+Max Gs: 40"
+
+[node name="CheckButton" type="CheckButton" parent="."]
+layout_mode = 2
+text = "Optimizer"
+
+[node name="OptimizerSpdLabel" type="Label" parent="."]
+layout_mode = 2
+text = "-- iter/s"
+
+[node name="CheckBox" type="CheckBox" parent="."]
+layout_mode = 2
+text = "Manual Physics"
+
+[node name="AnimStepEdit" parent="." instance=ExtResource("1_8121d")]
+layout_mode = 2
+_name = "Anim Step:"
+value = 0.01
+
+[node name="LREdit" parent="." instance=ExtResource("1_8121d")]
+layout_mode = 2
+_name = "LR:"
+value = 1.0
+
+[node name="MassEdit" parent="." instance=ExtResource("1_8121d")]
+layout_mode = 2
+_name = "m:"
+value = 1.0
+
+[node name="GravityEdit" parent="." instance=ExtResource("1_8121d")]
+layout_mode = 2
+_name = "g:"
+value = -0.01
+
+[node name="FrictionEdit" parent="." instance=ExtResource("1_8121d")]
+layout_mode = 2
+_name = "μ"
+value = 0.05
+
+[node name="XEdit" parent="." instance=ExtResource("1_8121d")]
+layout_mode = 2
+theme = SubResource("Theme_p2p34")
+_name = "x:"
+
+[node name="YEdit" parent="." instance=ExtResource("1_8121d")]
+layout_mode = 2
+theme = SubResource("Theme_kxmhj")
+_name = "y:"
+
+[node name="ZEdit" parent="." instance=ExtResource("1_8121d")]
+layout_mode = 2
+theme = SubResource("Theme_b8h1k")
+_name = "z:"
+
+[node name="LoadButton" type="Button" parent="."]
+layout_mode = 2
+text = "Load Points"
+
+[node name="SaveButton" type="Button" parent="."]
+layout_mode = 2
+text = "Save Points"

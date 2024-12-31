@@ -6,19 +6,17 @@ use std::array;
 // ensure segments for curve sampling are not zero
 use std::num::NonZeroU32;
 
-use rug::Float;
-
 use crate::my_float::MyFloat;
 // Refer to a custom module that defines a Point struct used in splines.
-use crate::{physics::float, point};
+use crate::{ point};
+
+use crate::physics::linalg::MyVector3;
+
 
 /// Create an 8X8 matrix to interplolate Hermite splines.  
 /// This matrix transforms given points, tangents, and higher
 /// derivatives into polynomial coefficients(x(t),y(t),z(t)).  
 /// It operates on one dimension at a time, as we don't have tensors.
-//#[rustfmt::skip]
-use crate::physics::linalg::MyVector3;
-
 /// 8x8 matrix to interpolate two points
 fn get_matrix() -> ndarray::Array2<f64> {
     ndarray::arr2(&vec![

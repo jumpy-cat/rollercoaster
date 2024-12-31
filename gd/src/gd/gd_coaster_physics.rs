@@ -3,7 +3,6 @@ use godot::prelude::*;
 use num_opt::my_float::MyFloat;
 use num_opt::my_float::MyFloatType;
 use num_opt::physics;
-use num_opt::physics::PhysicsStateV3;
 
 use super::{myvec_to_gd, na_to_gd, CoasterCurve};
 
@@ -42,7 +41,7 @@ impl CoasterPhysics {
                     drdu.x.to_f64(),
                     drdu.y.to_f64(),
                     drdu.z.to_f64(),
-                    physics::StepBehavior::Time,
+                    physics::legacy::StepBehavior::Time,
                     step_size,
                 );
             }
@@ -221,16 +220,6 @@ impl CoasterPhysicsV3 {
     }
 
     #[func]
-    fn ag(&self) -> Variant {
-        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.ag()))
-    }
-
-    #[func]
-    fn a(&self) -> Variant {
-        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.hl_accel()))
-    }
-
-    #[func]
     fn g(&self) -> Variant {
         impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.g()))
     }
@@ -241,56 +230,8 @@ impl CoasterPhysicsV3 {
     }
 
     #[func]
-    fn target_pos(&self, curve: Gd<CoasterCurve>) -> Variant {
-        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(
-            phys.target_pos_simple(*phys.u(), &curve.bind().inner)
-        ))
-    }
-
-    #[func]
-    fn next_target_positions(&self, curve: Gd<CoasterCurve>) -> Variant {
-        impl_physics_v3_getter!(self, |phys: &Inner| {
-            let mut out = vec![];
-            let mut offset = 0.005;
-            let init = MyFloatType::to_f64(phys.u()) - offset;
-            while offset < 1.0 {
-                let u = MyFloat::from_f64(init + offset);
-                if u > curve.bind().inner.max_u() {
-                    break;
-                }
-                out.push(myvec_to_gd(phys.target_pos_simple(u, &curve.bind().inner)));
-                offset *= 1.01;
-            }
-            out
-        })
-    }
-
-    #[func]
-    fn prev_target_positions(&self, curve: Gd<CoasterCurve>) -> Variant {
-        impl_physics_v3_getter!(self, |phys: &Inner| {
-            let mut out = vec![];
-            let mut offset = 0.01;
-            let init = MyFloatType::to_f64(phys.u()) + offset;
-            while offset < 1.0 {
-                let u = MyFloat::from_f64(init - offset);
-                if u < 0.0 {
-                    break;
-                }
-                out.push(myvec_to_gd(phys.target_pos_simple(u, &curve.bind().inner)));
-                offset *= 1.05;
-            }
-            out
-        })
-    }
-
-    #[func]
     fn future_pos_no_vel(&self, step: f64) -> Variant {
         impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys
             .future_pos_no_vel(MyFloatType::from_f64(step))))
-    }
-
-    #[func]
-    fn found_exact_solution_(&self) -> Variant {
-        impl_physics_v3_getter!(self, |phys: &Inner| *phys.found_exact_solution_())
     }
 }
