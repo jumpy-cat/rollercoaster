@@ -232,6 +232,6 @@ impl CoasterPhysicsV3 {
     #[func]
     fn future_pos_no_vel(&self, step: f64) -> Variant {
         impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys
-            .future_pos_no_vel(MyFloatType::from_f64(step))))
+            .future_pos_no_vel(&MyFloatType::from_f64(step))))
     }
 }

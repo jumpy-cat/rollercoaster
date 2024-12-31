@@ -15,14 +15,29 @@ enum NewUSolution<T: MyFloat> {
     Minimum(T),
 }
 
+#[derive(Debug)]
 struct PhysicsAdditionalInfo<T: MyFloat> {
-    delta_u_: T,
-    delta_t_: T,
-    total_t_: T,
-    delta_hl_normal_target_: MyVector3<T>,
-    target_hl_normal_: MyVector3<T>,
-    local_min_: T,
-    found_exact_solution_: bool,
+    delta_u_: Option<T>,
+    delta_t_: Option<T>,
+    total_t_: Option<T>,
+    delta_hl_normal_target_: Option<MyVector3<T>>,
+    target_hl_normal_: Option<MyVector3<T>>,
+    local_min_: Option<T>,
+    found_exact_solution_: Option<bool>,
+}
+
+impl<T: MyFloat> Default for PhysicsAdditionalInfo<T> {
+    fn default() -> Self {
+        Self {
+            delta_u_: Default::default(),
+            delta_t_: Default::default(),
+            total_t_: Default::default(),
+            delta_hl_normal_target_: Default::default(),
+            target_hl_normal_: Default::default(),
+            local_min_: Default::default(),
+            found_exact_solution_: Default::default(),
+        }
+    }
 }
 
 /// Physics solver v3  
@@ -51,6 +66,7 @@ pub struct PhysicsStateV3<T: MyFloat> {
     hl_normal: MyVector3<T>,
     // rotation
     w: MyVector3<T>, // angular velocity
+    additional_info: PhysicsAdditionalInfo<T>,
 }
 
 /// tolerance for du from dt calculations
@@ -88,6 +104,15 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             hl_normal,
             // rotation
             w: Default::default(),
+            additional_info: PhysicsAdditionalInfo {
+                delta_u_: None,
+                delta_t_: None,
+                total_t_: None,
+                delta_hl_normal_target_: None,
+                target_hl_normal_: None,
+                local_min_: None,
+                found_exact_solution_: None,
+            },
         }
     }
 
@@ -141,10 +166,9 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     /// `rot(v_curr, R) = x_tar / dt - x_curr / dt - a * dt`
     ///
     pub fn step(&mut self, step: T, curve: &hermite::Spline<T>) -> Option<()> {
-        let new_delta_t = step.clone();
-        let future_pos_no_vel = self.future_pos_no_vel(step.clone());
+        let future_pos_no_vel = self.future_pos_no_vel(&step);
 
-        let new_u = match self.calc_new_u(curve, new_delta_t.clone())? {
+        let new_u = match self.calc_new_u(curve, &step)? {
             NewUSolution::Root(u) => u,
             NewUSolution::Minimum(u) => u,
         };
@@ -154,13 +178,12 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             (self.target_pos(new_u.clone(), curve) - future_pos_no_vel).normalize();
         let rotated_v = rotated_v_direction * self.v.clone().magnitude();
 
-        self.v = rotated_v + self.g.clone() * new_delta_t.clone();
-        self.x = self.x.clone() + self.v.clone() * new_delta_t.clone();
+        self.v = rotated_v + self.g.clone() * step.clone();
+        self.x = self.x.clone() + self.v.clone() * step.clone();
 
         // rotation
         let target_hl_normal_ =
             Self::next_hl_normal(new_u.clone(), curve, &self.g, &self.v.magnitude(), &self.o);
-
         self.hl_normal = target_hl_normal_;
 
         // updates
@@ -185,14 +208,9 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
         let inner_ag_ = accel.clone() - g.clone();
 
-        let dir_to_use = if inner_ag_.magnitude() == 0.0 {
-            MyVector3::new_f64(0.0, 1.0, 0.0)
-        } else {
-            inner_ag_.clone()
-        };
         let ortho_to = curve.curve_direction_at(&u).unwrap().normalize();
-        let tmp = (dir_to_use.clone().normalize()
-            - vector_projection(dir_to_use.clone().normalize(), ortho_to.clone()))
+        let tmp = (inner_ag_.clone().normalize()
+            - vector_projection(inner_ag_.clone().normalize(), ortho_to.clone()))
         .normalize();
         (tmp.clone() - vector_projection(tmp.clone(), ortho_to.clone())).normalize()
     }
@@ -233,14 +251,24 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         guess
     }
 
-    pub fn future_pos_no_vel(&self, delta_t: T) -> MyVector3<T> {
+    pub fn future_pos_no_vel(&self, delta_t: &T) -> MyVector3<T> {
         self.x.clone() + self.g.clone() * delta_t.clone().pow(2)
     }
 
-    fn calc_new_u(&self, curve: &hermite::Spline<T>, delta_t: T) -> Option<NewUSolution<T>> {
-        let fpnv = self.future_pos_no_vel(delta_t.clone());
-        let dist_between = |u| (self.target_pos(u, curve) - &fpnv).magnitude();
+    fn calc_new_u(&self, curve: &hermite::Spline<T>, delta_t: &T) -> Option<NewUSolution<T>> {
+        let fpnv = self.future_pos_no_vel(delta_t);
+        let dist_between_tgt_nforce = |u| (self.target_pos(u, curve) - &fpnv).magnitude();
         let move_dist = self.v.clone().magnitude() * delta_t.clone();
+
+        let dist_error = |u: &T| {
+            let v1 = dist_between_tgt_nforce(u.clone());
+            let v2 = move_dist.clone();
+            let res = v1.clone() - v2.clone();
+            if res.is_nan() {
+                godot_warn!("NAN: sq({} - {})", v1, v2)
+            }
+            res
+        };
 
         let candidate_coarse_step = T::from_f64(0.01);
         let mut candidate = self.u.clone();
@@ -252,15 +280,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             let exact_res = solver::find_root_bisection(
                 candidate.clone(),
                 candidate.clone() + candidate_coarse_step.clone(),
-                |u| {
-                    let v1 = dist_between(u.clone());
-                    let v2 = move_dist.clone();
-                    let res = v1.clone() - v2.clone();
-                    if res.is_nan() {
-                        godot_warn!("frb NAN: {} {}", v1, v2);
-                    }
-                    res
-                },
+                dist_error,
                 TOL,
             );
             if let Some(res) = exact_res {
@@ -273,15 +293,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             let res = solver::find_minimum_golden_section(
                 candidate.clone(),
                 candidate.clone() + candidate_coarse_step.clone(),
-                |u| {
-                    let v1 = dist_between(u.clone());
-                    let v2 = move_dist.clone();
-                    let res = (v1.clone() - v2.clone()).pow(2);
-                    if res.is_nan() {
-                        godot_warn!("NAN: sq({} - {})", v1, v2)
-                    }
-                    res
-                },
+                |u| dist_error(u).pow(2),
                 TOL,
             );
             match res {
@@ -294,11 +306,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                 Err((u, _v, bounds)) => {
                     match bounds {
                         HitBoundary::Lower => {
-                            // This allows for "scuffed" low delta-u steps
-                            // which ensures stability when hl_normal is
-                            // changing rapidly.
-                            // Previously this hid a true issue of hl_normal
-                            // being discontinuous, but such should be fixed.
                             if out.is_none() {
                                 out = Some(u.clone());
                             }
@@ -328,18 +335,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     }
 
     pub fn description(&self) -> String {
-        format!(
-            "x: {:.2?}
-u: {}
-E: {:.3?}
-speed: {:.3} ({:.3?})
-hl normal: {:.2?}",
-            self.x,
-            self.u.to_f64(),
-            self.energy(),
-            self.v.magnitude(),
-            self.v,
-            self.hl_normal,
-        )
+        format!("{:#?}", self)
     }
 }

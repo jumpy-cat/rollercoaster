@@ -1,6 +1,7 @@
-[gd_scene load_steps=5 format=3 uid="uid://c67u65ecjmmot"]
+[gd_scene load_steps=6 format=3 uid="uid://c67u65ecjmmot"]
 
 [ext_resource type="PackedScene" uid="uid://j0eftcg8cqve" path="res://FloatEdit.tscn" id="1_8121d"]
+[ext_resource type="Script" path="res://main_ui.gd" id="1_bxeqw"]
 
 [sub_resource type="Theme" id="Theme_p2p34"]
 Label/colors/font_color = Color(1, 1, 1, 1)
@@ -16,6 +17,7 @@ offset_top = 40.0
 offset_right = 165.0
 offset_bottom = 395.0
 scale = Vector2(2, 2)
+script = ExtResource("1_bxeqw")
 
 [node name="MainStats" type="Label" parent="."]
 layout_mode = 2
