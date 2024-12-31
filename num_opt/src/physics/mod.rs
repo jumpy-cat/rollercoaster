@@ -79,7 +79,6 @@ pub struct PhysicsStateV3<T: MyFloat> {
     total_t_: T,
     delta_hl_normal_target_: MyVector3<T>,
     target_hl_normal_: MyVector3<T>,
-    ag_: RefCell<MyVector3<T>>,
     local_min_: T,
     found_exact_solution_: bool,
 }
@@ -103,7 +102,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         assert!(hl_forward.magnitude() > 0.0);
         let hl_normal =
             (-g_dir.clone() - vector_projection(-g_dir.clone(), hl_forward)).normalize();
-        let s = Self {
+        Self {
             // constants
             m: T::from_f64(m),
             rot_inertia: T::from_f64(1.0),
@@ -125,11 +124,9 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             total_t_: T::from_f64(0.0),
             delta_hl_normal_target_: Default::default(),
             target_hl_normal_: Default::default(),
-            ag_: Default::default(),
             local_min_: T::from_f64(0.0),
             found_exact_solution_: false,
-        };
-        s
+        }
     }
 
     pub fn next_hl_normal(
@@ -138,8 +135,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         g: &MyVector3<T>,
         speed: &T,
         o: &T,
-        ag_: &mut MyVector3<T>,
-        store_to_ag: bool,
     ) -> MyVector3<T> {
         // Calculate heart line acceleration, using center of mass values
         let kappa = curve.curve_kappa_at(&u).unwrap();
@@ -159,9 +154,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         } else {
             inner_ag_.clone()
         };
-        if store_to_ag {
-            *ag_ = inner_ag_;
-        }
         let ortho_to = curve.curve_direction_at(&u).unwrap().normalize();
         let tmp = (dir_to_use.clone().normalize()
             - vector_projection(dir_to_use.clone().normalize(), ortho_to.clone()))
@@ -178,8 +170,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             self.m.clone(),
             &self.g,
             &self.o,
-            &mut self.ag_.borrow_mut(),
-            false // don't store ag
         )
     }
 
@@ -191,8 +181,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         m: T,
         g: &MyVector3<T>,
         o: &T,
-        ag_: &mut MyVector3<T>,
-        store_to_ag: bool,
     ) -> MyVector3<T> {
         let future_speed = |future_position: MyVector3<T>| {
             // uses energy
@@ -203,7 +191,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         // target position guess
         let mut guess_pos_using_speed = |speed| {
             curve.curve_at(&u).unwrap()
-                - Self::next_hl_normal(u.clone(), curve, &g, &speed, &o, ag_, store_to_ag) * o.clone()
+                - Self::next_hl_normal(u.clone(), curve, &g, &speed, &o) * o.clone()
         };
         let mut speed = v.magnitude();
         let mut guess = x.clone();
@@ -242,8 +230,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                 self.m.clone(),
                 &self.g,
                 &self.o,
-                &mut self.ag_.borrow_mut(),
-                false, // don't store ag
             ) - &fpnv)
                 .magnitude()
         };
@@ -408,8 +394,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             self.m.clone(),
             &self.g,
             &self.o,
-            &mut self.ag_.borrow_mut(),
-            false
         ) - future_pos_no_vel)
             .normalize();
         let rotated_v = rotated_v_direction * self.v.clone().magnitude();
@@ -424,8 +408,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             &self.g,
             &self.v.magnitude(),
             &self.o,
-            &mut self.ag_.borrow_mut(),
-            true // DO store ag
         );
         let cross = self.hl_normal.cross(&self.target_hl_normal_).normalize();
         self.delta_hl_normal_target_ =
@@ -458,7 +440,6 @@ t: {:.3}
 E: {:.3?}
 speed: {:.3} ({:.3?})
 hl normal: {:.2?}
-g force: {:.2}
 delta-t: {:.6}
 delta-u: {}",
             self.x,
@@ -468,14 +449,9 @@ delta-u: {}",
             self.v.magnitude(),
             self.v,
             self.hl_normal,
-            self.ag_.borrow().magnitude() / self.g.magnitude(),
             self.delta_t_.to_f64(),
             self.delta_u_.to_f64()
         )
-    }
-
-    pub fn ag(&self) -> MyVector3<T> {
-        self.ag_.borrow().clone()
     }
 }
 
