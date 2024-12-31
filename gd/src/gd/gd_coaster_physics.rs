@@ -227,7 +227,7 @@ impl CoasterPhysicsV3 {
 
     #[func]
     fn a(&self) -> Variant {
-        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.a()))
+        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.hl_accel()))
     }
 
     #[func]

@@ -64,28 +64,19 @@ pub struct PhysicsStateV3<T: MyFloat> {
     v: MyVector3<T>,
     // heart line
     hl_normal: MyVector3<T>,
-    hl_pos: MyVector3<T>,
     hl_vel: MyVector3<T>,
     hl_accel: MyVector3<T>,
-    hl_accel_ema: MyVector3<T>,
     // rotation
-    torque_exceeded: bool,
     w: MyVector3<T>, // angular velocity
-    I: T,            // moment of inertia
+    rot_inertia: T,            // moment of inertia
 
     // stats, info, persisted intermediate values
     delta_u_: T,
     delta_t_: T,
     total_t_: T,
-    delta_x_actual_: MyVector3<T>,
-    delta_x_target_: MyVector3<T>,
-    delta_hl_normal_actual_: MyVector3<T>,
     delta_hl_normal_target_: MyVector3<T>,
     target_hl_normal_: MyVector3<T>,
     ag_: RefCell<MyVector3<T>>,
-    F_N_: MyVector3<T>,
-    F_: MyVector3<T>,
-    torque_: MyVector3<T>,
     local_min_: T,
     found_exact_solution_: bool,
 }
@@ -112,7 +103,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let s = Self {
             // constants
             m: T::from_f64(m),
-            I: T::from_f64(1.0),
+            rot_inertia: T::from_f64(1.0),
             g: g.clone(),
             o: T::from_f64(o),
             // simulation state
@@ -122,27 +113,18 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             v: MyVector3::new_f64(0.0, 0.0, 0.0),
 
             // heart line
-            hl_pos,
             hl_normal,
             hl_vel: Default::default(),
             hl_accel: Default::default(),
-            hl_accel_ema: -g,
             // rotation
-            torque_exceeded: false,
             w: Default::default(),
             // stats, info, persisted intermediate values
             delta_u_: T::from_f64(0.0), //0.0,
-            delta_x_actual_: Default::default(),
-            delta_x_target_: Default::default(),
             delta_t_: T::from_f64(0.0),
             total_t_: T::from_f64(0.0),
-            delta_hl_normal_actual_: Default::default(),
             delta_hl_normal_target_: Default::default(),
             target_hl_normal_: Default::default(),
-            F_N_: Default::default(),
-            F_: Default::default(),
             ag_: Default::default(),
-            torque_: Default::default(),
             local_min_: T::from_f64(0.0),
             found_exact_solution_: false,
         };
@@ -442,9 +424,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         // updates
         self.hl_vel = new_hl_vel;
         self.hl_accel = new_hl_accel;
-        const EMA_ALPHA: f64 = 0.99999;
-        self.hl_accel_ema = self.hl_accel_ema.clone() * T::from_f64(EMA_ALPHA)
-            + self.hl_accel.clone() * T::from_f64(1.0 - EMA_ALPHA);
         self.u = new_u;
         self.delta_t_ = new_delta_t;
 
@@ -464,24 +443,17 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             "x: {:.2?}
 u: {}
 t: {:.3}
-UNUSED lm: {}
 E: {:.3?}
 speed: {:.3} ({:.3?})
 hl speed: {:.2}
 hl accel: {:.4}
 hl normal: {:.2?}
 g force: {:.2}
-UNUSED delta-x: {:.3?} err: {}
-UNUSED F_N: {:.2?}
-UNUSED T-Exceeded: {}
-UNUSED w: {:.3}
-UNUSED Torque: {:.3}
-delta-t: {:.6} {}
+delta-t: {:.6}
 delta-u: {}",
             self.x,
             self.u.to_f64(),
             self.total_t_.to_f64(),
-            self.local_min_.to_f64(),
             self.energy(),
             self.v.magnitude(),
             self.v,
@@ -489,28 +461,13 @@ delta-u: {}",
             self.hl_accel.magnitude(),
             self.hl_normal,
             self.ag_.borrow().magnitude() / self.g.magnitude(),
-            self.delta_x_target_.magnitude(),
-            (self.delta_x_actual_.clone() - self.delta_x_target_.clone()).magnitude(),
-            self.F_N_,
-            self.torque_exceeded,
-            self.w.magnitude(),
-            self.torque_.magnitude(),
             self.delta_t_.to_f64(),
-            if self.delta_t_ < MIN_STEP {
-                "##MIN##"
-            } else {
-                ""
-            },
             self.delta_u_.to_f64()
         )
     }
 
     pub fn ag(&self) -> MyVector3<T> {
         self.ag_.borrow().clone()
-    }
-
-    pub fn a(&self) -> &MyVector3<T> {
-        &self.hl_accel
     }
 }
 
