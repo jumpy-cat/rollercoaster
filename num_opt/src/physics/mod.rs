@@ -462,7 +462,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             &mut self.ag_.borrow_mut(),
             false,
         );
-        let rotated_v_direction = (target_pos - future_pos_no_vel).normalize();
+        let rotated_v_direction = (target_pos.clone() - future_pos_no_vel).normalize();
         // use simple finite difference approximation for w
         let new_w = self.hl_normal.scaled_axis_rotating_to(&target_norm) / new_delta_t.clone();
         godot_print!("{:?}", new_w);
@@ -491,7 +491,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             self.g.clone(),
             self.m.clone(),
         );*/
-        self.x = self.x.clone() + self.v.clone() * new_delta_t.clone();
+        //self.x = self.x.clone() + self.v.clone() * new_delta_t.clone();
+        self.x = target_pos;
 
         // rotation
         // this implies slight inaccuracies in hl_normal
