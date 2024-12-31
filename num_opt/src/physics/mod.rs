@@ -208,7 +208,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             // uses energy
             let dy = (future_position - x.clone()).y;
             let future_k = v.magnitude().pow(2) * 0.5 * m.clone() + m.clone() * g.y.clone() * dy;
-            (future_k * 2.0 / m.clone()).sqrt()
+            (future_k * 2.0 / m.clone()).max(&T::from_f64(0.0)).sqrt()
         };
         // target position guess
         let mut guess_pos_using_speed = |speed| {
@@ -216,24 +216,22 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                 - Self::next_hl_normal(u.clone(), curve, &g, &speed, &o, ag_) * o.clone()
         };
         let mut speed = v.magnitude();
-        let mut guess;
+        let mut guess = x.clone();
         let mut guess_speed;
-        let mut error = None;
-        loop {
-            godot_print!("hii");
+        let mut _error = None;
+        for _ in 0..100 {
             guess = guess_pos_using_speed(speed.clone());
+            if guess.has_nan() {
+                godot_warn!("NaN in guess");
+                break;
+            }
             guess_speed = future_speed(guess.clone());
+            if guess_speed.is_nan() {
+                godot_warn!("NaN in guess_speed");
+                break;
+            }
             let new_error = (speed - guess_speed.clone()).abs();
-            if new_error < TOL {
-                break;
-            }
-            if let Some(error) = error
-                && error <= new_error
-            {
-                godot_warn!("Solver diverged?");
-                break;
-            }
-            error = Some(new_error);
+            _error = Some(new_error);
             speed = guess_speed;
         }
         guess
@@ -297,26 +295,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         // 2. Calculate speed change based off of precision
         // 3. Apply new speed to 1, repeat
 
-        // This ignores that the speed of the com is affected by gravity/friction
-        let naive_target_position = |u| {
-            curve.curve_at(&u).unwrap()
-                - Self::next_hl_normal(
-                    u,
-                    curve,
-                    &self.g,
-                    &self.v.magnitude(), // TODO: make accurate
-                    &self.o,
-                    &mut self.ag_.borrow_mut(),
-                ) * self.o.clone()
-        };
-        let future_speed = |future_position: MyVector3<T>| {
-            // uses energy
-            let dy = (future_position - self.x.clone()).y;
-            let future_k = self.v.magnitude().pow(2) * 0.5 * self.m.clone()
-                + self.m.clone() * self.g.y.clone() * dy;
-            (future_k * 2.0 / self.m.clone()).sqrt()
-        };
-
         let future_pos_no_vel = self.future_pos_no_vel(step.clone());
 
         let new_u = {
@@ -340,17 +318,21 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             let mut candidate = self.u.clone();
             let mut solution_list = vec![];
             let mut out = None;
-            while candidate.clone() < self.u.clone() + T::from_f64(1.0) {
+            while candidate.clone() + candidate_coarse_step.clone()
+                < (self.u.clone() + T::from_f64(1.0)).min(&T::from_f64(curve.max_u()))
+            {
                 let exact_res = solver::find_root_bisection(
                     candidate.clone(),
                     candidate.clone() + candidate_coarse_step.clone(),
-                    |u| dist_between(u.clone()) - move_dist.clone(),
-                    TOL,
-                );
-                let res = solver::find_minimum_golden_section(
-                    candidate.clone(),
-                    candidate.clone() + candidate_coarse_step.clone(),
-                    |u| (dist_between(u.clone()) - move_dist.clone()).pow(2),
+                    |u| {
+                        let v1 = dist_between(u.clone());
+                        let v2 = move_dist.clone();
+                        let res = v1.clone() -v2.clone();
+                        if res.is_nan() {
+                            godot_warn!("frb NAN: {} {}", v1, v2);
+                        }
+                        res
+                    },
                     TOL,
                 );
                 if let Some(res) = exact_res {
@@ -358,6 +340,20 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                     out = Some(res);
                     break;
                 }
+                let res = solver::find_minimum_golden_section(
+                    candidate.clone(),
+                    candidate.clone() + candidate_coarse_step.clone(),
+                    |u| {
+                        let v1 = dist_between(u.clone());
+                        let v2 = move_dist.clone();
+                        let res = (v1.clone() - v2.clone()).pow(2);
+                        if res.is_nan() {
+                            godot_warn!("NAN: sq({} - {})", v1, v2)
+                        }
+                        res
+                    },
+                    TOL,
+                );
                 match res {
                     Ok((u, v)) => {
                         if out.is_none() {
@@ -371,11 +367,11 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                     Err((u, v, bounds)) => {
                         match bounds {
                             HitBoundary::Lower => {
-                                /*if out.is_none() {
+                                if out.is_none() {
                                     out = Some(u.clone());
                                 }
                                 //solution_list.push((u.clone() - self.u.clone(), v));
-                                break;*/
+                                break;
                             }
                             HitBoundary::Upper => {}
                         }

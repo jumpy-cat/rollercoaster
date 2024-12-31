@@ -189,7 +189,7 @@ impl CoasterPhysicsV3 {
     fn step(&mut self, curve: Gd<CoasterCurve>, step_size: f64) {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
-            for _ in 0..1 {
+            for _ in 0..10 {
                 let _ = phys.step(MyFloatType::from_f64(step_size), curve).is_none();
 
             }
@@ -251,13 +251,15 @@ impl CoasterPhysicsV3 {
     fn next_target_positions(&self, curve: Gd<CoasterCurve>) -> Variant {
         impl_physics_v3_getter!(self, |phys: &Inner| {
             let mut out = vec![];
-            let init = MyFloatType::to_f64(phys.u());
-            for i in 0..101 {
-                let u = MyFloat::from_f64(init + i as f64 / 100.0);
+            let mut offset = 0.005;
+            let init = MyFloatType::to_f64(phys.u()) - offset;
+            while offset < 1.0 {
+                let u = MyFloat::from_f64(init + offset);
                 if u > curve.bind().inner.max_u() {
                     break;
                 }
                 out.push(myvec_to_gd(phys.target_pos_simple(u, &curve.bind().inner)));
+                offset *= 1.01;
             }
             out
         })
@@ -267,13 +269,15 @@ impl CoasterPhysicsV3 {
     fn prev_target_positions(&self, curve: Gd<CoasterCurve>) -> Variant {
         impl_physics_v3_getter!(self, |phys: &Inner| {
             let mut out = vec![];
-            let init = MyFloatType::to_f64(phys.u());
-            for i in 0..101 {
-                let u = MyFloat::from_f64(init - i as f64 / 100.0);
+            let mut offset = 0.01;
+            let init = MyFloatType::to_f64(phys.u()) + offset;
+            while offset < 1.0 {
+                let u = MyFloat::from_f64(init - offset);
                 if u < 0.0 {
                     break;
                 }
                 out.push(myvec_to_gd(phys.target_pos_simple(u, &curve.bind().inner)));
+                offset *= 1.05;
             }
             out
         })

@@ -25,6 +25,7 @@ extends Node3D
 var selected_index;
 var selected_point;
 
+var camera_follow_anim: bool = false
 var manual_physics = false
 var optimize: bool = false
 var control_points: Array[ControlPoint]
@@ -135,18 +136,21 @@ func _process(_delta: float) -> void:
 		for cp in control_points:
 			positions.push_back(cp.position)
 		optimizer.set_points(positions)
+	if Input.is_action_just_pressed("toggle_follow_anim"):
+		camera_follow_anim = !camera_follow_anim
 	if Input.is_action_just_pressed("run_simulation"):
 		push_warning("hi2")
 		curve = optimizer.get_curve()
 		push_warning("hi3")
 
-		physics = CoasterPhysicsV3.create(mass, gravity, curve, 5.0)	
+		physics = CoasterPhysicsV3.create(mass, gravity, curve, 1.0)	
 		push_warning("hi4")	
 	
 	# update physics simulation
 	if curve != null:
 		anim.visible = true
-		if (!manual_physics || Input.is_action_just_pressed("step_physics")):
+		var physics_did_step = (!manual_physics || Input.is_action_just_pressed("step_physics"))
+		if physics_did_step:
 			physics.step(curve, anim_step_size)
 		#var anim_pos = physics.pos(curve)
 		var anim_pos = physics.pos()
@@ -154,7 +158,8 @@ func _process(_delta: float) -> void:
 		var anim_vel = physics.vel()
 		var anim_up = physics.hl_normal()
 
-		#camera.op = anim_pos
+		if camera_follow_anim:
+			camera.op = anim_pos
 
 		const MULT = 1;
 
@@ -178,12 +183,17 @@ func _process(_delta: float) -> void:
 		#DebugDraw3D.draw_line(anim_pos, anim_pos + (anim_pos - tgt_pos), Color.PURPLE)
 
 		var tgt_positions = physics.next_target_positions(curve)
+		if physics_did_step:
+			for p in tgt_positions:
+				if not p.is_finite():
+					#print(tgt_positions)
+					break
 		for i in range(len(tgt_positions) - 1):
 			DebugDraw3D.draw_line(tgt_positions[i], tgt_positions[i + 1], Color.PINK)
 		
-		var p_tgt_positions = physics.prev_target_positions(curve)
+		"""var p_tgt_positions = physics.prev_target_positions(curve)
 		for i in range(len(p_tgt_positions) - 1):
-			DebugDraw3D.draw_line(p_tgt_positions[i], p_tgt_positions[i + 1], Color.PURPLE)
+			DebugDraw3D.draw_line(p_tgt_positions[i], p_tgt_positions[i + 1], Color.PURPLE)"""
 
 		#var anim_up = Vector3.UP
 		if anim_pos != null:

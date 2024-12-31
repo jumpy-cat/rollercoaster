@@ -8,6 +8,8 @@ pub fn find_root_bisection<T: MyFloat>(a: T, b: T, f: impl Fn(&T) -> T, epsilon:
     }
     let mut fa = f(&a);
     let fb = f(&b);
+    assert!(!fa.is_nan());
+    assert!(!fb.is_nan());
     if (fa.clone() * fb) > 0.0 {
         // they have the same sign, so there is no root in this interval
         return None;
