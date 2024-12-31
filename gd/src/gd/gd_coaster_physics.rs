@@ -191,7 +191,6 @@ impl CoasterPhysicsV3 {
             let curve = &curve.bind().inner;
             for _ in 0..5 {
                 let _ = phys.step(MyFloatType::from_f64(step_size), curve).is_none();
-
             }
         }
     }
