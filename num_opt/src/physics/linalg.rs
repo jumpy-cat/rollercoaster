@@ -92,9 +92,29 @@ impl<T: MyFloat> MyVector3<T> {
         }
     }
 
+    pub fn scaled_axis_rotating_to(&self, other: &MyVector3<T>) -> MyVector3<T> {
+        let angle = self.angle(other);
+        let axis = self.cross(other).normalize();
+        axis * angle
+    }
+
     pub fn has_nan(&self) -> bool {
         self.x.is_nan() || self.y.is_nan() || self.z.is_nan()
     }
+}
+
+#[test]
+fn test_scaled_axis_rotating_to() {
+    let a = MyVector3::<f64>::new_f64(0.0, 0.0, 1.0);
+    let b = MyVector3::<f64>::new_f64(0.0, 1.0, 0.0);
+    assert!((a.scaled_axis_rotating_to(&b).magnitude() - std::f64::consts::PI / 2.0).abs() < 0.0001)
+}
+
+#[test]
+fn test_scaled_axis_rotating_to_diff_mag() {
+    let a = MyVector3::<f64>::new_f64(0.0, 0.0, 10.0);
+    let b = MyVector3::<f64>::new_f64(0.0, 0.7, 0.0);
+    assert!((a.scaled_axis_rotating_to(&b).magnitude() - std::f64::consts::PI / 2.0).abs() < 0.0001)
 }
 
 impl<T: MyFloat> AsRef<MyVector3<T>> for MyVector3<T> {
