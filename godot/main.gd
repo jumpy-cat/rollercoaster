@@ -123,6 +123,8 @@ func _ready() -> void:
 
 
 var anim_prev_pos = null
+var hist_tgt_pos = []
+var hist_tgt_pos_assoc_u = -1
 
 
 func _process(_delta: float) -> void:
@@ -147,7 +149,8 @@ func _process(_delta: float) -> void:
 	# update physics simulation
 	if curve != null:
 		anim.visible = true
-		var physics_did_step = (!manual_physics || Input.is_action_just_pressed("step_physics"))
+		var physics_did_step = ((!manual_physics && physics.found_exact_solution())
+			|| Input.is_action_just_pressed("step_physics"))
 		if physics_did_step:
 			physics.step(curve, anim_step_size)
 		var anim_pos = physics.pos()
@@ -157,14 +160,23 @@ func _process(_delta: float) -> void:
 		if camera_follow_anim:
 			camera.op = anim_pos
 		
-		var target_pos = physics.future_target_pos(curve)
+		var target_pos = physics.future_target_pos(curve, anim_step_size)
 		for i in range(len(target_pos) - 1): 
 			DebugDraw3D.draw_line(
 				target_pos[i],
 				target_pos[i + 1],
 				Color.RED
 			)
-		target_pos = physics.past_target_pos(curve)
+		for i in range(len(hist_tgt_pos) - 1): 
+			DebugDraw3D.draw_line(
+				hist_tgt_pos[i],
+				hist_tgt_pos[i + 1],
+				Color.PURPLE
+			)
+		if floor(physics.u()) != hist_tgt_pos_assoc_u:
+			hist_tgt_pos = target_pos
+			hist_tgt_pos_assoc_u = floor(physics.u())
+		target_pos = physics.past_target_pos(curve, anim_step_size)
 		for i in range(len(target_pos) - 1):
 			DebugDraw3D.draw_line(
 				target_pos[i],
@@ -181,15 +193,8 @@ func _process(_delta: float) -> void:
 			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.2, Color.YELLOW)
 		else:
 			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.4, Color.RED)
-
-		var big_step = MULT * anim_step_size * 1
 		
-		if anim_prev_pos != null:
-			DebugDraw3D.draw_sphere(
-				anim_pos
-					+ (physics.future_pos_no_vel(big_step) - anim_pos),
-				big_step * physics.vel().length(), Color.GREEN
-			)
+
 
 		if anim_pos != null:
 			anim_prev_pos = anim_pos
