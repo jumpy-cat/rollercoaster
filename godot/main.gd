@@ -143,7 +143,7 @@ func _process(_delta: float) -> void:
 		curve = optimizer.get_curve()
 		push_warning("hi3")
 
-		physics = CoasterPhysicsV3.create(mass, gravity, curve, 1.0)	
+		physics = CoasterPhysicsV3.create(mass, gravity, curve, 5.0)	
 		push_warning("hi4")	
 	
 	# update physics simulation

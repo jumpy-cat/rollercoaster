@@ -41,6 +41,11 @@ macro_rules! float {
 
 pub(crate) use float;
 
+enum NewUSolution<T: MyFloat> {
+    Root(T),
+    Minimum(T),
+}
+
 /// Physics solver v3  
 /// ### Overview (check `Self::step` for details)
 /// Store simulation parameters (m,g)  
@@ -56,6 +61,7 @@ pub struct PhysicsStateV3<T: MyFloat> {
     m: T,
     g: MyVector3<T>,
     o: T,
+    rot_inertia: T,            // moment of inertia
 
     // simulation state
     u: T,
@@ -64,11 +70,8 @@ pub struct PhysicsStateV3<T: MyFloat> {
     v: MyVector3<T>,
     // heart line
     hl_normal: MyVector3<T>,
-    hl_vel: MyVector3<T>,
-    hl_accel: MyVector3<T>,
     // rotation
     w: MyVector3<T>, // angular velocity
-    rot_inertia: T,            // moment of inertia
 
     // stats, info, persisted intermediate values
     delta_u_: T,
@@ -114,8 +117,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
             // heart line
             hl_normal,
-            hl_vel: Default::default(),
-            hl_accel: Default::default(),
             // rotation
             w: Default::default(),
             // stats, info, persisted intermediate values
@@ -226,8 +227,104 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         guess
     }
 
-    pub fn future_pos_no_vel(&self, step: T) -> MyVector3<T> {
-        self.x.clone() + self.g.clone() * step.clone().pow(2)
+    pub fn future_pos_no_vel(&self, delta_t: T) -> MyVector3<T> {
+        self.x.clone() + self.g.clone() * delta_t.clone().pow(2)
+    }
+
+    fn calc_new_u(&self, curve: &hermite::Spline<T>, delta_t: T) -> Option<NewUSolution<T>> {
+        let fpnv = self.future_pos_no_vel(delta_t.clone());
+        let dist_between = |u| {
+            (Self::target_pos(
+                u,
+                curve,
+                &self.x,
+                &self.v,
+                self.m.clone(),
+                &self.g,
+                &self.o,
+                &mut self.ag_.borrow_mut(),
+                false, // don't store ag
+            ) - &fpnv)
+                .magnitude()
+        };
+        let move_dist = self.v.clone().magnitude() * delta_t.clone();
+        //let inside = |u| dist_between(u) < move_dist;
+
+        let candidate_coarse_step = T::from_f64(0.01);
+        let mut candidate = self.u.clone();
+        let mut solution_list = vec![];
+        let mut out = None;
+        let mut found_exact_solution_ = false;
+        while candidate.clone() + candidate_coarse_step.clone()
+            < (self.u.clone() + T::from_f64(1.0)).min(&T::from_f64(curve.max_u()))
+        {
+            let exact_res = solver::find_root_bisection(
+                candidate.clone(),
+                candidate.clone() + candidate_coarse_step.clone(),
+                |u| {
+                    let v1 = dist_between(u.clone());
+                    let v2 = move_dist.clone();
+                    let res = v1.clone() -v2.clone();
+                    if res.is_nan() {
+                        godot_warn!("frb NAN: {} {}", v1, v2);
+                    }
+                    res
+                },
+                TOL,
+            );
+            if let Some(res) = exact_res {
+                found_exact_solution_ = true;
+                out = Some(res);
+                break;
+            } else {
+                found_exact_solution_ = false;
+            }
+            let res = solver::find_minimum_golden_section(
+                candidate.clone(),
+                candidate.clone() + candidate_coarse_step.clone(),
+                |u| {
+                    let v1 = dist_between(u.clone());
+                    let v2 = move_dist.clone();
+                    let res = (v1.clone() - v2.clone()).pow(2);
+                    if res.is_nan() {
+                        godot_warn!("NAN: sq({} - {})", v1, v2)
+                    }
+                    res
+                },
+                TOL,
+            );
+            match res {
+                Ok((u, v)) => {
+                    if out.is_none() {
+                        out = Some(u.clone());
+                    }
+                    solution_list.push((u.to_f64() - self.u.to_f64(), v.to_f64()));
+                    break;
+                }
+                Err((u, _v, bounds)) => {
+                    match bounds {
+                        HitBoundary::Lower => {
+                            // This allows for "scuffed" low delta-u steps
+                            // which ensures stability when hl_normal is
+                            // changing rapidly.
+                            // Previously this hid a true issue of hl_normal
+                            // being discontinuous, but such should be fixed.
+                            if out.is_none() {
+                                out = Some(u.clone());
+                            }
+                            break;
+                        }
+                        HitBoundary::Upper => {}
+                    }
+                }
+            }
+            candidate += candidate_coarse_step.to_f64();
+        }
+        out.map(|r| if found_exact_solution_ {
+            NewUSolution::Root(r)   
+        } else {
+            NewUSolution::Minimum(r)
+        })
     }
 
     /// Steps forward in time by `step`, may choose to perform smaller step(s)
@@ -290,100 +387,17 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
         let future_pos_no_vel = self.future_pos_no_vel(step.clone());
 
-        let new_u = {
-            let dist_between = |u| {
-                (Self::target_pos(
-                    u,
-                    curve,
-                    &self.x,
-                    &self.v,
-                    self.m.clone(),
-                    &self.g,
-                    &self.o,
-                    &mut self.ag_.borrow_mut(),
-                    false, // don't store ag
-                ) - &future_pos_no_vel)
-                    .magnitude()
-            };
-            let move_dist = self.v.clone().magnitude() * step.clone();
-            //let inside = |u| dist_between(u) < move_dist;
-
-            let candidate_coarse_step = T::from_f64(0.01);
-            let mut candidate = self.u.clone();
-            let mut solution_list = vec![];
-            let mut out = None;
-            while candidate.clone() + candidate_coarse_step.clone()
-                < (self.u.clone() + T::from_f64(1.0)).min(&T::from_f64(curve.max_u()))
-            {
-                let exact_res = solver::find_root_bisection(
-                    candidate.clone(),
-                    candidate.clone() + candidate_coarse_step.clone(),
-                    |u| {
-                        let v1 = dist_between(u.clone());
-                        let v2 = move_dist.clone();
-                        let res = v1.clone() -v2.clone();
-                        if res.is_nan() {
-                            godot_warn!("frb NAN: {} {}", v1, v2);
-                        }
-                        res
-                    },
-                    TOL,
-                );
-                if let Some(res) = exact_res {
-                    self.found_exact_solution_ = true;
-                    out = Some(res);
-                    break;
-                }
-                let res = solver::find_minimum_golden_section(
-                    candidate.clone(),
-                    candidate.clone() + candidate_coarse_step.clone(),
-                    |u| {
-                        let v1 = dist_between(u.clone());
-                        let v2 = move_dist.clone();
-                        let res = (v1.clone() - v2.clone()).pow(2);
-                        if res.is_nan() {
-                            godot_warn!("NAN: sq({} - {})", v1, v2)
-                        }
-                        res
-                    },
-                    TOL,
-                );
-                match res {
-                    Ok((u, v)) => {
-                        if out.is_none() {
-                            self.found_exact_solution_ = false;
-                            out = Some(u.clone());
-                            self.local_min_ = dist_between(u.clone()) - move_dist.clone();
-                        }
-                        solution_list.push((u.to_f64() - self.u.to_f64(), v.to_f64()));
-                        break;
-                    }
-                    Err((u, _v, bounds)) => {
-                        match bounds {
-                            HitBoundary::Lower => {
-                                // This allows for "scuffed" low delta-u steps
-                                // which ensures stability when hl_normal is
-                                // changing rapidly.
-                                // Previously this hid a true issue of hl_normal
-                                // being discontinuous, but such should be fixed.
-                                if out.is_none() {
-                                    out = Some(u.clone());
-                                }
-                                break;
-                            }
-                            HitBoundary::Upper => {}
-                        }
-                    }
-                }
-                candidate += candidate_coarse_step.to_f64();
-            }
-            out
-        }?;
+        let new_u = match self.calc_new_u(curve, new_delta_t.clone())? {
+            NewUSolution::Root(u) => {
+                self.found_exact_solution_ = true;
+                u
+            },
+            NewUSolution::Minimum(u) => {
+                self.found_exact_solution_ = false;
+                u
+            },
+        };
         self.delta_u_ = new_u.clone() - self.u.clone();
-
-        // hl values
-        let new_hl_vel = (curve.curve_at(&new_u)? - curve.curve_at(&self.u)?) / new_delta_t.clone();
-        let new_hl_accel = (new_hl_vel.clone() - self.hl_vel.clone()) / (new_delta_t.clone());
 
         // new update rule
         let rotated_v_direction = (Self::target_pos(
@@ -422,8 +436,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.hl_normal = self.target_hl_normal_.clone();
 
         // updates
-        self.hl_vel = new_hl_vel;
-        self.hl_accel = new_hl_accel;
         self.u = new_u;
         self.delta_t_ = new_delta_t;
 
@@ -445,8 +457,6 @@ u: {}
 t: {:.3}
 E: {:.3?}
 speed: {:.3} ({:.3?})
-hl speed: {:.2}
-hl accel: {:.4}
 hl normal: {:.2?}
 g force: {:.2}
 delta-t: {:.6}
@@ -457,8 +467,6 @@ delta-u: {}",
             self.energy(),
             self.v.magnitude(),
             self.v,
-            self.hl_vel.magnitude(),
-            self.hl_accel.magnitude(),
             self.hl_normal,
             self.ag_.borrow().magnitude() / self.g.magnitude(),
             self.delta_t_.to_f64(),
