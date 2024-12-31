@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://dp1iulbnn6wvy"]
+[gd_scene load_steps=7 format=3 uid="uid://dp1iulbnn6wvy"]
 
 [sub_resource type="GDScript" id="GDScript_gxknm"]
 
@@ -24,8 +24,6 @@ material = SubResource("StandardMaterial3D_q7vat")
 radius = 0.1
 height = 5.0
 
-[sub_resource type="ImmediateMesh" id="ImmediateMesh_teg0u"]
-
 [node name="Anim" type="Node3D"]
 script = SubResource("GDScript_gxknm")
 
@@ -38,11 +36,13 @@ mesh = SubResource("SphereMesh_su52i")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D"]
 shape = SubResource("SphereShape3D_r0wmb")
 
-[node name="MeshInstance3D2" type="MeshInstance3D" parent="."]
+[node name="UpIndic" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.70093, 0)
 transparency = 0.5
 mesh = SubResource("CapsuleMesh_ncu23")
 
-[node name="MeshInstance3D3" type="MeshInstance3D" parent="."]
+[node name="FrontIndic" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, -2)
 transparency = 0.5
-mesh = SubResource("ImmediateMesh_teg0u")
+mesh = SubResource("CapsuleMesh_ncu23")
+skeleton = NodePath("../UpIndic")
