@@ -3,7 +3,7 @@
 use std::cell::RefCell;
 
 use godot::global::{godot_print, godot_warn};
-use linalg::{vector_projection, MyVector3, Silence};
+use linalg::{vector_projection, MyQuaternion, MyVector3, Silence};
 use solver::HitBoundary;
 
 use crate::{hermite, my_float::MyFloat};
@@ -68,7 +68,7 @@ pub struct PhysicsStateV3<T: MyFloat> {
     hl_accel: MyVector3<T>,
     // rotation
     w: MyVector3<T>, // angular velocity
-    rot_inertia: T,            // moment of inertia
+    rot_inertia: T,
 
     // stats, info, persisted intermediate values
     delta_u_: T,
@@ -272,10 +272,14 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     /// point on the curve to the future position given velocity "trying its
     /// best". Then apply the rules knowing we will diverge slightly
     /// from the curve.
-    /// 
-    /// To ensure the continuity of `N` is it computed with consideration of the
+    ///
+    /// To ensure the continuity of `N` with respect to both changes in `u` and
+    /// moving forward in `t` is it computed with consideration of the
     /// elevation change affecting velocity (requiring an iterative method).
     /// When dissipative forces are added, they will also be treated similarily.
+    /// Note that `N` still could be discontinuous since the change in velocity
+    /// is calculated exactly using energy, while the integrator approximates it
+    /// using semi-implicit euler.
     ///
     /// `rot(v_curr, R) = x_tar / dt - x_curr / dt - a * dt`
     ///
@@ -321,7 +325,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                     |u| {
                         let v1 = dist_between(u.clone());
                         let v2 = move_dist.clone();
-                        let res = v1.clone() -v2.clone();
+                        let res = v1.clone() - v2.clone();
                         if res.is_nan() {
                             godot_warn!("frb NAN: {} {}", v1, v2);
                         }
@@ -412,26 +416,45 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             &self.o,
             &mut self.ag_.borrow_mut(),
             true // DO store ag
-        );
-        let cross = self.hl_normal.cross(&self.target_hl_normal_).normalize();
-        self.delta_hl_normal_target_ =
-            cross * self.hl_normal.angle_dbg::<Silence>(&self.target_hl_normal_);
+        );*/
+        //let cross = self.hl_normal.cross(&self.target_hl_normal_).normalize();
+        //self.delta_hl_normal_target_ =
+        //    cross * self.hl_normal.angle_dbg::<Silence>(&self.target_hl_normal_);
+        self.delta_hl_normal_target_ = self
+            .hl_normal
+            .scaled_axis_rotating_to(&self.target_hl_normal_);
 
         // cop-out rotation
+        // now slightly less cop-out
         // TODO: replace with proper rotation
-        self.hl_normal = self.target_hl_normal_.clone();
+        self.hl_normal = MyQuaternion::from_scaled_axis(new_w.clone() * new_delta_t.clone())
+            .rotate(self.hl_normal.clone());
 
         // updates
         self.hl_vel = new_hl_vel;
         self.hl_accel = new_hl_accel;
         self.u = new_u;
         self.delta_t_ = new_delta_t;
+        self.w = new_w;
 
         Some(())
     }
 
     fn energy(&self) -> T {
-        self.v.clone().magnitude_squared() * 0.5 * self.m.clone() + self.potential_energy()
+        self.kinetic_energy() + self.potential_energy() + self.rotational_energy()
+    }
+
+    fn speed_from_kinetic_energy(&self, k: T) -> T {
+        assert!(k.clone() * 2.0 / self.m.clone() > 0.0);
+        (k * 2.0 / self.m.clone()).sqrt()
+    }
+
+    fn kinetic_energy(&self) -> T {
+        self.v.magnitude_squared() * 0.5 * self.m.clone()
+    }
+
+    fn rotational_energy(&self) -> T {
+        self.w.magnitude_squared() * 0.5 * self.rot_inertia.clone()
     }
 
     fn potential_energy(&self) -> T {
@@ -443,7 +466,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             "x: {:.2?}
 u: {}
 t: {:.3}
-E: {:.3?}
+E: {:.3?} ({:.3?}U + {:.3?}K + {:.3?}R)
 speed: {:.3} ({:.3?})
 hl speed: {:.2}
 hl accel: {:.4}
@@ -455,6 +478,9 @@ delta-u: {}",
             self.u.to_f64(),
             self.total_t_.to_f64(),
             self.energy(),
+            self.potential_energy(),
+            self.kinetic_energy(),
+            self.rotational_energy(),
             self.v.magnitude(),
             self.v,
             self.hl_vel.magnitude(),
