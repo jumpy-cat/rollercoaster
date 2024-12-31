@@ -500,7 +500,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             new_u.clone(),
             curve,
             &self.g,
-            &self.v.magnitude(),
+            //&self.v.magnitude(),
+            &new_v.magnitude(),
             &self.o,
             &mut self.ag_.borrow_mut(),
             true // DO store ag
