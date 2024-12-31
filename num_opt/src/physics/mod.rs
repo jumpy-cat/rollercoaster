@@ -169,7 +169,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     }
 
     pub fn target_pos_simple(&self, u: T, step: T, curve: &hermite::Spline<T>) -> MyVector3<T> {
-        Self::target_pos_norm(
+        Self::target_pos_norm_speed(
             u,
             step,
             curve,
@@ -216,7 +216,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         (rotated_v + g.clone() * step_size.clone(), new_w)
     }
 
-    pub fn target_pos_norm(
+    pub fn target_pos_norm_speed(
         u: T,
         step: T,
         curve: &hermite::Spline<T>,
@@ -230,7 +230,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         o: &T,
         ag_: &mut MyVector3<T>,
         store_to_ag: bool,
-    ) -> (MyVector3<T>, MyVector3<T>) {
+    ) -> (MyVector3<T>, MyVector3<T>, T) {
         let future_speed = |future_position: MyVector3<T>, future_norm: MyVector3<T>| {
             // uses energy
             let dy = (future_position - x.clone()).y;
@@ -271,7 +271,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             _error = Some(new_error);
             speed = guess_speed;
         }
-        (guess_pos, guess_norm)
+        (guess_pos, guess_norm, speed)
     }
 
     pub fn future_pos_no_vel(&self, step: T) -> MyVector3<T> {
@@ -344,8 +344,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
         //const MIN_DU: f64 = 0.0000001;
         let new_u = {
-            let dist_between = |u| {
-                (Self::target_pos_norm(
+            let dist_between_tgt_spd = |u| {
+                let (tgt_pos, tgt_norm, tgt_spd) = Self::target_pos_norm_speed(
                     u,
                     new_delta_t.clone(),
                     curve,
@@ -359,9 +359,9 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                     &self.o,
                     &mut self.ag_.borrow_mut(),
                     false, // don't store ag
-                )
-                .0 - &future_pos_no_vel)
-                    .magnitude()
+                );
+                ((tgt_pos - &future_pos_no_vel)
+                    .magnitude(), tgt_spd)
             };
             let move_dist = self.v.clone().magnitude() * step.clone();
             //let inside = |u| dist_between(u) < move_dist;
@@ -377,11 +377,12 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                     candidate.clone(),
                     candidate.clone() + candidate_coarse_step.clone(),
                     |u| {
-                        let v1 = dist_between(u.clone());
-                        let v2 = move_dist.clone();
-                        let res = v1.clone() - v2.clone();
+                        let (dist, spd) = dist_between_tgt_spd(u.clone());
+                        //let v2 = move_dist.clone();
+                        let v2 = spd * step.clone();
+                        let res = dist.clone() - v2.clone();
                         if res.is_nan() {
-                            godot_warn!("frb NAN: {} {}", v1, v2);
+                            godot_warn!("frb NAN: {} {}", dist, v2);
                         }
                         res
                     },
@@ -396,11 +397,12 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                     candidate.clone(),
                     candidate.clone() + candidate_coarse_step.clone(),
                     |u| {
-                        let v1 = dist_between(u.clone());
-                        let v2 = move_dist.clone();
-                        let res = (v1.clone() - v2.clone()).pow(2);
+                        let (dist, spd) = dist_between_tgt_spd(u.clone());
+                        //let v2 = move_dist.clone();
+                        let v2 = spd * step.clone();
+                        let res = (dist.clone() - v2.clone()).pow(2);
                         if res.is_nan() {
-                            godot_warn!("NAN: sq({} - {})", v1, v2)
+                            godot_warn!("NAN: sq({} - {})", dist, v2)
                         }
                         res
                     },
@@ -411,7 +413,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                         if out.is_none() {
                             self.found_exact_solution_ = false;
                             out = Some(u.clone());
-                            self.local_min_ = dist_between(u.clone()) - move_dist.clone();
+                            //let 
+                            //self.local_min_ = dist_between_tgt_spd(u.clone()).0 - move_dist.clone();
                         }
                         solution_list.push((u.to_f64() - self.u.to_f64(), v.to_f64()));
                         break;
@@ -444,7 +447,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let new_hl_accel = (new_hl_vel.clone() - self.hl_vel.clone()) / (new_delta_t.clone());
 
         // new update rule
-        let (target_pos, target_norm) = Self::target_pos_norm(
+        let (target_pos, target_norm, target_speed) = Self::target_pos_norm_speed(
             new_u.clone(),
             new_delta_t.clone(),
             curve,
