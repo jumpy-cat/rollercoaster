@@ -45,5 +45,4 @@ fn main() {
 
     
 
-    println!("{:#?}", phys);
 }

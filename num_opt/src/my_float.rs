@@ -60,6 +60,8 @@ pub trait MyFloat:
     fn acos(&self) -> Self;
     fn is_nan(&self) -> bool;
     fn abs(&self) -> Self;
+    fn one() -> Self;
+    fn zero() -> Self;
 }
 
 impl MyFloat for f64 {
@@ -118,6 +120,14 @@ impl MyFloat for f64 {
     fn abs(&self) -> Self {
         f64::abs(*self)
     }
+    
+    fn one() -> Self {
+        1.0
+    }
+
+    fn zero() -> Self {
+        0.0
+    }
 }
 
 impl MyFloat for Float {
@@ -175,5 +185,13 @@ impl MyFloat for Float {
 
     fn abs(&self) -> Self {
         Float::abs(self.clone())
+    }
+    
+    fn one() -> Self {
+        float!(1.0)
+    }
+
+    fn zero() -> Self {
+        float!(0.0)
     }
 }

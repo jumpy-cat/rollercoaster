@@ -1,5 +1,7 @@
 //! Physics solver and cost function
 
+use std::fmt::Display;
+
 use godot::global::godot_warn;
 use linalg::{vector_projection, MyVector3};
 use solver::HitBoundary;
@@ -20,9 +22,6 @@ struct PhysicsAdditionalInfo<T: MyFloat> {
     delta_u_: Option<T>,
     delta_t_: Option<T>,
     total_t_: Option<T>,
-    delta_hl_normal_target_: Option<MyVector3<T>>,
-    target_hl_normal_: Option<MyVector3<T>>,
-    local_min_: Option<T>,
     found_exact_solution_: Option<bool>,
 }
 
@@ -32,9 +31,6 @@ impl<T: MyFloat> Default for PhysicsAdditionalInfo<T> {
             delta_u_: Default::default(),
             delta_t_: Default::default(),
             total_t_: Default::default(),
-            delta_hl_normal_target_: Default::default(),
-            target_hl_normal_: Default::default(),
-            local_min_: Default::default(),
             found_exact_solution_: Default::default(),
         }
     }
@@ -48,7 +44,7 @@ impl<T: MyFloat> Default for PhysicsAdditionalInfo<T> {
 /// delta_t(time step).  
 /// Determines cost based off of z direction (eyes down) g-forces measured at
 /// the heart, and rate of rotation.
-#[derive(Debug, getset::Getters)]
+#[derive(getset::Getters)]
 #[getset(get = "pub")]
 pub struct PhysicsStateV3<T: MyFloat> {
     // params
@@ -72,6 +68,12 @@ pub struct PhysicsStateV3<T: MyFloat> {
 /// tolerance for du from dt calculations
 const TOL: f64 = 1e-12f64;
 
+macro_rules! add_info {
+    ($self:ident, $name:ident, $value:expr) => {
+        $self.additional_info.$name.replace($value);
+    };
+}
+
 impl<T: MyFloat> PhysicsStateV3<T> {
     /// Initialize the physics state: `m` mass, `g` Gravity vector,
     /// `curve.curve_at(0.0)`: Starting position of the curve at `u=0`
@@ -83,19 +85,19 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         } else {
             g.clone().normalize()
         };
-        let hl_pos = curve.curve_at(&T::from_f64(0.0)).unwrap();
-        let hl_forward = curve.curve_direction_at(&T::from_f64(0.0)).unwrap();
+        let hl_pos = curve.curve_at(&T::zero()).unwrap();
+        let hl_forward = curve.curve_direction_at(&T::zero()).unwrap();
         assert!(hl_forward.magnitude() > 0.0);
         let hl_normal =
             (-g_dir.clone() - vector_projection(-g_dir.clone(), hl_forward)).normalize();
         Self {
             // constants
             m: T::from_f64(m),
-            rot_inertia: T::from_f64(1.0),
+            rot_inertia: T::one(),
             g: g.clone(),
             o: T::from_f64(o),
             // simulation state
-            u: T::from_f64(0.0), //0.0,
+            u: T::zero(), //0.0,
             // center of mass
             x: hl_pos.clone() - hl_normal.clone() * T::from_f64(o), //o,
             v: MyVector3::new_f64(0.0, 0.0, 0.0),
@@ -104,15 +106,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             hl_normal,
             // rotation
             w: Default::default(),
-            additional_info: PhysicsAdditionalInfo {
-                delta_u_: None,
-                delta_t_: None,
-                total_t_: None,
-                delta_hl_normal_target_: None,
-                target_hl_normal_: None,
-                local_min_: None,
-                found_exact_solution_: None,
-            },
+            additional_info: PhysicsAdditionalInfo::default(),
         }
     }
 
@@ -166,12 +160,31 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     /// `rot(v_curr, R) = x_tar / dt - x_curr / dt - a * dt`
     ///
     pub fn step(&mut self, step: T, curve: &hermite::Spline<T>) -> Option<()> {
+        add_info!(self, delta_t_, step.clone());
+        add_info!(
+            self,
+            total_t_,
+            self.additional_info
+                .total_t_
+                .as_ref()
+                .unwrap_or(&T::zero())
+                .clone()
+                + step.clone()
+        );
+
         let future_pos_no_vel = self.future_pos_no_vel(&step);
 
         let new_u = match self.calc_new_u(curve, &step)? {
-            NewUSolution::Root(u) => u,
-            NewUSolution::Minimum(u) => u,
+            NewUSolution::Root(u) => {
+                add_info!(self, found_exact_solution_, true);
+                u
+            }
+            NewUSolution::Minimum(u) => {
+                add_info!(self, found_exact_solution_, false);
+                u
+            }
         };
+        add_info!(self, delta_u_, new_u.clone() - self.u.clone());
 
         // new update rule
         let rotated_v_direction =
@@ -182,8 +195,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.x = self.x.clone() + self.v.clone() * step.clone();
 
         // rotation
-        let target_hl_normal_ =
-            Self::next_hl_normal(new_u.clone(), curve, &self.g, &self.v.magnitude(), &self.o);
+        let target_hl_normal_ = self.next_hl_normal(new_u.clone(), curve, &self.v.magnitude());
         self.hl_normal = target_hl_normal_;
 
         // updates
@@ -192,21 +204,15 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         Some(())
     }
 
-    pub fn next_hl_normal(
-        u: T,
-        curve: &hermite::Spline<T>,
-        g: &MyVector3<T>,
-        speed: &T,
-        o: &T,
-    ) -> MyVector3<T> {
+    pub fn next_hl_normal(&self, u: T, curve: &hermite::Spline<T>, speed: &T) -> MyVector3<T> {
         // Calculate heart line acceleration, using center of mass values
         let kappa = curve.curve_kappa_at(&u).unwrap();
-        let r = T::from_f64(1.0) / kappa + o.clone();
+        let r = T::one() / kappa + self.o.clone();
         #[allow(non_snake_case)]
         let N = curve.curve_normal_at(&u).unwrap();
         let accel = N * speed.clone().pow(2) / r;
 
-        let inner_ag_ = accel.clone() - g.clone();
+        let inner_ag_ = accel.clone() - self.g.clone();
 
         let ortho_to = curve.curve_direction_at(&u).unwrap().normalize();
         let tmp = (inner_ag_.clone().normalize()
@@ -215,19 +221,19 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         (tmp.clone() - vector_projection(tmp.clone(), ortho_to.clone())).normalize()
     }
 
+    /// The heart line position is well defined at curve(u), but what about the
+    /// heart line normal?  
     pub fn target_pos(&self, u: T, curve: &hermite::Spline<T>) -> MyVector3<T> {
         let future_speed = |future_position: MyVector3<T>| {
             let dy = (future_position - self.x.clone()).y;
             let future_k = self.v.magnitude().pow(2) * 0.5 * self.m.clone()
                 + self.m.clone() * self.g.y.clone() * dy;
-            (future_k * 2.0 / self.m.clone())
-                .max(&T::from_f64(0.0))
-                .sqrt()
+            (future_k * 2.0 / self.m.clone()).max(&T::zero()).sqrt()
         };
         // target position guess
         let guess_pos_using_speed = |speed| {
             curve.curve_at(&u).unwrap()
-                - Self::next_hl_normal(u.clone(), curve, &self.g, &speed, &self.o) * self.o.clone()
+                - self.next_hl_normal(u.clone(), curve, &speed) * self.o.clone()
         };
         let mut speed = self.v.magnitude();
         let mut guess = self.x.clone();
@@ -272,58 +278,30 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
         let candidate_coarse_step = T::from_f64(0.01);
         let mut candidate = self.u.clone();
-        let mut out = None;
-        let mut found_exact_solution_ = false;
         while candidate.clone() + candidate_coarse_step.clone()
-            < (self.u.clone() + T::from_f64(1.0)).min(&T::from_f64(curve.max_u()))
+            < (self.u.clone() + T::one()).min(&T::from_f64(curve.max_u()))
         {
-            let exact_res = solver::find_root_bisection(
-                candidate.clone(),
-                candidate.clone() + candidate_coarse_step.clone(),
+            let res = solver::find_root_or_minimum(
+                &candidate,
+                &(candidate.clone() + candidate_coarse_step.clone()),
                 dist_error,
                 TOL,
             );
-            if let Some(res) = exact_res {
-                found_exact_solution_ = true;
-                out = Some(res);
-                break;
-            } else {
-                found_exact_solution_ = false;
-            }
-            let res = solver::find_minimum_golden_section(
-                candidate.clone(),
-                candidate.clone() + candidate_coarse_step.clone(),
-                |u| dist_error(u).pow(2),
-                TOL,
-            );
             match res {
-                Ok((u, v)) => {
-                    if out.is_none() {
-                        out = Some(u.clone());
-                    }
-                    break;
+                solver::DualResult::Root(u) => {
+                    return Some(NewUSolution::Root(u));
                 }
-                Err((u, _v, bounds)) => {
-                    match bounds {
-                        HitBoundary::Lower => {
-                            if out.is_none() {
-                                out = Some(u.clone());
-                            }
-                            break;
-                        }
-                        HitBoundary::Upper => {}
-                    }
+                solver::DualResult::Minimum((u, v)) => {
+                    return Some(NewUSolution::Minimum(u));
                 }
+                solver::DualResult::Boundary((u, v, b)) => match b {
+                    HitBoundary::Lower => return Some(NewUSolution::Minimum(u)),
+                    HitBoundary::Upper => (),
+                },
             }
             candidate += candidate_coarse_step.to_f64();
         }
-        out.map(|r| {
-            if found_exact_solution_ {
-                NewUSolution::Root(r)
-            } else {
-                NewUSolution::Minimum(r)
-            }
-        })
+        None
     }
 
     fn energy(&self) -> T {
@@ -335,6 +313,12 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     }
 
     pub fn description(&self) -> String {
-        format!("{:#?}", self)
+        format!("{}", self)
+    }
+}
+
+impl<T: MyFloat> Display for PhysicsStateV3<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!("{:#?}", self.additional_info))
     }
 }

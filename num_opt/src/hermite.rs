@@ -298,7 +298,7 @@ macro_rules! curve_params_getter {
             $c.iter()
                 .zip(&self.$v)
                 .map(|((coeff, power), param)| param.clone() * *coeff * u.clone().pow(*power))
-                .fold(T::from_f64(0.0), |acc, x| acc + x)
+                .fold(T::zero(), |acc, x| acc + x)
         }
     };
 }

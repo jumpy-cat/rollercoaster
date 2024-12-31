@@ -182,9 +182,9 @@ impl<T: MyFloat> Mul<T> for MyVector3<T> {
 impl<T: MyFloat> Default for MyVector3<T> {
     fn default() -> Self {
         Self {
-            x: T::from_f64(0.0), //float!(0.0),
-            y: T::from_f64(0.0), //float!(0.0),
-            z: T::from_f64(0.0), //float!(0.0),
+            x: T::zero(), //float!(0.0),
+            y: T::zero(), //float!(0.0),
+            z: T::zero(), //float!(0.0),
         }
     }
 }
@@ -233,7 +233,7 @@ impl<T: MyFloat> MyQuaternion<T> {
 
     pub fn rotate(self, other: MyVector3<T>) -> MyVector3<T> {
         let other = MyQuaternion {
-            q0: T::from_f64(0.0), //float!(0.0),
+            q0: T::zero(), //float!(0.0),
             q1: other.x,
             q2: other.y,
             q3: other.z,
