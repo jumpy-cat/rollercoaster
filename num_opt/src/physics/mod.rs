@@ -41,13 +41,14 @@ macro_rules! float {
 
 pub(crate) use float;
 
-/// Physics solver v3
+/// Physics solver v3  
 /// ### Overview (check `Self::step` for details)
-/// Store simulation parameters (m,g)
-/// Track the state of the particle (position, velocity, u(curve parameter))
-/// Compute intermediate values like delta_x(displacement), F_N(force), and
-/// delta_t(time step).
-/// Use a quadratic equation to determine the correcr time step(roots).
+/// Store simulation parameters (m,g)  
+/// Track the state of the particle (position, velocity, u(curve parameter))  
+/// Compute intermediate values like normal acceleration, and
+/// delta_t(time step).  
+/// Determines cost based off of z direction (eyes down) g-forces measured at
+/// the heart, and rate of rotation.
 #[derive(Debug, getset::Getters)]
 #[getset(get = "pub")]
 pub struct PhysicsStateV3<T: MyFloat> {
@@ -89,7 +90,7 @@ pub struct PhysicsStateV3<T: MyFloat> {
     found_exact_solution_: bool,
 }
 
-const MIN_STEP: f64 = 0.00001;
+/// tolerance for du from dt calculations
 const TOL: f64 = 1e-12f64;
 
 impl<T: MyFloat> PhysicsStateV3<T> {
@@ -155,6 +156,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         speed: &T,
         o: &T,
         ag_: &mut MyVector3<T>,
+        store_to_ag: bool,
     ) -> MyVector3<T> {
         // Calculate heart line acceleration, using center of mass values
         let kappa = curve.curve_kappa_at(&u).unwrap();
@@ -167,13 +169,16 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let accel = N * speed.clone().pow(2) / r;
 
         // Calculate target hl normal
-        *ag_ = accel.clone() - g.clone();
+        let inner_ag_ = accel.clone() - g.clone();
 
-        let dir_to_use = if ag_.magnitude() == 0.0 {
+        let dir_to_use = if inner_ag_.magnitude() == 0.0 {
             MyVector3::new_f64(0.0, 1.0, 0.0)
         } else {
-            ag_.clone()
+            inner_ag_.clone()
         };
+        if store_to_ag {
+            *ag_ = inner_ag_;
+        }
         let ortho_to = curve.curve_direction_at(&u).unwrap().normalize();
         let tmp = (dir_to_use.clone().normalize()
             - vector_projection(dir_to_use.clone().normalize(), ortho_to.clone()))
@@ -191,6 +196,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             &self.g,
             &self.o,
             &mut self.ag_.borrow_mut(),
+            false // don't store ag
         )
     }
 
@@ -203,6 +209,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         g: &MyVector3<T>,
         o: &T,
         ag_: &mut MyVector3<T>,
+        store_to_ag: bool,
     ) -> MyVector3<T> {
         let future_speed = |future_position: MyVector3<T>| {
             // uses energy
@@ -213,7 +220,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         // target position guess
         let mut guess_pos_using_speed = |speed| {
             curve.curve_at(&u).unwrap()
-                - Self::next_hl_normal(u.clone(), curve, &g, &speed, &o, ag_) * o.clone()
+                - Self::next_hl_normal(u.clone(), curve, &g, &speed, &o, ag_, store_to_ag) * o.clone()
         };
         let mut speed = v.magnitude();
         let mut guess = x.clone();
@@ -283,6 +290,10 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     /// point on the curve to the future position given velocity "trying its
     /// best". Then apply the rules knowing we will diverge slightly
     /// from the curve.
+    /// 
+    /// To ensure the continuity of `N` is it computed with consideration of the
+    /// elevation change affecting velocity (requiring an iterative method).
+    /// When dissipative forces are added, they will also be treated similarily.
     ///
     /// `rot(v_curr, R) = x_tar / dt - x_curr / dt - a * dt`
     ///
@@ -308,6 +319,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                     &self.g,
                     &self.o,
                     &mut self.ag_.borrow_mut(),
+                    false, // don't store ag
                 ) - &future_pos_no_vel)
                     .magnitude()
             };
@@ -364,13 +376,17 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                         solution_list.push((u.to_f64() - self.u.to_f64(), v.to_f64()));
                         break;
                     }
-                    Err((u, v, bounds)) => {
+                    Err((u, _v, bounds)) => {
                         match bounds {
                             HitBoundary::Lower => {
+                                // This allows for "scuffed" low delta-u steps
+                                // which ensures stability when hl_normal is
+                                // changing rapidly.
+                                // Previously this hid a true issue of hl_normal
+                                // being discontinuous, but such should be fixed.
                                 if out.is_none() {
                                     out = Some(u.clone());
                                 }
-                                //solution_list.push((u.clone() - self.u.clone(), v));
                                 break;
                             }
                             HitBoundary::Upper => {}
@@ -379,8 +395,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                 }
                 candidate += candidate_coarse_step.to_f64();
             }
-            out.unwrap()
-        };
+            out
+        }?;
         self.delta_u_ = new_u.clone() - self.u.clone();
 
         // hl values
@@ -397,6 +413,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             &self.g,
             &self.o,
             &mut self.ag_.borrow_mut(),
+            false
         ) - future_pos_no_vel)
             .normalize();
         let rotated_v = rotated_v_direction * self.v.clone().magnitude();
@@ -412,6 +429,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             &self.v.magnitude(),
             &self.o,
             &mut self.ag_.borrow_mut(),
+            true // DO store ag
         );
         let cross = self.hl_normal.cross(&self.target_hl_normal_).normalize();
         self.delta_hl_normal_target_ =
@@ -446,18 +464,18 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             "x: {:.2?}
 u: {}
 t: {:.3}
-lm: {}
+UNUSED lm: {}
 E: {:.3?}
 speed: {:.3} ({:.3?})
 hl speed: {:.2}
 hl accel: {:.4}
 hl normal: {:.2?}
 g force: {:.2}
-delta-x: {:.3?} err: {}
-F_N: {:.2?}
-T-Exceeded: {}
-w: {:.3}
-Torque: {:.3}
+UNUSED delta-x: {:.3?} err: {}
+UNUSED F_N: {:.2?}
+UNUSED T-Exceeded: {}
+UNUSED w: {:.3}
+UNUSED Torque: {:.3}
 delta-t: {:.6} {}
 delta-u: {}",
             self.x,

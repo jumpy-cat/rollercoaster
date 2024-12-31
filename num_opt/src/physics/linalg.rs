@@ -1,3 +1,5 @@
+//! Vector and Quaternion math, generic over `rug::Float` and `f64`
+
 use std::{
     any::TypeId,
     ops::{Div, Mul},

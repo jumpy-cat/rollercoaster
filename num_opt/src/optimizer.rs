@@ -57,13 +57,15 @@ fn cost<T: MyFloat>(
     }
 }
 
-/// Performs one step of GD (gradients calculated using secant approximation)
+/// Performs one step of GD to minimize the cost of the curve (gradients
+/// calculated using secant approximation)  
+/// 
 /// Returns: the original cost, or `None` if this calculation failed
-// Minimize the cost of the curve is the goal
-// initial: starting physics state
-// curve: The Hermite spline to optimize
-// points: Array of control points for the spline
-//LR: Determines the step size for gradient descent
+/// 
+/// - `initial`: starting physics state
+/// - `curve`: The Hermite spline to optimize
+/// - `points`: Array of control points for the spline
+/// - `lr`: Determines the step size for gradient descent
 pub fn optimize<T: MyFloat>(
     initial: &physics::legacy::PhysicsState,
     curve: &hermite::Spline<T>,

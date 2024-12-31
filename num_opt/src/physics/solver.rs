@@ -1,3 +1,5 @@
+//! Numeric solvers for roots and minima
+
 use crate::my_float::MyFloat;
 
 pub fn find_root_bisection<T: MyFloat>(a: T, b: T, f: impl Fn(&T) -> T, epsilon: f64) -> Option<T> {

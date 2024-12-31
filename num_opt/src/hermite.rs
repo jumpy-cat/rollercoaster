@@ -19,6 +19,7 @@ use crate::{physics::float, point};
 //#[rustfmt::skip]
 use crate::physics::linalg::MyVector3;
 
+/// 8x8 matrix to interpolate two points
 fn get_matrix() -> ndarray::Array2<f64> {
     ndarray::arr2(&vec![
         [

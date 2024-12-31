@@ -11,9 +11,12 @@ use rug::Float;
 
 use crate::physics::float;
 
+/// What float to use for physics
 pub type MyFloatType = f64;
+/// Bits of precision if `rug::Float` is used
 pub const PRECISION: u32 = 640;
 
+/// Generic float type that doesn't need to be `Copy`
 pub trait MyFloat:
     Clone
     + std::fmt::Debug
@@ -46,10 +49,6 @@ pub trait MyFloat:
     fn acos(&self) -> Self;
     fn is_nan(&self) -> bool;
     fn abs(&self) -> Self;
-}
-
-pub trait MyIncompleteFloat<Completed> {
-    fn complete(&self, precision: u32) -> Completed;
 }
 
 impl MyFloat for f64 {
