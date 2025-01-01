@@ -2,7 +2,7 @@
 
 use std::{
     any::TypeId,
-    ops::{Div, Mul},
+    ops::{Add, Div, Mul, Sub},
 };
 
 use crate::my_float::MyFloat;
@@ -264,5 +264,79 @@ impl<T: MyFloat> Mul<MyQuaternion<T>> for MyQuaternion<T> {
                 + self.q2.clone() * other.q1.clone()
                 + self.q3.clone() * other.q0.clone(),
         }
+    }
+}
+
+
+// Typed Vectors
+
+#[derive(Debug, Clone)]
+pub struct ComDisp<T: MyFloat>(MyVector3<T>);
+
+impl<T: MyFloat> ComDisp<T> {
+    pub fn magnitude(&self) -> T {
+        self.0.magnitude()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ComPos<T: MyFloat>(MyVector3<T>);
+
+impl<T: MyFloat> Sub for ComPos<T> {
+    type Output = ComDisp<T>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        ComDisp(self.0 - rhs.0)
+    }
+}
+
+impl<T: MyFloat> Add<ComDisp<T>> for ComPos<T> {
+    type Output = Self;
+
+    fn add(self, rhs: ComDisp<T>) -> Self::Output {
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl<T: MyFloat> ComPos<T> {
+    pub fn new(v: &MyVector3<T>) -> Self {
+        Self(v.clone())
+    }
+
+    fn dist_origin(&self) -> T {
+        self.0.magnitude()
+    }
+
+    pub fn dist_between(&self, other: &Self) -> T {
+        (self.clone() - other.clone()).magnitude()
+    }
+
+    pub fn height(&self) -> T {
+        self.0.y.clone()
+    }
+
+    pub fn inner(&self) -> MyVector3<T> {
+        self.0.clone()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ComVel<T: MyFloat>(MyVector3<T>);
+
+impl<T: MyFloat> ComVel<T> {
+    pub fn new(v: &MyVector3<T>) -> Self {
+        Self(v.clone())
+    }
+
+    pub fn speed(&self) -> T {
+        self.0.magnitude()
+    }
+
+    pub fn to_displacement(&self, delta_t: T) -> ComDisp<T> {
+        ComDisp(self.0.clone() * delta_t)
+    }
+
+    pub fn inner(&self) -> MyVector3<T> {
+        self.0.clone()
     }
 }

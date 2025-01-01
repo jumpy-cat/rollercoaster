@@ -1,11 +1,6 @@
 //! Physics solver and cost function
 
-use std::{
-    fmt::Display,
-    ops::{Add, Sub},
-};
-
-use linalg::{vector_projection, MyVector3};
+use linalg::{vector_projection, ComPos, ComVel, MyVector3};
 use solver::HitBoundary;
 
 use crate::{hermite, my_float::MyFloat};
@@ -21,89 +16,32 @@ enum NewUSolution<T: MyFloat> {
 
 #[derive(Debug)]
 pub struct PhysicsAdditionalInfo<T: MyFloat> {
-    pub delta_u_: Option<T>,
-    pub delta_t_: Option<T>,
-    pub total_t_: Option<T>,
-    pub found_exact_solution_: Option<bool>,
-    pub sol_err: Option<T>,
-    pub null_sol_err: Option<T>,
+    pub delta_u_: T,
+    pub delta_t_: T,
+    pub total_t_: T,
+    pub found_exact_solution_: bool,
+    pub sol_err: T,
+    pub null_sol_err: T,
+    prev_move_to_tgt_err: T,
+    pub move_to_tgt_err: T,
+    prev_hl_normal_shift_err: T,
+    pub hl_normal_shift_err: T,
 }
 
 impl<T: MyFloat> Default for PhysicsAdditionalInfo<T> {
     fn default() -> Self {
         Self {
-            delta_u_: Default::default(),
-            delta_t_: Default::default(),
-            total_t_: Default::default(),
-            found_exact_solution_: Default::default(),
-            sol_err: Default::default(),
-            null_sol_err: Default::default(),
+            delta_u_: T::zero(),
+            delta_t_: T::zero(),
+            total_t_: T::zero(),
+            found_exact_solution_: false,
+            sol_err: T::zero(),
+            null_sol_err: T::zero(),
+            move_to_tgt_err: T::zero(),
+            hl_normal_shift_err: T::zero(),
+            prev_move_to_tgt_err: T::zero(),
+            prev_hl_normal_shift_err: T::zero(),
         }
-    }
-}
-
-// Typed Vectors
-
-#[derive(Debug, Clone)]
-pub struct ComDisp<T: MyFloat>(MyVector3<T>);
-
-impl<T: MyFloat> ComDisp<T> {
-    fn magnitude(&self) -> T {
-        self.0.magnitude()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ComPos<T: MyFloat>(MyVector3<T>);
-
-impl<T: MyFloat> Sub for ComPos<T> {
-    type Output = ComDisp<T>;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        ComDisp(self.0 - rhs.0)
-    }
-}
-
-impl<T: MyFloat> Add<ComDisp<T>> for ComPos<T> {
-    type Output = Self;
-
-    fn add(self, rhs: ComDisp<T>) -> Self::Output {
-        Self(self.0 + rhs.0)
-    }
-}
-
-impl<T: MyFloat> ComPos<T> {
-    fn dist_origin(&self) -> T {
-        self.0.magnitude()
-    }
-
-    fn dist_between(&self, other: &Self) -> T {
-        (self.clone() - other.clone()).magnitude()
-    }
-
-    fn height(&self) -> T {
-        self.0.y.clone()
-    }
-
-    pub fn inner(&self) -> MyVector3<T> {
-        self.0.clone()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ComVel<T: MyFloat>(MyVector3<T>);
-
-impl<T: MyFloat> ComVel<T> {
-    fn speed(&self) -> T {
-        self.0.magnitude()
-    }
-
-    fn to_displacement(&self, delta_t: T) -> ComDisp<T> {
-        ComDisp(self.0.clone() * delta_t)
-    }
-
-    pub fn inner(&self) -> MyVector3<T> {
-        self.0.clone()
     }
 }
 
@@ -118,30 +56,31 @@ impl<T: MyFloat> ComVel<T> {
 #[derive(getset::Getters, Debug)]
 #[getset(get = "pub")]
 pub struct PhysicsStateV3<T: MyFloat> {
-    // params
+    // mostly constant
     m: T,
     g: MyVector3<T>,
     o: T,
-    rot_inertia: T, // moment of inertia
+    rot_inertia: T,
 
-    // simulation state
     u: T,
-    // center of mass
     x: ComPos<T>,
     v: ComVel<T>,
-    // heart line
     hl_normal: MyVector3<T>,
-    // rotation
-    w: MyVector3<T>, // angular velocity
+    w: MyVector3<T>,
     additional_info: PhysicsAdditionalInfo<T>,
 }
 
 /// tolerance for du from dt calculations
 const TOL: f64 = 1e-12f64;
 
+/// Makes info adjustments very clear to avoid confusion with vital for physics
+/// operations
 macro_rules! add_info {
+    ($self:ident, $nv:ident) => {
+        $self.additional_info.$nv = $nv;
+    };
     ($self:ident, $name:ident, $value:expr) => {
-        $self.additional_info.$name.replace($value);
+        $self.additional_info.$name = $value;
     };
 }
 
@@ -170,8 +109,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             // simulation state
             u: T::zero(), //0.0,
             // center of mass
-            x: ComPos(hl_pos.clone() - hl_normal.clone() * T::from_f64(o)), //o,
-            v: ComVel(MyVector3::new_f64(0.0, 1.0, 0.0)),
+            x: ComPos::new(&(hl_pos.clone() - hl_normal.clone() * T::from_f64(o))), //o,
+            v: ComVel::new(&MyVector3::new_f64(0.0, 0.0005, 0.0)),
 
             // heart line
             hl_normal,
@@ -246,7 +185,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                     log::info!("Gravity is overpowering velocity, this is probably ok");
                 } else {
                     log::info!("Gravity is not overpowering velocity, this is NOT ok");
-                    //return self.step(step.clone() / T::from_f64(2.0), curve);
                 }
                 for i in 0..10 {
                     log::info!(
@@ -268,20 +206,12 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         add_info!(
             self,
             total_t_,
-            self.additional_info
-                .total_t_
-                .as_ref()
-                .unwrap_or(&T::zero())
-                .clone()
-                + step.clone()
+            self.additional_info.total_t_.clone() + step.clone()
         );
-        // using initial state
-        let null_sol_err = self.dist_err(curve, &self.u, &T::zero(), &self.x, &self.v);
-        add_info!(self, null_sol_err, null_sol_err);
-        /*if null_sol_err > */
 
         // new update rule
-        let tgt_pos = self.target_pos(new_u.clone(), &step, curve, false, &self.x, &self.v);
+        let (tgt_pos, _norm) =
+            self.target_pos_norm(new_u.clone(), &step, curve, false, &self.x, &self.v);
         let new_v = self.updated_v(&step, &tgt_pos);
         let new_x = self.x.clone() + new_v.to_displacement(step.clone());
 
@@ -294,15 +224,33 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.v = new_v;
         self.x = new_x;
 
+        let null_sol_err = self.dist_err(curve, &self.u, &T::zero(), &self.x, &self.v);
+        add_info!(self, null_sol_err);
+
+        add_info!(
+            self,
+            prev_move_to_tgt_err,
+            self.additional_info.move_to_tgt_err.clone()
+        );
+        add_info!(
+            self,
+            prev_hl_normal_shift_err,
+            self.additional_info.hl_normal_shift_err.clone()
+        );
+        let move_to_tgt_err = (tgt_pos - self.x.clone()).magnitude();
+        add_info!(self, move_to_tgt_err);
+        let hl_normal_shift_err = _norm.angle(&self.hl_normal);
+        add_info!(self, hl_normal_shift_err);
+
         Some(())
     }
 
     /// Warning: uses self.x directly
     fn updated_v(&self, step: &T, target_pos: &ComPos<T>) -> ComVel<T> {
         let future_pos_no_vel = self.future_pos_no_vel(step, &self.x);
-        let rotated_v_direction = (target_pos.0.clone() - future_pos_no_vel.0).normalize();
-        let rotated_v = rotated_v_direction * self.v.0.clone().magnitude();
-        ComVel(rotated_v + self.g.clone() * step.clone())
+        let rotated_v_direction = (target_pos.inner() - future_pos_no_vel.inner()).normalize();
+        let rotated_v = rotated_v_direction * self.v.speed();
+        ComVel::new(&(rotated_v + self.g.clone() * step.clone()))
     }
 
     pub fn next_hl_normal(&self, u: T, curve: &hermite::Spline<T>, speed: &T) -> MyVector3<T> {
@@ -324,7 +272,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
     /// The heart line position is well defined at curve(u), but what about the
     /// heart line normal?  
-    pub fn target_pos(
+    pub fn target_pos_norm(
         &self,
         u: T,
         step: &T,
@@ -332,28 +280,30 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         log: bool,
         curr_pos: &ComPos<T>,
         curr_vel: &ComVel<T>,
-    ) -> ComPos<T> {
+    ) -> (ComPos<T>, MyVector3<T>) {
         let future_speed = |future_position: ComPos<T>| {
-            let dy = (future_position.0 - curr_pos.clone().0).y;
-            let future_k = curr_vel.0.magnitude().pow(2) * 0.5 * self.m.clone()
+            let dy = future_position.height() - curr_pos.height();
+            let future_k = curr_vel.speed().pow(2) * 0.5 * self.m.clone()
                 + self.m.clone() * self.g.y.clone() * dy;
             (future_k * 2.0 / self.m.clone()).max(&T::zero()).sqrt()
             //self.updated_v(step, &future_position).magnitude()
         };
         // target position guess
-        let guess_pos_using_speed = |speed| {
-            ComPos(
-                curve.curve_at(&u).unwrap()
-                    - self.next_hl_normal(u.clone(), curve, &speed) * self.o.clone(),
+        let guess_pos_norm_using_speed = |speed| {
+            let norm = self.next_hl_normal(u.clone(), curve, &speed);
+            (
+                ComPos::new(&(curve.curve_at(&u).unwrap() - norm.clone() * self.o.clone())),
+                norm,
             )
         };
         let mut speed = curr_vel.speed();
         let mut guess = curr_pos.clone();
+        let mut norm = MyVector3::default();
         let mut guess_speed;
         let mut _error = None;
         for _ in 0..100 {
-            guess = guess_pos_using_speed(speed.clone());
-            if guess.0.has_nan() {
+            (guess, norm) = guess_pos_norm_using_speed(speed.clone());
+            if guess.inner().has_nan() {
                 log::warn!("NaN in guess");
                 break;
             }
@@ -369,11 +319,11 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         if log && _error.is_some() && _error.as_ref().unwrap().abs() > 0.1 {
             log::error!("target_pos completed with err: {:?}", _error);
         }
-        guess
+        (guess, norm)
     }
 
     pub fn future_pos_no_vel(&self, delta_t: &T, curr_pos: &ComPos<T>) -> ComPos<T> {
-        ComPos(curr_pos.0.clone() + self.g.clone() * delta_t.clone().pow(2))
+        ComPos::new(&(curr_pos.inner() + self.g.clone() * delta_t.clone().pow(2)))
     }
 
     fn dist_err(
@@ -387,7 +337,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let fpnv = self.future_pos_no_vel(delta_t, curr_pos);
 
         let dist_between_tgt_nforce = |u| {
-            self.target_pos(u, delta_t, curve, true, curr_pos, curr_vel)
+            self.target_pos_norm(u, delta_t, curve, true, curr_pos, curr_vel)
+                .0
                 .dist_between(&fpnv)
         };
 
@@ -441,11 +392,19 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     pub fn description(&self) -> String {
         let i = &self.additional_info;
         format!(
-            "du: {:.4?}\ndt: {:.4?}\nse: {:.4?}\nnse: {:.12?}",
-            i.delta_u_.clone().unwrap_or(T::zero()),
-            i.delta_t_.clone().unwrap_or(T::zero()),
-            i.sol_err.clone().unwrap_or(T::zero()),
-            i.null_sol_err.clone().unwrap_or(T::zero())
+            "du: {:.4?}\ndt: {:.4?}\nse: {:.4?}\nnse: {:.12?}\nmove_to_tgt_err: {:.4?}\nhl_normal_shift_err: {:.4}\nprev_move_to_tgt_err: {:.4}\nprev_hl_normal_shift_err: {:.4}\n",
+            i.delta_u_,
+            i.delta_t_,
+            use_sigfigs(&i.sol_err),
+            use_sigfigs(&i.null_sol_err),
+            use_sigfigs(&i.move_to_tgt_err),
+            use_sigfigs(&i.hl_normal_shift_err),
+            use_sigfigs(&i.prev_move_to_tgt_err),
+            use_sigfigs(&i.prev_hl_normal_shift_err)
         )
     }
+}
+
+fn use_sigfigs<T: MyFloat>(x: &T) -> rug::Float {
+    rug::Float::with_val(64, x.to_f64())
 }

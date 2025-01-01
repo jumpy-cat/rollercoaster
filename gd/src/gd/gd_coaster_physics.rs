@@ -231,7 +231,8 @@ impl CoasterPhysicsV3 {
     #[func]
     fn future_pos_no_vel(&self, step: f64) -> Variant {
         impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(
-            phys.future_pos_no_vel(&MyFloatType::from_f64(step), phys.x()).inner()
+            phys.future_pos_no_vel(&MyFloatType::from_f64(step), phys.x())
+                .inner()
         ))
     }
 
@@ -248,7 +249,16 @@ impl CoasterPhysicsV3 {
                     break;
                 }
                 out.push(myvec_to_gd(
-                    phys.target_pos(MyFloatType::from_f64(u + o), &MyFloatType::from_f64(delta_t), curve, false, phys.x(), phys.v()).inner(),
+                    phys.target_pos_norm(
+                        MyFloatType::from_f64(u + o),
+                        &MyFloatType::from_f64(delta_t),
+                        curve,
+                        false,
+                        phys.x(),
+                        phys.v(),
+                    )
+                    .0
+                    .inner(),
                 ));
                 o += STEP;
             }
@@ -269,7 +279,16 @@ impl CoasterPhysicsV3 {
                     break;
                 }
                 out.push(myvec_to_gd(
-                    phys.target_pos(MyFloatType::from_f64(u - o), &MyFloatType::from_f64(delta_t), curve, false, phys.x(), phys.v()).inner(),
+                    phys.target_pos_norm(
+                        MyFloatType::from_f64(u - o),
+                        &MyFloatType::from_f64(delta_t),
+                        curve,
+                        false,
+                        phys.x(),
+                        phys.v(),
+                    )
+                    .0
+                    .inner(),
                 ));
                 o += STEP;
             }
@@ -281,8 +300,6 @@ impl CoasterPhysicsV3 {
     fn found_exact_solution(&self) -> Variant {
         impl_physics_v3_getter!(self, |phys: &Inner| phys
             .additional_info()
-            .found_exact_solution_
-            .unwrap_or_default())
+            .found_exact_solution_)
     }
-
 }
