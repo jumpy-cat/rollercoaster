@@ -353,10 +353,11 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     }
 
     fn calc_new_u(&self, curve: &hermite::Spline<T>, delta_t: &T) -> Option<NewUSolution<T>> {
-        let candidate_coarse_step = T::from_f64(0.01);
+        let candidate_coarse_step = T::from_f64(1e-3);
         let mut candidate = self.u.clone();
+        let mut minimums = vec![];
         while candidate.clone() + candidate_coarse_step.clone()
-            < (self.u.clone() + T::one()).min(&T::from_f64(curve.max_u()))
+            < (self.u.clone() + T::from_f64(0.1)).min(&T::from_f64(curve.max_u()))
         {
             let res = solver::find_root_or_minimum(
                 &candidate,
@@ -369,16 +370,18 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                     return Some(NewUSolution::Root(u));
                 }
                 solver::DualResult::Minimum((u, v)) => {
-                    return Some(NewUSolution::Minimum(u, v));
+                    minimums.push((u,v));
+                    //return Some(NewUSolution::Minimum(u, v));
                 }
                 solver::DualResult::Boundary((u, v, b)) => match b {
-                    HitBoundary::Lower => return Some(NewUSolution::Minimum(u, v)),
+                    HitBoundary::Lower => (),//return Some(NewUSolution::Minimum(u, v)),
                     HitBoundary::Upper => (),
                 },
             }
             candidate += candidate_coarse_step.to_f64();
         }
-        None
+        minimums.iter().min_by(|(_, v1), (_, v2)| v1.partial_cmp(v2).unwrap()).map(|(u,v)| NewUSolution::Minimum(u.clone(), v.clone()))
+        //None
     }
 
     fn energy(&self) -> T {
@@ -393,7 +396,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let i = &self.additional_info;
         format!(
             "du: {:.4?}\ndt: {:.4?}\nse: {:.4?}\nnse: {:.12?}\nmove_to_tgt_err: {:.4?}\nhl_normal_shift_err: {:.4}\nprev_move_to_tgt_err: {:.4}\nprev_hl_normal_shift_err: {:.4}\n",
-            i.delta_u_,
+            use_sigfigs(&i.delta_u_),
             i.delta_t_,
             use_sigfigs(&i.sol_err),
             use_sigfigs(&i.null_sol_err),
