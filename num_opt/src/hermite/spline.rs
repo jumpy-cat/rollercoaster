@@ -48,8 +48,8 @@ where
     /// uses the solve function to compute Hermite coefficients for each segment.
     pub fn new(points: &[point::Point<T>]) -> Self {
         let mut params = vec![];
-        for [p, q] in points.array_windows::<2>() {
-            params.push(solve(p, q));
+        for pts in points.windows(2) {
+            params.push(solve(&pts[0],& pts[1]));
         }
         Self { params }
     }

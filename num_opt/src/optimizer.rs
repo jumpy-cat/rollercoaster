@@ -97,9 +97,10 @@ pub fn optimize<T: MyFloat>(
         for dlist in &deriv {
             for d in dlist {
                 if let Some(d) = d
-                    && d.abs() > max_deriv_mag
                 {
-                    max_deriv_mag = d.abs().to_f64();
+                    if d.abs() > max_deriv_mag {
+                        max_deriv_mag = d.abs().to_f64();
+                    }
                 }
             }
         }

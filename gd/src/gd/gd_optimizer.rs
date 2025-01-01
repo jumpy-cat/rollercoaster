@@ -5,7 +5,11 @@ use std::{
 };
 
 use godot::prelude::*;
-use num_opt::{hermite, my_float::{MyFloat, MyFloatType}, optimizer, physics, point};
+use num_opt::{
+    hermite,
+    my_float::{MyFloat, MyFloatType},
+    optimizer, physics, point,
+};
 use num_traits::cast::AsPrimitive;
 
 use super::{CoasterCurve, CoasterPoint};
@@ -97,24 +101,36 @@ impl INode for Optimizer {
                         ToWorker::SetComOffsetMag(v) => com_offset_mag = Some(v),
                     }
                 }
-                if active
-                    && let Some(mass) = mass
-                    && let Some(gravity) = gravity
-                    && let Some(mu) = mu
-                    && let Some(lr) = lr
-                    && let Some(com_offset_mag) = com_offset_mag
-                {
-                    let prev_cost = optimizer::optimize(
-                        &physics::legacy::PhysicsState::new(mass, gravity, mu, com_offset_mag),
-                        &curve,
-                        &mut points,
-                        lr,
-                    );
-                    curve = hermite::Spline::new(&points);
-                    if prev_cost.is_some() {
-                        worker_outbox
-                            .send(FromWorker::NewPoints((points.clone(), prev_cost.map(|x| MyFloatType::from_f64(x)))))
-                            .unwrap();
+                if active {
+                    if let Some(mass) = mass {
+                        if let Some(gravity) = gravity {
+                            if let Some(mu) = mu {
+                                if let Some(lr) = lr {
+                                    if let Some(com_offset_mag) = com_offset_mag {
+                                        let prev_cost = optimizer::optimize(
+                                            &physics::legacy::PhysicsState::new(
+                                                mass,
+                                                gravity,
+                                                mu,
+                                                com_offset_mag,
+                                            ),
+                                            &curve,
+                                            &mut points,
+                                            lr,
+                                        );
+                                        curve = hermite::Spline::new(&points);
+                                        if prev_cost.is_some() {
+                                            worker_outbox
+                                                .send(FromWorker::NewPoints((
+                                                    points.clone(),
+                                                    prev_cost.map(|x| MyFloatType::from_f64(x)),
+                                                )))
+                                                .unwrap();
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -191,7 +207,13 @@ impl Optimizer {
         self.segment_points_cache = None;
         self.points = points
             .iter_shared()
-            .map(|p| point::Point::new(MyFloatType::from_f64(p.x.as_f64()), MyFloatType::from_f64(p.y.as_f64()), MyFloatType::from_f64(p.z.as_f64())))
+            .map(|p| {
+                point::Point::new(
+                    MyFloatType::from_f64(p.x.as_f64()),
+                    MyFloatType::from_f64(p.y.as_f64()),
+                    MyFloatType::from_f64(p.z.as_f64()),
+                )
+            })
             .collect();
         hermite::set_derivatives_using_catmull_rom(&mut self.points);
         self.curve = hermite::Spline::new(&self.points);

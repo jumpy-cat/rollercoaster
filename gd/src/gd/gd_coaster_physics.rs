@@ -52,9 +52,14 @@ impl CoasterPhysics {
     #[func]
     fn pos(&self, curve: Gd<CoasterCurve>) -> Variant {
         if let Some(phys) = &self.inner
-            && let Some(pos) = phys.com_pos(&curve.bind().inner)
+            
         {
-            Variant::from(myvec_to_gd(&pos))
+            if  let Some(pos) = phys.com_pos(&curve.bind().inner) {
+                Variant::from(myvec_to_gd(&pos))
+
+            } else {
+                Variant::nil()
+            }
         } else {
             Variant::nil()
         }
