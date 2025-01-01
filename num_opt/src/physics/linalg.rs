@@ -5,8 +5,6 @@ use std::{
     ops::{Div, Mul},
 };
 
-use godot::global::godot_warn;
-
 use crate::my_float::MyFloat;
 
 /// Projects `a` onto `b`
@@ -77,7 +75,7 @@ impl<T: MyFloat> MyVector3<T> {
         let mag2 = other.magnitude();
         let cos = (dot.clone() / (mag1.clone() * mag2.clone())).clamp(-1.0, 1.0);
         if TypeId::of::<Q>() == TypeId::of::<()>() {
-            godot_warn!("cos: {} mag1: {} mag2: {} dot: {}", cos, mag1, mag2, dot);
+            log::warn!("cos: {} mag1: {} mag2: {} dot: {}", cos, mag1, mag2, dot);
         } else if TypeId::of::<Q>() != TypeId::of::<Silence>() {
             panic!();
         }

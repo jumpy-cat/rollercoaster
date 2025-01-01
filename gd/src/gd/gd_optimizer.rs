@@ -187,7 +187,7 @@ impl Optimizer {
     /// are initialized with recursive catmull rom
     #[func]
     fn set_points(&mut self, points: Array<Vector3>) {
-        godot_print!("set_points: {}", points);
+        log::info!("set_points: {}", points);
         self.segment_points_cache = None;
         self.points = points
             .iter_shared()
@@ -198,7 +198,7 @@ impl Optimizer {
         let _ = self
             .to_worker
             .send(ToWorker::SetPoints(self.points.clone(), Derivatives::Keep))
-            .map_err(|e| godot_error!("{:#?}", e));
+            .map_err(|e| log::error!("{:#?}", e));
     }
 
     /// Get a point by index

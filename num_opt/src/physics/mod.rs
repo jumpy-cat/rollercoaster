@@ -5,7 +5,6 @@ use std::{
     ops::{Add, Sub},
 };
 
-use godot::global::{godot_error, godot_print, godot_warn};
 use linalg::{vector_projection, MyVector3};
 use solver::HitBoundary;
 
@@ -240,17 +239,17 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             NewUSolution::Minimum(u, err) => {
                 add_info!(self, found_exact_solution_, false);
                 add_info!(self, sol_err, err);
-                godot_print!("No exact solution found! Lets take a look...");
+                log::info!("No exact solution found! Lets take a look...");
                 if self.future_pos_no_vel(&step, &self.x).dist_between(&self.x)
                     > self.v.speed() * step.clone()
                 {
-                    godot_print!("Gravity is overpowering velocity, this is probably ok");
+                    log::info!("Gravity is overpowering velocity, this is probably ok");
                 } else {
-                    godot_print!("Gravity is not overpowering velocity, this is NOT ok");
+                    log::info!("Gravity is not overpowering velocity, this is NOT ok");
                     //return self.step(step.clone() / T::from_f64(2.0), curve);
                 }
                 for i in 0..10 {
-                    godot_print!(
+                    log::info!(
                         "{}",
                         self.dist_err(
                             curve,
@@ -355,12 +354,12 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         for _ in 0..100 {
             guess = guess_pos_using_speed(speed.clone());
             if guess.0.has_nan() {
-                godot_warn!("NaN in guess");
+                log::warn!("NaN in guess");
                 break;
             }
             guess_speed = future_speed(guess.clone());
             if guess_speed.is_nan() {
-                godot_warn!("NaN in guess_speed");
+                log::warn!("NaN in guess_speed");
                 break;
             }
             let new_error = (speed - guess_speed.clone()).abs();
@@ -368,7 +367,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             speed = guess_speed;
         }
         if log && _error.is_some() && _error.as_ref().unwrap().abs() > 0.1 {
-            godot_error!("target_pos completed with err: {:?}", _error);
+            log::error!("target_pos completed with err: {:?}", _error);
         }
         guess
     }
@@ -397,7 +396,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let v2 = move_dist.clone();
         let res = v1.clone() - v2.clone();
         if res.is_nan() {
-            godot_warn!("NAN: sq({} - {})", v1, v2)
+            log::warn!("NAN: sq({} - {})", v1, v2)
         }
         res
     }
