@@ -2,8 +2,7 @@
 //! The float does not have to be `Copy`, allowing `rug::Float` to be used
 
 use std::{
-    fmt::Display,
-    ops::{Add, AddAssign, Div, Mul, Neg, Sub},
+    cell::LazyCell, fmt::Display, ops::{Add, AddAssign, Div, Mul, Neg, Sub}, sync::LazyLock
 };
 
 use num_traits::Pow;
@@ -35,8 +34,8 @@ pub trait MyFloat:
     + Add<Output = Self>
     + AddAssign<f64>
     + Pow<i32, Output = Self>
-    + Mul<Output = Self>
     + Add<Output = Self>
+    + Mul<Self, Output = Self>
     + Mul<f64, Output = Self>
     + Sub<Output = Self>
     + Sub<f64, Output = Self>
@@ -195,3 +194,5 @@ impl MyFloat for Float {
         float!(0.0)
     }
 }
+
+

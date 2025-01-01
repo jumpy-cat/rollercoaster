@@ -69,16 +69,16 @@ fn cost<T: MyFloat>(
 pub fn optimize<T: MyFloat>(
     initial: &physics::legacy::PhysicsState,
     curve: &hermite::Spline<T>,
-    points: &mut [point::Point<f64>],
+    points: &mut [point::Point<T>],
     lr: f64,
 ) -> Option<f64> {
     const NUDGE_DIST: f64 = 0.001; // small step size for derivative approximation
     if let Some(curr) = cost(initial.clone(), curve) {
-        let mut deriv = vec![];
+        let mut deriv: Vec<Vec<Option<T>>> = vec![];
         let mut controls = points.to_vec();
         for i in 1..controls.len() {
             let orig = controls[i].clone();
-            let nudged = orig.nudged(NUDGE_DIST); // generate all possible variations of the derivatives for this control point
+            let nudged = orig.nudged(T::from_f64(NUDGE_DIST)); // generate all possible variations of the derivatives for this control point
             let mut sublist = vec![];
             // for each control point, compute the gradient of the cost function with respect to its derivatives.
             for np in nudged {
@@ -86,7 +86,7 @@ pub fn optimize<T: MyFloat>(
                 let params = hermite::Spline::<T>::new(&controls);
                 let new_cost = cost(initial.clone(), &params);
                 // sublist stores the calculated gradients for this control point.
-                sublist.push(new_cost.map(|c| (c - curr) / NUDGE_DIST));
+                sublist.push(new_cost.map(|c| T::from_f64((c - curr) / NUDGE_DIST)));
             }
             deriv.push(sublist);
             controls[i] = orig;
@@ -99,14 +99,14 @@ pub fn optimize<T: MyFloat>(
                 if let Some(d) = d
                     && d.abs() > max_deriv_mag
                 {
-                    max_deriv_mag = d.abs();
+                    max_deriv_mag = d.abs().to_f64();
                 }
             }
         }
         if max_deriv_mag > 1.0 {
             for dlist in &mut deriv {
                 for d in dlist {
-                    *d = d.map(|inner| inner / max_deriv_mag);
+                    *d = d.clone().map(|inner| inner / T::from_f64(max_deriv_mag));
                 }
             }
         }
@@ -114,7 +114,7 @@ pub fn optimize<T: MyFloat>(
         let mut iter = points.iter_mut();
         iter.next();
         for (p, d) in iter.zip(deriv) {
-            p.descend_derivatives(&d, lr);
+            p.descend_derivatives(&d, T::from_f64(lr));
         }
         Some(curr)
         // function concludes by returning the current cost, which helps track progress over multiple optimization iterations.

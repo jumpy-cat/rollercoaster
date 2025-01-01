@@ -161,13 +161,6 @@ func _process(_delta: float) -> void:
 		if camera_follow_anim:
 			camera.op = anim_pos
 		
-		var target_pos = physics.future_target_pos(curve, anim_step_size)
-		for i in range(len(target_pos) - 1): 
-			DebugDraw3D.draw_line(
-				target_pos[i],
-				target_pos[i + 1],
-				Color.RED
-			)
 		for i in range(len(hist_tgt_pos) - 1): 
 			DebugDraw3D.draw_line(
 				hist_tgt_pos[i],
@@ -175,15 +168,22 @@ func _process(_delta: float) -> void:
 				Color.PURPLE
 			)
 		if floor(physics.u()) != hist_tgt_pos_assoc_u:
+			var target_pos = physics.future_target_pos(curve, anim_step_size)
+			for i in range(len(target_pos) - 1): 
+				DebugDraw3D.draw_line(
+					target_pos[i],
+					target_pos[i + 1],
+					Color.RED
+				)
 			hist_tgt_pos = target_pos
 			hist_tgt_pos_assoc_u = floor(physics.u())
-		target_pos = physics.past_target_pos(curve, anim_step_size)
+		"""target_pos = physics.past_target_pos(curve, anim_step_size)
 		for i in range(len(target_pos) - 1):
 			DebugDraw3D.draw_line(
 				target_pos[i],
 				target_pos[i + 1],
 				Color.MAROON
-			)
+			)"""
 
 		const MULT = 40;
 

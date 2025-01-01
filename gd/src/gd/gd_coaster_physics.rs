@@ -237,7 +237,7 @@ impl CoasterPhysicsV3 {
 
     #[func]
     fn future_target_pos(&self, curve: Gd<CoasterCurve>, delta_t: f64) -> Variant {
-        const STEP: f64 = 0.1;
+        const STEP: f64 = 0.001;
         impl_physics_v3_getter!(self, |phys: &Inner| {
             let curve = &curve.bind().inner;
             let u = phys.u().to_f64() - STEP;

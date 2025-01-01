@@ -442,7 +442,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     pub fn description(&self) -> String {
         let i = &self.additional_info;
         format!(
-            "du: {:4?}\ndt: {:4?}\nse: {:4?}\nnse: {:4?}",
+            "du: {:.4?}\ndt: {:.4?}\nse: {:.4?}\nnse: {:.4?}",
             i.delta_u_.clone().unwrap_or(T::zero()),
             i.delta_t_.clone().unwrap_or(T::zero()),
             i.sol_err.clone().unwrap_or(T::zero()),

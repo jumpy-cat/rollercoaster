@@ -5,7 +5,7 @@ use std::{
 };
 
 use godot::prelude::*;
-use num_opt::{hermite, my_float::MyFloatType, optimizer, physics, point};
+use num_opt::{hermite, my_float::{MyFloat, MyFloatType}, optimizer, physics, point};
 use num_traits::cast::AsPrimitive;
 
 use super::{CoasterCurve, CoasterPoint};
@@ -20,7 +20,7 @@ enum Derivatives {
 enum ToWorker {
     Enable,
     Disable,
-    SetPoints(Vec<point::Point<f64>>, Derivatives),
+    SetPoints(Vec<point::Point<MyFloatType>>, Derivatives),
     SetMass(f64),
     SetGravity(f64),
     SetMu(f64),
@@ -31,14 +31,14 @@ enum ToWorker {
 /// Messages gotten by an `Optimizer` from its worker thread
 enum FromWorker {
     /// Sends (`new_points`, `original_cost`)
-    NewPoints((Vec<point::Point<f64>>, Option<f64>)),
+    NewPoints((Vec<point::Point<MyFloatType>>, Option<MyFloatType>)),
 }
 
 /// Makes the functionality in optimizer::optimize avaliable to Godot
 #[derive(GodotClass)]
 #[class(base=Node)]
 pub struct Optimizer {
-    points: Vec<point::Point<f64>>,
+    points: Vec<point::Point<MyFloatType>>,
     curve: hermite::Spline<MyFloatType>,
     segment_points_cache: Option<Vec<Vector3>>,
     from_worker: Mutex<mpsc::Receiver<FromWorker>>,
@@ -113,7 +113,7 @@ impl INode for Optimizer {
                     curve = hermite::Spline::new(&points);
                     if prev_cost.is_some() {
                         worker_outbox
-                            .send(FromWorker::NewPoints((points.clone(), prev_cost)))
+                            .send(FromWorker::NewPoints((points.clone(), prev_cost.map(|x| MyFloatType::from_f64(x)))))
                             .unwrap();
                     }
                 }
@@ -143,7 +143,7 @@ impl INode for Optimizer {
                             self.segment_points_cache = None;
                             self.points = points;
                             if let Some(c) = cost {
-                                self.most_recent_cost = c;
+                                self.most_recent_cost = c.to_f64();
                             }
                             self.num_iters += 1;
                         }
@@ -191,7 +191,7 @@ impl Optimizer {
         self.segment_points_cache = None;
         self.points = points
             .iter_shared()
-            .map(|p| point::Point::new(p.x.as_f64(), p.y.as_f64(), p.z.as_f64()))
+            .map(|p| point::Point::new(MyFloatType::from_f64(p.x.as_f64()), MyFloatType::from_f64(p.y.as_f64()), MyFloatType::from_f64(p.z.as_f64())))
             .collect();
         hermite::set_derivatives_using_catmull_rom(&mut self.points);
         self.curve = hermite::Spline::new(&self.points);

@@ -4,6 +4,7 @@
 [ext_resource type="Script" path="res://main_ui.gd" id="1_bxeqw"]
 
 [sub_resource type="SystemFont" id="SystemFont_k2qav"]
+subpixel_positioning = 0
 
 [sub_resource type="Theme" id="Theme_p2p34"]
 Label/colors/font_color = Color(1, 1, 1, 1)

@@ -1,4 +1,4 @@
-use std::{io::Write, time::UNIX_EPOCH};
+use std::{io::Write, time::{Instant, UNIX_EPOCH}};
 
 use num_opt::{
     hermite,
@@ -37,11 +37,17 @@ fn main() {
     let curve: hermite::Spline<f64> = num_opt::hermite::Spline::new(&points);
     let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 5.0);
 
-    let max_time = 75.0;
+    let start = Instant::now();
 
-    let file_suffix = std::time::SystemTime::now().duration_since(UNIX_EPOCH);
-    let mut file =
-        std::fs::File::create(format!("{}.txt", file_suffix.unwrap().as_secs())).unwrap();
+    while Instant::now().elapsed().as_secs_f64() < 5.0 {
+        phys.step(0.05, &curve);
+    }
+
+    //let max_time = 75.0;
+
+    //let file_suffix = std::time::SystemTime::now().duration_since(UNIX_EPOCH);
+    //let mut file =
+    //    std::fs::File::create(format!("{}.txt", file_suffix.unwrap().as_secs())).unwrap();
 
     
 
