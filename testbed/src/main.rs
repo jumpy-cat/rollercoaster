@@ -1,4 +1,4 @@
-use std::{io::Write, time::{Instant, UNIX_EPOCH}};
+use std::time::Instant;
 
 use num_opt::{
     hermite,
@@ -38,10 +38,15 @@ fn main() {
     let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 5.0);
 
     let start = Instant::now();
+    let mut iters = 0;
 
-    while Instant::now().elapsed().as_secs_f64() < 5.0 {
+    while start.elapsed().as_secs_f64() < 5.0 {
+        iters += 1;
         phys.step(0.05, &curve);
     }
+
+    println!("{:#?}", phys);
+    println!("Iters: {} ({}/s)", iters, iters / 5);
 
     //let max_time = 75.0;
 

@@ -22,9 +22,9 @@ macro_rules! float {
     }};
 }
 /// What float to use for physics
-pub type MyFloatType = Float;
+pub type MyFloatType = f64;
 /// Bits of precision if `rug::Float` is used
-pub const PRECISION: u32 = 128;
+pub const PRECISION: u32 = 640;
 
 /// Generic float type that doesn't need to be `Copy`
 pub trait MyFloat:
