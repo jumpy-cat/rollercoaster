@@ -1,6 +1,6 @@
 //! Physics solver and cost function
 
-use std::fmt::Display;
+use std::{fmt::Display, ops::{Add, Sub}};
 
 use godot::global::{godot_error, godot_print, godot_warn};
 use linalg::{vector_projection, MyVector3};
@@ -24,6 +24,7 @@ pub struct PhysicsAdditionalInfo<T: MyFloat> {
     pub total_t_: Option<T>,
     pub found_exact_solution_: Option<bool>,
     pub sol_err: Option<T>,
+    pub null_sol_err: Option<T>,
 }
 
 impl<T: MyFloat> Default for PhysicsAdditionalInfo<T> {
@@ -34,7 +35,73 @@ impl<T: MyFloat> Default for PhysicsAdditionalInfo<T> {
             total_t_: Default::default(),
             found_exact_solution_: Default::default(),
             sol_err: Default::default(),
+            null_sol_err: Default::default(),
         }
+    }
+}
+
+// Typed Vectors
+
+#[derive(Debug, Clone)]
+pub struct ComDisp<T: MyFloat>(MyVector3<T>);
+
+impl<T: MyFloat> ComDisp<T> {
+    fn magnitude(&self) -> T {
+        self.0.magnitude()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ComPos<T: MyFloat>(MyVector3<T>);
+
+impl<T: MyFloat> Sub for ComPos<T> {
+    type Output = ComDisp<T>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        ComDisp(self.0 - rhs.0)
+    }
+}
+
+impl<T: MyFloat> Add<ComDisp<T>> for ComPos<T> {
+    type Output = Self;
+
+    fn add(self, rhs: ComDisp<T>) -> Self::Output {
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl<T: MyFloat> ComPos<T> {
+    fn dist_origin(&self) -> T {
+        self.0.magnitude()
+    }
+
+    fn dist_between(&self, other: &Self) -> T {
+        (self.clone() - other.clone()).magnitude()
+    }
+
+    fn height(&self) -> T {
+        self.0.y.clone()
+    }
+
+    pub fn inner(&self) -> MyVector3<T> {
+        self.0.clone()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ComVel<T: MyFloat>(MyVector3<T>);
+
+impl<T: MyFloat> ComVel<T> {
+    fn speed(&self) -> T {
+        self.0.magnitude()
+    }
+
+    fn to_displacement(&self, delta_t: T) -> ComDisp<T> {
+        ComDisp(self.0.clone() * delta_t)
+    }
+
+    pub fn inner(&self) -> MyVector3<T> {
+        self.0.clone()
     }
 }
 
@@ -58,8 +125,8 @@ pub struct PhysicsStateV3<T: MyFloat> {
     // simulation state
     u: T,
     // center of mass
-    x: MyVector3<T>,
-    v: MyVector3<T>,
+    x: ComPos<T>,
+    v: ComVel<T>,
     // heart line
     hl_normal: MyVector3<T>,
     // rotation
@@ -101,8 +168,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             // simulation state
             u: T::zero(), //0.0,
             // center of mass
-            x: hl_pos.clone() - hl_normal.clone() * T::from_f64(o), //o,
-            v: MyVector3::new_f64(0.0, 0.0, 0.0),
+            x: ComPos(hl_pos.clone() - hl_normal.clone() * T::from_f64(o)), //o,
+            v: ComVel(MyVector3::new_f64(0.0, 1.0, 0.0)),
 
             // heart line
             hl_normal,
@@ -162,6 +229,39 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     /// `rot(v_curr, R) = x_tar / dt - x_curr / dt - a * dt`
     ///
     pub fn step(&mut self, step: T, curve: &hermite::Spline<T>) -> Option<()> {
+
+        let new_u = match self.calc_new_u(curve, &step)? {
+            NewUSolution::Root(u) => {
+                add_info!(self, found_exact_solution_, true);
+                u
+            }
+            NewUSolution::Minimum(u, err) => {
+                add_info!(self, found_exact_solution_, false);
+                add_info!(self, sol_err, err);
+                godot_print!("No exact solution found! Lets take a look...");
+                if self.future_pos_no_vel(&step, &self.x).dist_between(&self.x)
+                    > self.v.speed() * step.clone()
+                {
+                    godot_print!("Gravity is overpowering velocity, this is probably ok");
+                } else {
+                    godot_print!("Gravity is not overpowering velocity, this is NOT ok");
+                    //return self.step(step.clone() / T::from_f64(2.0), curve);
+                }
+                for i in 0..10 {
+                    godot_print!(
+                        "{}",
+                        self.dist_err(
+                            curve,
+                            &(self.u.clone() + T::from_f64(i as f64 * 0.01)),
+                            &step,
+                            &self.x, &self.v
+                        )
+                    );
+                }
+                u
+            }
+        };
+        add_info!(self, delta_u_, new_u.clone() - self.u.clone());
         add_info!(self, delta_t_, step.clone());
         add_info!(
             self,
@@ -173,58 +273,33 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                 .clone()
                 + step.clone()
         );
-
-        let new_u = match self.calc_new_u(curve, &step)? {
-            NewUSolution::Root(u) => {
-                add_info!(self, found_exact_solution_, true);
-                u
-            }
-            NewUSolution::Minimum(u, err) => {
-                add_info!(self, found_exact_solution_, false);
-                add_info!(self, sol_err, err);
-                godot_print!("No exact solution found! Lets take a look...");
-                if (self.future_pos_no_vel(&step) - self.x.clone()).magnitude()
-                    > self.v.magnitude() * step.clone()
-                {
-                    godot_print!("Gravity is overpowering velocity, this is probably ok");
-                } else {
-                    godot_print!("Gravity is not overpowering velocity, this is NOT ok");
-                }
-                for i in 0..10 {
-                    godot_print!(
-                        "{}",
-                        self.dist_err(
-                            curve,
-                            &(self.u.clone() + T::from_f64(i as f64 * 0.01)),
-                            &step
-                        )
-                    );
-                }
-                u
-            }
-        };
-        add_info!(self, delta_u_, new_u.clone() - self.u.clone());
+        let null_sol_err = self.dist_err(curve, &self.u, &T::zero(), &self.x, &self.v);
+        add_info!(self, null_sol_err, null_sol_err);
+        /*if null_sol_err > */
 
         // new update rule
-        let tgt_pos = self.target_pos(new_u.clone(), &step, curve, false);
-        self.v = self.updated_v(&step, &tgt_pos);
-        self.x = self.x.clone() + self.v.clone() * step.clone();
+        let tgt_pos = self.target_pos(new_u.clone(), &step, curve, false, &self.x, &self.v);
+        let new_v = self.updated_v(&step, &tgt_pos);
+        let new_x = self.x.clone() + new_v.to_displacement(step.clone());
 
         // rotation
-        let target_hl_normal_ = self.next_hl_normal(new_u.clone(), curve, &self.v.magnitude());
+        let target_hl_normal_ = self.next_hl_normal(new_u.clone(), curve, &new_v.speed());
         self.hl_normal = target_hl_normal_;
 
         // updates
         self.u = new_u;
+        self.v = new_v;
+        self.x = new_x;
 
         Some(())
     }
 
-    fn updated_v(&self, step: &T, target_pos: &MyVector3<T>) -> MyVector3<T> {
-        let future_pos_no_vel = self.future_pos_no_vel(step);
-        let rotated_v_direction = (target_pos.clone() - future_pos_no_vel).normalize();
-        let rotated_v = rotated_v_direction * self.v.clone().magnitude();
-        rotated_v + self.g.clone() * step.clone()
+    /// Warning: uses self.x directly
+    fn updated_v(&self, step: &T, target_pos: &ComPos<T>) -> ComVel<T> {
+        let future_pos_no_vel = self.future_pos_no_vel(step, &self.x);
+        let rotated_v_direction = (target_pos.0.clone() - future_pos_no_vel.0).normalize();
+        let rotated_v = rotated_v_direction * self.v.0.clone().magnitude();
+        ComVel(rotated_v + self.g.clone() * step.clone())
     }
 
     pub fn next_hl_normal(&self, u: T, curve: &hermite::Spline<T>, speed: &T) -> MyVector3<T> {
@@ -252,26 +327,28 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         step: &T,
         curve: &hermite::Spline<T>,
         log: bool,
-    ) -> MyVector3<T> {
-        let future_speed = |future_position: MyVector3<T>| {
-            /*let dy = (future_position - self.x.clone()).y;
-            let future_k = self.v.magnitude().pow(2) * 0.5 * self.m.clone()
+        curr_pos: &ComPos<T>,
+        curr_vel: &ComVel<T>
+    ) -> ComPos<T> {
+        let future_speed = |future_position: ComPos<T>| {
+            let dy = (future_position.0 - curr_pos.clone().0).y;
+            let future_k = curr_vel.0.magnitude().pow(2) * 0.5 * self.m.clone()
                 + self.m.clone() * self.g.y.clone() * dy;
-            (future_k * 2.0 / self.m.clone()).max(&T::zero()).sqrt()*/
-            self.updated_v(step, &future_position).magnitude()
+            (future_k * 2.0 / self.m.clone()).max(&T::zero()).sqrt()
+            //self.updated_v(step, &future_position).magnitude()
         };
         // target position guess
         let guess_pos_using_speed = |speed| {
-            curve.curve_at(&u).unwrap()
-                - self.next_hl_normal(u.clone(), curve, &speed) * self.o.clone()
+            ComPos(curve.curve_at(&u).unwrap()
+                - self.next_hl_normal(u.clone(), curve, &speed) * self.o.clone())
         };
-        let mut speed = self.v.magnitude();
-        let mut guess = self.x.clone();
+        let mut speed = curr_vel.speed();
+        let mut guess = curr_pos.clone();
         let mut guess_speed;
         let mut _error = None;
         for _ in 0..100 {
             guess = guess_pos_using_speed(speed.clone());
-            if guess.has_nan() {
+            if guess.0.has_nan() {
                 godot_warn!("NaN in guess");
                 break;
             }
@@ -284,23 +361,23 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             _error = Some(new_error);
             speed = guess_speed;
         }
-        if log && _error.is_some() && _error.as_ref().unwrap().abs() > TOL {
+        if log && _error.is_some() && _error.as_ref().unwrap().abs() > 0.1 {
             godot_error!("target_pos completed with err: {:?}", _error);
         }
         guess
     }
 
-    pub fn future_pos_no_vel(&self, delta_t: &T) -> MyVector3<T> {
-        self.x.clone() + self.g.clone() * delta_t.clone().pow(2)
+    pub fn future_pos_no_vel(&self, delta_t: &T, curr_pos: &ComPos<T>) -> ComPos<T> {
+        ComPos(curr_pos.0.clone() + self.g.clone() * delta_t.clone().pow(2))
     }
 
-    fn dist_err(&self, curve: &hermite::Spline<T>, u: &T, delta_t: &T) -> T {
-        let fpnv = self.future_pos_no_vel(delta_t);
+    fn dist_err(&self, curve: &hermite::Spline<T>, u: &T, delta_t: &T, curr_pos: &ComPos<T>, curr_vel: &ComVel<T>) -> T {
+        let fpnv = self.future_pos_no_vel(delta_t, curr_pos);
 
         let dist_between_tgt_nforce =
-            |u| (self.target_pos(u, delta_t, curve, true) - &fpnv).magnitude();
+            |u| self.target_pos(u, delta_t, curve, true, curr_pos, curr_vel).dist_between(&fpnv);
 
-        let move_dist = self.v.clone().magnitude() * delta_t.clone();
+        let move_dist = self.v.speed() * delta_t.clone();
         let v1 = dist_between_tgt_nforce(u.clone());
         let v2 = move_dist.clone();
         let res = v1.clone() - v2.clone();
@@ -319,7 +396,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             let res = solver::find_root_or_minimum(
                 &candidate,
                 &(candidate.clone() + candidate_coarse_step.clone()),
-                |u| self.dist_err(curve, u, delta_t),
+                |u| self.dist_err(curve, u, delta_t, &self.x, &self.v),
                 TOL,
             );
             match res {
@@ -340,11 +417,11 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     }
 
     fn energy(&self) -> T {
-        self.v.clone().magnitude_squared() * 0.5 * self.m.clone() + self.potential_energy()
+        self.v.clone().speed().pow(2) * 0.5 * self.m.clone() + self.potential_energy()
     }
 
     fn potential_energy(&self) -> T {
-        self.m.clone() * self.g.magnitude() * self.x.y.clone()
+        self.m.clone() * self.g.magnitude() * self.x.height().clone()
     }
 
     pub fn description(&self) -> String {

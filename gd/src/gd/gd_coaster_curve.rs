@@ -24,4 +24,13 @@ impl CoasterCurve {
             Variant::nil()
         }
     }
+
+    #[func]
+    fn normal_at(&self, u: f64) -> Variant {
+        if let Some(pos) = self.inner.curve_normal_at(&MyFloat::from_f64(u)) {
+            Variant::from(myvec_to_gd(&pos))
+        } else {
+            Variant::nil()
+        }
+    }
 }

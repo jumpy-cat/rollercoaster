@@ -154,6 +154,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.941918)
 script = ExtResource("3_l1r6g")
 
 [connection signal="toggled" from="VBoxContainer/CheckBox" to="." method="_on_check_box_toggled"]
+[connection signal="value_changed" from="VBoxContainer/AnimStepEdit" to="." method="_on_anim_step_edit_value_changed"]
 [connection signal="file_selected" from="LoadDialogue" to="." method="_on_load_dialogue_file_selected"]
 [connection signal="file_selected" from="LoadDialogue" to="." method="_on_file_dialog_file_selected"]
 [connection signal="confirmed" from="SaveDialogue" to="." method="_on_save_dialogue_confirmed"]

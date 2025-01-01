@@ -205,12 +205,12 @@ impl CoasterPhysicsV3 {
 
     #[func]
     fn pos(&self) -> Variant {
-        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.x()))
+        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.x().inner()))
     }
 
     #[func]
     fn vel(&self) -> Variant {
-        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.v()))
+        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.v().inner()))
     }
 
     #[func]
@@ -231,7 +231,7 @@ impl CoasterPhysicsV3 {
     #[func]
     fn future_pos_no_vel(&self, step: f64) -> Variant {
         impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(
-            phys.future_pos_no_vel(&MyFloatType::from_f64(step))
+            phys.future_pos_no_vel(&MyFloatType::from_f64(step), phys.x()).inner()
         ))
     }
 
@@ -247,7 +247,7 @@ impl CoasterPhysicsV3 {
                     break;
                 }
                 out.push(myvec_to_gd(
-                    phys.target_pos(MyFloatType::from_f64(u + o), &delta_t, curve, false),
+                    phys.target_pos(MyFloatType::from_f64(u + o), &delta_t, curve, false, phys.x(), phys.v()).inner(),
                 ));
                 o += 0.01;
             }
@@ -267,7 +267,7 @@ impl CoasterPhysicsV3 {
                     break;
                 }
                 out.push(myvec_to_gd(
-                    phys.target_pos(MyFloatType::from_f64(u - o), &delta_t, curve, false),
+                    phys.target_pos(MyFloatType::from_f64(u - o), &delta_t, curve, false, phys.x(), phys.v()).inner(),
                 ));
                 o += 0.01;
             }
@@ -280,7 +280,7 @@ impl CoasterPhysicsV3 {
         impl_physics_v3_getter!(self, |phys: &Inner| phys
             .additional_info()
             .found_exact_solution_
-            .unwrap())
+            .unwrap_or_default())
     }
 
 }
