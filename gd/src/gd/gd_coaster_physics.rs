@@ -3,6 +3,7 @@ use godot::prelude::*;
 use num_opt::my_float::MyFloat;
 use num_opt::my_float::MyFloatType;
 use num_opt::physics;
+use num_opt::physics::linalg::MyVector3;
 
 use super::{myvec_to_gd, na_to_gd, CoasterCurve};
 
@@ -193,7 +194,7 @@ impl CoasterPhysicsV3 {
     fn step(&mut self, curve: Gd<CoasterCurve>, step_size: f64) {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
-            for _ in 0..1 {
+            for _ in 0..5 {
                 let _ = phys.step(MyFloatType::from_f64(step_size), curve).is_none();
             }
         }
@@ -243,29 +244,43 @@ impl CoasterPhysicsV3 {
 
     #[func]
     fn future_target_pos(&self, curve: Gd<CoasterCurve>, delta_t: f64) -> Variant {
-        const STEP: f64 = 0.001;
+        let mut step: f64 = 0.00001;
         impl_physics_v3_getter!(self, |phys: &Inner| {
             let curve = &curve.bind().inner;
-            let u = phys.u().to_f64() - STEP;
-            let mut o = STEP;
+            let u = phys.u().to_f64() - step;
+            let mut o = step;
             let mut out = vec![];
-            while o < 1.0 {
+            let mut prev: Option<MyVector3<MyFloatType>> = None;
+            while o < 0.1 && step != 0.0 {
                 if u + o > curve.max_u() {
                     break;
                 }
-                out.push(myvec_to_gd(
-                    phys.target_pos_norm(
-                        MyFloatType::from_f64(u + o),
-                        &MyFloatType::from_f64(delta_t),
-                        curve,
-                        false,
-                        phys.x(),
-                        phys.v(),
-                    )
-                    .0
-                    .inner(),
-                ));
-                o += STEP;
+                let p = phys.target_pos_norm(
+                    MyFloatType::from_f64(u + o),
+                    &MyFloatType::from_f64(delta_t),
+                    curve,
+                    false,
+                    phys.x(),
+                    phys.v(),
+                )
+                .0
+                .inner();
+                if let Some(prev_p) = prev.clone() {
+                    let d = (p.clone() - prev_p).magnitude();
+                    if d > 0.01 {
+                        step /= 2.0;
+                        continue;
+                    } else if d < 0.001 {
+                        step *= 2.0;
+                    }
+                }
+                prev = Some(p.clone());
+                out.push(myvec_to_gd(p));
+                o += step;
+                
+            }
+            if step == 0.0 {
+                godot_error!("Something is wrong");
             }
             out
         })

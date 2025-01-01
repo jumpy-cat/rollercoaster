@@ -12,6 +12,7 @@ log = "0.4.22"
 nalgebra = "0.33.2"
 ndarray = "0.16.1"
 num-traits = "0.2.19"
+plotters = "0.3.7"
 rand = "0.8.5"
 roots = "0.0.8"
 rug = { version = "1.26.1", features = ["num-traits"] }

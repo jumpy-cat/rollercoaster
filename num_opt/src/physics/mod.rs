@@ -1,48 +1,24 @@
 //! Physics solver and cost function
 
+use core::f64;
+use std::process::exit;
+
+use info::PhysicsAdditionalInfo;
 use linalg::{vector_projection, ComPos, ComVel, MyVector3};
+use rand::Rng;
 use solver::HitBoundary;
 
 use crate::{hermite, my_float::MyFloat};
 
+mod info;
 pub mod legacy;
 pub mod linalg;
+mod plot;
 pub mod solver;
 
 enum NewUSolution<T: MyFloat> {
     Root(T),
     Minimum(T, T),
-}
-
-#[derive(Debug)]
-pub struct PhysicsAdditionalInfo<T: MyFloat> {
-    pub delta_u_: T,
-    pub delta_t_: T,
-    pub total_t_: T,
-    pub found_exact_solution_: bool,
-    pub sol_err: T,
-    pub null_sol_err: T,
-    prev_move_to_tgt_err: T,
-    pub move_to_tgt_err: T,
-    prev_hl_normal_shift_err: T,
-    pub hl_normal_shift_err: T,
-}
-
-impl<T: MyFloat> Default for PhysicsAdditionalInfo<T> {
-    fn default() -> Self {
-        Self {
-            delta_u_: T::zero(),
-            delta_t_: T::zero(),
-            total_t_: T::zero(),
-            found_exact_solution_: false,
-            sol_err: T::zero(),
-            null_sol_err: T::zero(),
-            move_to_tgt_err: T::zero(),
-            hl_normal_shift_err: T::zero(),
-            prev_move_to_tgt_err: T::zero(),
-            prev_hl_normal_shift_err: T::zero(),
-        }
-    }
 }
 
 /// Physics solver v3  
@@ -210,8 +186,9 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         );
 
         // new update rule
-        let (tgt_pos, _norm) =
+        let (tgt_pos, _norm, err) =
             self.target_pos_norm(new_u.clone(), &step, curve, false, &self.x, &self.v);
+        add_info!(self, tgt_pos_spd_err, err);
         let new_v = self.updated_v(&step, &tgt_pos);
         let new_x = self.x.clone() + new_v.to_displacement(step.clone());
 
@@ -280,7 +257,32 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         log: bool,
         curr_pos: &ComPos<T>,
         curr_vel: &ComVel<T>,
-    ) -> (ComPos<T>, MyVector3<T>) {
+    ) -> (ComPos<T>, MyVector3<T>, f64) {
+        let try_learning_rate = |lr: f64| {
+            self.target_pos_norm_refinement(
+                u.clone(),
+                step,
+                curve,
+                curr_pos,
+                curr_vel,
+                T::from_f64(lr),
+            )
+        };
+        let (pos, norm, errors, speeds, error) = try_learning_rate(1.0);
+
+
+        (pos, norm, error.to_f64())
+    }
+
+    fn target_pos_norm_refinement(
+        &self,
+        u: T,
+        step: &T,
+        curve: &hermite::Spline<T>,
+        curr_pos: &ComPos<T>,
+        curr_vel: &ComVel<T>,
+        mut lr: T,
+    ) -> (ComPos<T>, MyVector3<T>, Vec<f64>, Vec<f64>, T) {
         let future_speed = |future_position: ComPos<T>| {
             let dy = future_position.height() - curr_pos.height();
             let future_k = curr_vel.speed().pow(2) * 0.5 * self.m.clone()
@@ -300,26 +302,43 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let mut guess = curr_pos.clone();
         let mut norm = MyVector3::default();
         let mut guess_speed;
-        let mut _error = None;
-        for _ in 0..100 {
+        let mut prev_pos_error = T::from_f64(f64::MAX);
+        let mut prev_neg_error = T::from_f64(f64::MIN);
+        let mut _error = T::from_f64(f64::INFINITY);
+        let mut errors = vec![];
+        let mut speeds = vec![];
+        while _error.abs() > TOL && lr != 0.0 {
             (guess, norm) = guess_pos_norm_using_speed(speed.clone());
-            if guess.inner().has_nan() {
-                log::warn!("NaN in guess");
-                break;
-            }
             guess_speed = future_speed(guess.clone());
-            if guess_speed.is_nan() {
-                log::warn!("NaN in guess_speed");
-                break;
+
+            assert!(!guess.inner().has_nan());
+            assert!(!guess_speed.is_nan());
+
+            _error = speed.clone() - guess_speed.clone();
+            if _error > 0.0 {
+                if _error >= prev_pos_error {
+                    lr = lr.clone() * T::from_f64(0.5);
+    
+                }
+                prev_pos_error = _error.clone();
+            } else {
+                if _error <= prev_neg_error {
+                    lr = lr.clone() * T::from_f64(0.5);
+                }
+                prev_neg_error = _error.clone();
             }
-            let new_error = (speed - guess_speed.clone()).abs();
-            _error = Some(new_error);
-            speed = guess_speed;
+
+            errors.push(_error.to_f64());
+            speeds.push(guess_speed.to_f64());
+
+            speed = speed.clone() + (guess_speed - speed) * lr.clone();
         }
-        if log && _error.is_some() && _error.as_ref().unwrap().abs() > 0.1 {
-            log::error!("target_pos completed with err: {:?}", _error);
+        if lr == 0.0 {
+            log::error!("LR Reached Zero! Something is wrong");
+            plot::plot("Errors", &errors);
+            plot::plot("Speeds", &speeds);
         }
-        (guess, norm)
+        (guess, norm, errors, speeds, _error)
     }
 
     pub fn future_pos_no_vel(&self, delta_t: &T, curr_pos: &ComPos<T>) -> ComPos<T> {
@@ -335,7 +354,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         curr_vel: &ComVel<T>,
     ) -> T {
         let fpnv = self.future_pos_no_vel(delta_t, curr_pos);
-
         let dist_between_tgt_nforce = |u| {
             self.target_pos_norm(u, delta_t, curve, true, curr_pos, curr_vel)
                 .0
@@ -346,9 +364,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let v1 = dist_between_tgt_nforce(u.clone());
         let v2 = move_dist.clone();
         let res = v1.clone() - v2.clone();
-        if res.is_nan() {
-            log::warn!("NAN: sq({} - {})", v1, v2)
-        }
+        assert!(!res.is_nan());
         res
     }
 
@@ -370,17 +386,20 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                     return Some(NewUSolution::Root(u));
                 }
                 solver::DualResult::Minimum((u, v)) => {
-                    minimums.push((u,v));
+                    minimums.push((u, v));
                     //return Some(NewUSolution::Minimum(u, v));
                 }
                 solver::DualResult::Boundary((u, v, b)) => match b {
-                    HitBoundary::Lower => (),//return Some(NewUSolution::Minimum(u, v)),
+                    HitBoundary::Lower => (), //return Some(NewUSolution::Minimum(u, v)),
                     HitBoundary::Upper => (),
                 },
             }
             candidate += candidate_coarse_step.to_f64();
         }
-        minimums.iter().min_by(|(_, v1), (_, v2)| v1.partial_cmp(v2).unwrap()).map(|(u,v)| NewUSolution::Minimum(u.clone(), v.clone()))
+        minimums
+            .iter()
+            .min_by(|(_, v1), (_, v2)| v1.partial_cmp(v2).unwrap())
+            .map(|(u, v)| NewUSolution::Minimum(u.clone(), v.clone()))
         //None
     }
 
@@ -393,21 +412,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     }
 
     pub fn description(&self) -> String {
-        let i = &self.additional_info;
-        format!(
-            "du: {:.4?}\ndt: {:.4?}\nse: {:.4?}\nnse: {:.12?}\nmove_to_tgt_err: {:.4?}\nhl_normal_shift_err: {:.4}\nprev_move_to_tgt_err: {:.4}\nprev_hl_normal_shift_err: {:.4}\n",
-            use_sigfigs(&i.delta_u_),
-            i.delta_t_,
-            use_sigfigs(&i.sol_err),
-            use_sigfigs(&i.null_sol_err),
-            use_sigfigs(&i.move_to_tgt_err),
-            use_sigfigs(&i.hl_normal_shift_err),
-            use_sigfigs(&i.prev_move_to_tgt_err),
-            use_sigfigs(&i.prev_hl_normal_shift_err)
-        )
+        self.additional_info.description()
     }
-}
-
-fn use_sigfigs<T: MyFloat>(x: &T) -> rug::Float {
-    rug::Float::with_val(64, x.to_f64())
 }
