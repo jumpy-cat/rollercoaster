@@ -225,7 +225,7 @@ impl CoasterPhysicsV3 {
 
     #[func]
     fn u(&self) -> Variant {
-        impl_physics_v3_getter!(self, |phys: &Inner| *phys.u())
+        impl_physics_v3_getter!(self, |phys: &Inner| phys.u().to_f64())
     }
 
     #[func]
@@ -237,19 +237,20 @@ impl CoasterPhysicsV3 {
 
     #[func]
     fn future_target_pos(&self, curve: Gd<CoasterCurve>, delta_t: f64) -> Variant {
+        const STEP: f64 = 0.1;
         impl_physics_v3_getter!(self, |phys: &Inner| {
             let curve = &curve.bind().inner;
-            let u = phys.u().to_f64() - 0.004;
-            let mut o = 0.004;
+            let u = phys.u().to_f64() - STEP;
+            let mut o = STEP;
             let mut out = vec![];
             while o < 1.0 {
                 if u + o > curve.max_u() {
                     break;
                 }
                 out.push(myvec_to_gd(
-                    phys.target_pos(MyFloatType::from_f64(u + o), &delta_t, curve, false, phys.x(), phys.v()).inner(),
+                    phys.target_pos(MyFloatType::from_f64(u + o), &MyFloatType::from_f64(delta_t), curve, false, phys.x(), phys.v()).inner(),
                 ));
-                o += 0.01;
+                o += STEP;
             }
             out
         })
@@ -257,19 +258,20 @@ impl CoasterPhysicsV3 {
 
     #[func]
     fn past_target_pos(&self, curve: Gd<CoasterCurve>, delta_t: f64) -> Variant {
+        const STEP: f64 = 0.1;
         impl_physics_v3_getter!(self, |phys: &Inner| {
             let curve = &curve.bind().inner;
-            let u = phys.u().to_f64() + 0.004;
-            let mut o = 0.004;
+            let u = phys.u().to_f64() + STEP;
+            let mut o = STEP;
             let mut out = vec![];
             while o < 1.0 {
                 if u - o < 0.0 {
                     break;
                 }
                 out.push(myvec_to_gd(
-                    phys.target_pos(MyFloatType::from_f64(u - o), &delta_t, curve, false, phys.x(), phys.v()).inner(),
+                    phys.target_pos(MyFloatType::from_f64(u - o), &MyFloatType::from_f64(delta_t), curve, false, phys.x(), phys.v()).inner(),
                 ));
-                o += 0.01;
+                o += STEP;
             }
             out
         })

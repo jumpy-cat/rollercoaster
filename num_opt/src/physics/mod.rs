@@ -1,6 +1,9 @@
 //! Physics solver and cost function
 
-use std::{fmt::Display, ops::{Add, Sub}};
+use std::{
+    fmt::Display,
+    ops::{Add, Sub},
+};
 
 use godot::global::{godot_error, godot_print, godot_warn};
 use linalg::{vector_projection, MyVector3};
@@ -229,7 +232,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     /// `rot(v_curr, R) = x_tar / dt - x_curr / dt - a * dt`
     ///
     pub fn step(&mut self, step: T, curve: &hermite::Spline<T>) -> Option<()> {
-
         let new_u = match self.calc_new_u(curve, &step)? {
             NewUSolution::Root(u) => {
                 add_info!(self, found_exact_solution_, true);
@@ -254,7 +256,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                             curve,
                             &(self.u.clone() + T::from_f64(i as f64 * 0.01)),
                             &step,
-                            &self.x, &self.v
+                            &self.x,
+                            &self.v
                         )
                     );
                 }
@@ -273,6 +276,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                 .clone()
                 + step.clone()
         );
+        // using initial state
         let null_sol_err = self.dist_err(curve, &self.u, &T::zero(), &self.x, &self.v);
         add_info!(self, null_sol_err, null_sol_err);
         /*if null_sol_err > */
@@ -328,7 +332,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         curve: &hermite::Spline<T>,
         log: bool,
         curr_pos: &ComPos<T>,
-        curr_vel: &ComVel<T>
+        curr_vel: &ComVel<T>,
     ) -> ComPos<T> {
         let future_speed = |future_position: ComPos<T>| {
             let dy = (future_position.0 - curr_pos.clone().0).y;
@@ -339,8 +343,10 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         };
         // target position guess
         let guess_pos_using_speed = |speed| {
-            ComPos(curve.curve_at(&u).unwrap()
-                - self.next_hl_normal(u.clone(), curve, &speed) * self.o.clone())
+            ComPos(
+                curve.curve_at(&u).unwrap()
+                    - self.next_hl_normal(u.clone(), curve, &speed) * self.o.clone(),
+            )
         };
         let mut speed = curr_vel.speed();
         let mut guess = curr_pos.clone();
@@ -371,11 +377,20 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         ComPos(curr_pos.0.clone() + self.g.clone() * delta_t.clone().pow(2))
     }
 
-    fn dist_err(&self, curve: &hermite::Spline<T>, u: &T, delta_t: &T, curr_pos: &ComPos<T>, curr_vel: &ComVel<T>) -> T {
+    fn dist_err(
+        &self,
+        curve: &hermite::Spline<T>,
+        u: &T,
+        delta_t: &T,
+        curr_pos: &ComPos<T>,
+        curr_vel: &ComVel<T>,
+    ) -> T {
         let fpnv = self.future_pos_no_vel(delta_t, curr_pos);
 
-        let dist_between_tgt_nforce =
-            |u| self.target_pos(u, delta_t, curve, true, curr_pos, curr_vel).dist_between(&fpnv);
+        let dist_between_tgt_nforce = |u| {
+            self.target_pos(u, delta_t, curve, true, curr_pos, curr_vel)
+                .dist_between(&fpnv)
+        };
 
         let move_dist = self.v.speed() * delta_t.clone();
         let v1 = dist_between_tgt_nforce(u.clone());
@@ -425,12 +440,13 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     }
 
     pub fn description(&self) -> String {
-        format!("{}", self)
-    }
-}
-
-impl<T: MyFloat> Display for PhysicsStateV3<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!("{:#?}", self.additional_info))
+        let i = &self.additional_info;
+        format!(
+            "du: {:4?}\ndt: {:4?}\nse: {:4?}\nnse: {:4?}",
+            i.delta_u_.clone().unwrap_or(T::zero()),
+            i.delta_t_.clone().unwrap_or(T::zero()),
+            i.sol_err.clone().unwrap_or(T::zero()),
+            i.null_sol_err.clone().unwrap_or(T::zero())
+        )
     }
 }
