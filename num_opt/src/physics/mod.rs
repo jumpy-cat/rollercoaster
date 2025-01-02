@@ -127,70 +127,16 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     /// `x_tar = x_curr + rot(v_curr, R) * dt + a * dt^2`  
     /// `x_tar - (x_curr + a * dt^2) = rot(v_curr, R) * dt`
     ///
-    /// Considering the rotation as creating a sphere:  
-    /// `||x_tar - (x_curr + a * dt^2)|| = ||rot(v_curr, R) * dt||`  
-    /// `||x_tar - (x_curr + a * dt^2)|| = ||v_curr|| * dt`  
-    /// `||x_tar - (x_curr + a * dt^2)|| - ||v_curr|| * dt = 0`  
-    /// `(||x_tar - (x_curr + a * dt^2)|| - ||v_curr|| * dt)^2 = 0`
-    ///
-    /// Which can be solved for `x_tar`:  
-    /// `x_tar = r(u_next) + N * o`  
-    /// `(||r(u_next) + N * o - x_curr + a * dt^2|| - ||v_curr|| * dt)^2 = 0`
-    ///
-    /// Note that this may have no solution, corresponding to a target position
-    /// that can't be reached given the current velocity. (Most notably when
-    /// velocity is zero, also possible if `N` is discontinuous).\
-    /// In that case, we find the minimum, which corresponds to the closest
-    /// point on the curve to the future position given velocity "trying its
-    /// best". Then apply the rules knowing we will diverge slightly
-    /// from the curve.
-    ///
-    /// To ensure the continuity of `N` is it computed with consideration of the
-    /// elevation change affecting velocity (requiring an iterative method).
-    /// When dissipative forces are added, they will also be treated similarily.
-    ///
-    /// `rot(v_curr, R) = x_tar / dt - x_curr / dt - a * dt`
+    /// From the "no velocity" position of `x_curr + a * dt^2`, adding velocity
+    /// forms a sphere with radius `v_curr * dt`. The intersection of this
+    /// sphere with a thick line of radius `o` about the curve is the domain of
+    /// future possible positions.
+    /// 
+    /// We search for where on this domain we most closely match an ideal
+    /// hl-normal.
     ///
     pub fn step(&mut self, step: T, curve: &hermite::Spline<T>) -> Option<()> {
-        let (new_u, fix_divergence) = match self.calc_new_u(curve, &step)? {
-            NewUSolution::Root(u) => {
-                add_info!(self, found_exact_solution_, true);
-                (u, false)
-            }
-            NewUSolution::Minimum(new_u, err) => {
-                add_info!(self, found_exact_solution_, false);
-                add_info!(self, sol_err, err);
-                if self.future_pos_no_vel(&step, &self.x).dist_between(&self.x)
-                    > self.v.speed() * step.clone()
-                {
-                    (new_u, false)
-                    //log::info!("Gravity is overpowering velocity, this is probably ok");
-                } else {
-                    log::info!("No exact solution found! Lets take a look...");
-                    log::info!("Gravity is not overpowering velocity, this is NOT ok");
-
-                    let tgt_at_u = |u: &T| {
-                        self.target_pos_norm(u.clone(), &T::zero(), curve, false, &self.x, &self.v)
-                            .1
-                    };
-                    /*let lower_bound = self.prev_u.clone() - 0.2;
-                    let upper_bound = new_u.clone() + T::from_f64(0.2);
-                    if !solver::check_vec_continuity(&lower_bound, &upper_bound, tgt_at_u) {
-                        log::error!("Continuity check failed for tgt hln!");
-                    } else {
-                        log::error!("Continuity check succeeded for tgt hln!");
-                    }
-                    if !solver::check_vec_continuity(&lower_bound, &upper_bound, |u| {
-                        curve.curve_normal_at(u).unwrap()
-                    }) {
-                        log::error!("Continuity check failed for N!");
-                    } else {
-                        log::error!("Continuity check succeeded for N!");
-                    }*/
-                    (new_u, true)
-                }
-            }
-        };
+        let new_u: T = todo!();
         add_info!(self, delta_u_, new_u.clone() - self.u.clone());
         add_info!(self, delta_t_, step.clone());
         add_info!(
@@ -199,11 +145,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             self.additional_info.total_t_.clone() + step.clone()
         );
 
-        if !fix_divergence {
             // new update rule
-            let (tgt_pos, _norm, err) =
-            self.target_pos_norm(new_u.clone(), &step, curve, false, &self.x, &self.v);
-            add_info!(self, tgt_pos_spd_err, err);
+            let (tgt_pos, _norm, err): (_, MyVector3<T>, T) = todo!();
             let new_v = self.updated_v(&step, &tgt_pos);
             let new_x = self.x.clone() + new_v.to_displacement(step.clone());
 
@@ -221,30 +164,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             add_info!(self, move_to_tgt_err);
             let hl_normal_shift_err = _norm.angle(&self.hl_normal);
             add_info!(self, hl_normal_shift_err);
-        } else {
-            /*// teleport for now
-            let null_tgt_pos = self
-                .target_pos_norm(self.u.clone() + T::from_f64(0.01), &step, curve, false, &self.x, &self.v)
-                .0
-                .inner();
-            self.x = ComPos::new(&null_tgt_pos); //null_tgt_pos;
-            self.u = self.u.clone() + T::from_f64(0.01);*/
-        }
 
-        let null_sol_err = self.dist_err(curve, &self.u, &T::zero(), &self.x, &self.v);
-        add_info!(self, null_sol_err);
-        let null_tgt_pos = self
-            .target_pos_norm(self.u.clone(), &T::zero(), curve, false, &self.x, &self.v)
-            .0
-            .inner();
         //self.x = ComPos::new(&null_tgt_pos); //null_tgt_pos;
-
-        add_info!(self, null_tgt_pos);
-        let tgt_pos_ = self
-            .target_pos_norm(self.u.clone(), &step, curve, false, &self.x, &self.v)
-            .0
-            .inner();
-        add_info!(self, tgt_pos, tgt_pos_);
 
         add_info!(
             self,
@@ -288,166 +209,15 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         .normalize()
     }
 
-    /// The heart line position is well defined at curve(u), but what about the
-    /// heart line normal?  
-    pub fn target_pos_norm(
-        &self,
-        u: T,
-        step: &T,
-        curve: &hermite::Spline<T>,
-        log: bool,
-        curr_pos: &ComPos<T>,
-        curr_vel: &ComVel<T>,
-    ) -> (ComPos<T>, MyVector3<T>, f64) {
-        let try_learning_rate = |lr: f64| {
-            self.target_pos_norm_refinement(
-                u.clone(),
-                step,
-                curve,
-                curr_pos,
-                curr_vel,
-                T::from_f64(lr),
-            )
-        };
-        let (pos, norm, errors, speeds, error) = try_learning_rate(1.0);
-
-        (pos, norm, error.to_f64())
-    }
-
-    fn target_pos_norm_refinement(
-        &self,
-        u: T,
-        step: &T,
-        curve: &hermite::Spline<T>,
-        curr_pos: &ComPos<T>,
-        curr_vel: &ComVel<T>,
-        mut lr: T,
-    ) -> (ComPos<T>, MyVector3<T>, Vec<f64>, Vec<f64>, T) {
-        let future_speed = |future_position: ComPos<T>| {
-            let dy = future_position.height() - curr_pos.height();
-            let future_k = curr_vel.speed().pow(2) * 0.5 * self.m.clone()
-                + self.m.clone() * self.g.y.clone() * dy;
-            (future_k * 2.0 / self.m.clone()).max(&T::zero()).sqrt()
-            //self.updated_v(step, &future_position).magnitude()
-        };
-        // target position guess
-        let guess_pos_norm_using_speed = |speed| {
-            let norm = self.next_hl_normal(u.clone(), curve, &speed);
-            (
-                ComPos::new(&(curve.curve_at(&u).unwrap() - norm.clone() * self.o.clone())),
-                norm,
-            )
-        };
-        let mut speed = curr_vel.speed();
-        let mut guess = curr_pos.clone();
-        let mut norm = MyVector3::default();
-        let mut guess_speed;
-        let mut prev_pos_error = T::from_f64(f64::MAX);
-        let mut prev_neg_error = T::from_f64(f64::MIN);
-        let mut _error = T::from_f64(f64::INFINITY);
-        let mut errors = vec![];
-        let mut speeds = vec![];
-        let mut norm_zs = vec![];
-        while _error.abs() > TOL && lr > TOL {
-            (guess, norm) = guess_pos_norm_using_speed(speed.clone());
-            guess_speed = future_speed(guess.clone());
-
-            assert!(!guess.inner().has_nan());
-            assert!(!guess_speed.is_nan());
-
-            _error = speed.clone() - guess_speed.clone();
-            if _error > 0.0 {
-                if _error >= prev_pos_error {
-                    lr = lr.clone() * T::from_f64(0.5);
-                }
-                prev_pos_error = _error.clone();
-            } else {
-                if _error <= prev_neg_error {
-                    lr = lr.clone() * T::from_f64(0.5);
-                }
-                prev_neg_error = _error.clone();
-            }
-
-            errors.push(_error.to_f64());
-            speeds.push(guess_speed.to_f64());
-            norm_zs.push(norm.z.to_f64());
-
-            speed = speed.clone() + (guess_speed - speed) * lr.clone();
-        }
-        if lr <= TOL {
-            log::debug!(
-                "LR Reached Zero! Something is wrong! Err: {} Curr Spd: {}",
-                _error,
-                curr_vel.speed()
-            );
-            //plot::plot("Errors", &errors);
-            //plot::plot(&format!("Speeds_curr_{}", curr_vel.speed()), &speeds);
-            //plot::plot("norm_zs", &norm_zs);
-            //exit(1);
-        }
-        (guess, norm, errors, speeds, _error)
-    }
-
     pub fn future_pos_no_vel(&self, delta_t: &T, curr_pos: &ComPos<T>) -> ComPos<T> {
         ComPos::new(&(curr_pos.inner() + self.g.clone() * delta_t.clone().pow(2)))
     }
 
-    fn dist_err(
-        &self,
-        curve: &hermite::Spline<T>,
-        u: &T,
-        delta_t: &T,
-        curr_pos: &ComPos<T>,
-        curr_vel: &ComVel<T>,
-    ) -> T {
-        let fpnv = self.future_pos_no_vel(delta_t, curr_pos);
-        let dist_between_tgt_nforce = |u| {
-            self.target_pos_norm(u, delta_t, curve, true, curr_pos, curr_vel)
-                .0
-                .dist_between(&fpnv)
-        };
+    fn possible_positions(&self, curve: &hermite::Spline<T>, delta_t: &T, u: &T) -> Vec<ComPos<T>> {
+        let fpnv = self.future_pos_no_vel(delta_t, &self.x);
+        let future_sphere = geo::Sphere{p: fpnv.inner(), r: self.v.speed() * delta_t.clone()};
 
-        let move_dist = self.v.speed() * delta_t.clone();
-        let v1 = dist_between_tgt_nforce(u.clone());
-        let v2 = move_dist.clone();
-        let res = v1.clone() - v2.clone();
-        assert!(!res.is_nan());
-        res
-    }
-
-    fn calc_new_u(&self, curve: &hermite::Spline<T>, delta_t: &T) -> Option<NewUSolution<T>> {
-        let candidate_coarse_step = T::from_f64(1e-3);
-        let mut candidate = self.u.clone();
-        let mut minimums = vec![];
-        while candidate.clone() + candidate_coarse_step.clone()
-            < (self.u.clone() + T::from_f64(0.1)).min(&T::from_f64(curve.max_u()))
-        {
-            let res = solver::find_root_or_minimum(
-                &candidate,
-                &(candidate.clone() + candidate_coarse_step.clone()),
-                |u| self.dist_err(curve, u, delta_t, &self.x, &self.v),
-                TOL,
-            );
-            match res {
-                solver::DualResult::Root(u) => {
-                    return Some(NewUSolution::Root(u));
-                }
-                solver::DualResult::Minimum((u, v)) => {
-                    minimums.push((u, v));
-                    //return Some(NewUSolution::Minimum(u, v));
-                }
-                solver::DualResult::Boundary((u, v, b)) => match b {
-                    HitBoundary::Lower => (), //return Some(NewUSolution::Minimum(u, v)),
-                    HitBoundary::Upper => (),
-                },
-            }
-            candidate += candidate_coarse_step.to_f64();
-        }
-        minimums
-            .iter()
-            .min_by(|(_, v1), (_, v2)| v1.partial_cmp(v2).unwrap())
-            .map(|(u, v)| NewUSolution::Minimum(u.clone(), v.clone()))
-        //None
+        vec![]
     }
 
     fn energy(&self) -> T {

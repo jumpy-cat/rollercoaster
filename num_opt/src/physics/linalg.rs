@@ -40,10 +40,8 @@ impl<T: MyFloat> MyVector3<T> {
         }
     }
 
-    fn dot(&self, other: &MyVector3<T>) -> T {
-        self.x.clone() * other.x.clone()
-            + self.y.clone() * other.y.clone()
-            + self.z.clone() * other.z.clone()
+    pub fn dot(&self, other: &MyVector3<T>) -> T {
+        self.x.clone() * other.x.clone() + self.y.clone() * other.y.clone() + self.z.clone() * other.z.clone()
     }
 
     pub fn magnitude(&self) -> T {
@@ -92,6 +90,23 @@ impl<T: MyFloat> MyVector3<T> {
 
     pub fn has_nan(&self) -> bool {
         self.x.is_nan() || self.y.is_nan() || self.z.is_nan()
+    }
+
+    pub fn rotate_around_axis(&self, axis: &Self, angle: f64) -> Self {
+        let axis = axis.clone().normalize();
+        // For a rotation of angle θ around axis (x,y,z), the scaled axis should be:
+        // (x*sin(θ/2), y*sin(θ/2), z*sin(θ/2))
+        // And the quaternion should have cos(θ/2) as its scalar part
+        let half_angle = angle / 2.0;
+        let sin_half = T::from_f64(half_angle.sin());
+        let cos_half = T::from_f64(half_angle.cos());
+        let quat = MyQuaternion {
+            q0: cos_half,
+            q1: axis.x * sin_half.clone(),
+            q2: axis.y * sin_half.clone(),
+            q3: axis.z * sin_half,
+        };
+        quat.rotate_vector(self)
     }
 }
 
@@ -229,12 +244,12 @@ impl<T: MyFloat> MyQuaternion<T> {
         }
     }
 
-    pub fn rotate(self, other: MyVector3<T>) -> MyVector3<T> {
+    pub fn rotate_vector(self, other: &MyVector3<T>) -> MyVector3<T> {
         let other = MyQuaternion {
-            q0: T::zero(), //float!(0.0),
-            q1: other.x,
-            q2: other.y,
-            q3: other.z,
+            q0: T::zero(),
+            q1: other.x.clone(),
+            q2: other.y.clone(),
+            q3: other.z.clone(),
         };
         let s = self.normalize();
         let inv = s.clone().unit_inverse();
