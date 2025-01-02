@@ -1,11 +1,9 @@
 //! Physics solver and cost function
 
 use core::f64;
-use std::process::exit;
 
 use info::PhysicsAdditionalInfo;
 use linalg::{vector_projection, ComPos, ComVel, MyVector3};
-use rand::Rng;
 use solver::HitBoundary;
 
 use crate::{hermite, my_float::MyFloat};
@@ -162,18 +160,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                 } else {
                     log::info!("Gravity is not overpowering velocity, this is NOT ok");
                 }
-                for i in 0..10 {
-                    log::info!(
-                        "{}",
-                        self.dist_err(
-                            curve,
-                            &(self.u.clone() + T::from_f64(i as f64 * 0.01)),
-                            &step,
-                            &self.x,
-                            &self.v
-                        )
-                    );
-                }
                 u
             }
         };
@@ -203,6 +189,16 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
         let null_sol_err = self.dist_err(curve, &self.u, &T::zero(), &self.x, &self.v);
         add_info!(self, null_sol_err);
+        let null_tgt_pos = self.target_pos_norm(
+            self.u.clone(),
+            &T::zero(),
+            curve,
+            false,
+            &self.x,
+            &self.v,
+        )
+        .0.inner();
+        add_info!(self, null_tgt_pos);
 
         add_info!(
             self,

@@ -322,4 +322,9 @@ impl CoasterPhysicsV3 {
             .additional_info()
             .found_exact_solution_)
     }
+
+    #[func]
+    fn null_tgt_pos(&self) -> Variant {
+        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.additional_info().null_tgt_pos.clone()))
+    }
 }

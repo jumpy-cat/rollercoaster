@@ -5,8 +5,6 @@ use num_opt::{
     physics::{self},
 };
 
-use plotters::prelude::*;
-
 fn main() {
     /*// make some plots
     use plotters::prelude::*;

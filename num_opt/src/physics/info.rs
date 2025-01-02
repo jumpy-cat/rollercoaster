@@ -1,5 +1,7 @@
 use crate::my_float::MyFloat;
 
+use super::linalg::MyVector3;
+
 #[derive(Debug)]
 pub struct PhysicsAdditionalInfo<T: MyFloat> {
     pub delta_u_: T,
@@ -15,6 +17,7 @@ pub struct PhysicsAdditionalInfo<T: MyFloat> {
     pub tgt_pos_spd_err: f64,
     pub potential_energy: f64,
     pub kinetic_energy: f64,
+    pub null_tgt_pos: MyVector3<T>,
 }
 
 impl<T: MyFloat> Default for PhysicsAdditionalInfo<T> {
@@ -33,6 +36,7 @@ impl<T: MyFloat> Default for PhysicsAdditionalInfo<T> {
             tgt_pos_spd_err: 0.0,
             potential_energy: 0.0,
             kinetic_energy: 0.0,
+            null_tgt_pos: MyVector3::default(),
         }
     }
 }

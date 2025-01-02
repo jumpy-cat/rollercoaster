@@ -2,7 +2,7 @@
 //! The float does not have to be `Copy`, allowing `rug::Float` to be used
 
 use std::{
-    cell::LazyCell, fmt::Display, ops::{Add, AddAssign, Div, Mul, Neg, Sub}, sync::LazyLock
+     fmt::Display, ops::{Add, AddAssign, Div, Mul, Neg, Sub},
 };
 
 use num_traits::Pow;
