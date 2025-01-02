@@ -1,6 +1,7 @@
 //! Physics solver and cost function
 
 use core::f64;
+use std::process::exit;
 
 use info::PhysicsAdditionalInfo;
 use linalg::{vector_projection, ComPos, ComVel, MyVector3};
@@ -146,7 +147,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     /// `rot(v_curr, R) = x_tar / dt - x_curr / dt - a * dt`
     ///
     pub fn step(&mut self, step: T, curve: &hermite::Spline<T>) -> Option<()> {
-        let new_u = match self.calc_new_u(curve, &step)? {
+        let (new_u) = match self.calc_new_u(curve, &step)? {
             NewUSolution::Root(u) => {
                 add_info!(self, found_exact_solution_, true);
                 u
@@ -161,40 +162,24 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                 } else {
                     log::info!("No exact solution found! Lets take a look...");
                     log::info!("Gravity is not overpowering velocity, this is NOT ok");
-                    // check for continuity from previous step
-                    let mut u_step = 0.001;
-                    let mut u = self.prev_u.clone();
-                    let tgt_at_u = |u: T| self.target_pos_norm(
-                        u.clone(),
-                        &step,
-                        curve,
-                        false,
-                        &self.x,
-                        &self.v,
-                    )
-                    .0.inner();
-                    let mut zs = vec![];
-                    let mut p = tgt_at_u(u.clone());
-                    zs.push(p.z.to_f64());
-                    while u < new_u.clone() + T::from_f64(0.0) && u_step > TOL {
-                        let next_p = tgt_at_u(u.clone() + T::from_f64(u_step));
-                        zs.push(next_p.z.to_f64());
-                        let d = (next_p.clone() - p.clone()).magnitude();
-                        if d > 0.01 {
-                            u_step /= 2.0;
-                            continue;
-                        } else if d < 0.001 {
-                            u_step *= 2.0;
-                        }
-                        u = u.clone() + T::from_f64(u_step);
-                        p = next_p;
 
-                    }
-                    plot::plot("zs", &zs);
-                    if u_step <= TOL {
-                        log::error!("Continuity check failed for tgt pos!");
+                    let tgt_at_u = |u: &T| {
+                        self.target_pos_norm(u.clone(), &T::zero(), curve, false, &self.x, &self.v)
+                            .1
+                    };
+                    let lower_bound = self.prev_u.clone() - 0.2;
+                    let upper_bound = new_u.clone() + T::from_f64(0.2);
+                    if !solver::check_vec_continuity(&lower_bound, &upper_bound, tgt_at_u) {
+                        log::error!("Continuity check failed for tgt hln!");
                     } else {
-                        log::error!("Continuity check succeeded for tgt pos!");
+                        log::error!("Continuity check succeeded for tgt hln!");
+                    }
+                    if !solver::check_vec_continuity(&lower_bound, &upper_bound, |u| {
+                        curve.curve_normal_at(u).unwrap()
+                    }) {
+                        log::error!("Continuity check failed for N!");
+                    } else {
+                        log::error!("Continuity check succeeded for N!");
                     }
                 }
                 new_u
@@ -227,25 +212,15 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
         let null_sol_err = self.dist_err(curve, &self.u, &T::zero(), &self.x, &self.v);
         add_info!(self, null_sol_err);
-        let null_tgt_pos = self.target_pos_norm(
-            self.u.clone(),
-            &T::zero(),
-            curve,
-            false,
-            &self.x,
-            &self.v,
-        )
-        .0.inner();
+        let null_tgt_pos = self
+            .target_pos_norm(self.u.clone(), &T::zero(), curve, false, &self.x, &self.v)
+            .0
+            .inner();
         add_info!(self, null_tgt_pos);
-        let tgt_pos_ = self.target_pos_norm(
-            self.u.clone(),
-            &step,
-            curve,
-            false,
-            &self.x,
-            &self.v,
-        )
-        .0.inner();
+        let tgt_pos_ = self
+            .target_pos_norm(self.u.clone(), &step, curve, false, &self.x, &self.v)
+            .0
+            .inner();
         add_info!(self, tgt_pos, tgt_pos_);
 
         add_info!(
@@ -263,6 +238,9 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let hl_normal_shift_err = _norm.angle(&self.hl_normal);
         add_info!(self, hl_normal_shift_err);
 
+        add_info!(self, potential_energy, self.potential_energy().to_f64());
+        add_info!(self, kinetic_energy, self.kinetic_energy().to_f64());
+
         Some(())
     }
 
@@ -277,6 +255,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     pub fn next_hl_normal(&self, u: T, curve: &hermite::Spline<T>, speed: &T) -> MyVector3<T> {
         // Calculate heart line acceleration, using center of mass values
         let kappa = curve.curve_kappa_at(&u).unwrap();
+        assert!(kappa >= 0.0);
         let r = T::one() / kappa + self.o.clone();
         #[allow(non_snake_case)]
         let N = curve.curve_normal_at(&u).unwrap();
@@ -285,10 +264,9 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let inner_ag_ = accel.clone() - self.g.clone();
 
         let ortho_to = curve.curve_direction_at(&u).unwrap().normalize();
-        let tmp = (inner_ag_.clone().normalize()
+        (inner_ag_.clone().normalize()
             - vector_projection(inner_ag_.clone().normalize(), ortho_to.clone()))
-        .normalize();
-        (tmp.clone() - vector_projection(tmp.clone(), ortho_to.clone())).normalize()
+        .normalize()
     }
 
     /// The heart line position is well defined at curve(u), but what about the
@@ -313,7 +291,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             )
         };
         let (pos, norm, errors, speeds, error) = try_learning_rate(1.0);
-
 
         (pos, norm, error.to_f64())
     }
@@ -351,6 +328,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let mut _error = T::from_f64(f64::INFINITY);
         let mut errors = vec![];
         let mut speeds = vec![];
+        let mut norm_zs = vec![];
         while _error.abs() > TOL && lr != 0.0 {
             (guess, norm) = guess_pos_norm_using_speed(speed.clone());
             guess_speed = future_speed(guess.clone());
@@ -362,7 +340,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             if _error > 0.0 {
                 if _error >= prev_pos_error {
                     lr = lr.clone() * T::from_f64(0.5);
-    
                 }
                 prev_pos_error = _error.clone();
             } else {
@@ -374,13 +351,20 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
             errors.push(_error.to_f64());
             speeds.push(guess_speed.to_f64());
+            norm_zs.push(norm.z.to_f64());
 
             speed = speed.clone() + (guess_speed - speed) * lr.clone();
         }
         if lr == 0.0 {
-            log::error!("LR Reached Zero! Something is wrong");
-            //plot::plot("Errors", &errors);
-            //plot::plot("Speeds", &speeds);
+            log::debug!(
+                "LR Reached Zero! Something is wrong! Err: {} Curr Spd: {}",
+                _error,
+                curr_vel.speed()
+            );
+            plot::plot("Errors", &errors);
+            plot::plot(&format!("Speeds_curr_{}", curr_vel.speed()), &speeds);
+            plot::plot("norm_zs", &norm_zs);
+            //exit(1);
         }
         (guess, norm, errors, speeds, _error)
     }
@@ -448,7 +432,11 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     }
 
     fn energy(&self) -> T {
-        self.v.clone().speed().pow(2) * 0.5 * self.m.clone() + self.potential_energy()
+        self.kinetic_energy() + self.potential_energy()
+    }
+
+    fn kinetic_energy(&self) -> T {
+        self.v.clone().speed().pow(2) * 0.5 * self.m.clone()
     }
 
     fn potential_energy(&self) -> T {

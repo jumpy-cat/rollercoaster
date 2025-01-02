@@ -33,6 +33,7 @@ pub trait MyFloat:
     + Display
     + Add<Output = Self>
     + AddAssign<f64>
+    + AddAssign<Self>
     + Pow<i32, Output = Self>
     + Add<Output = Self>
     + Mul<Self, Output = Self>

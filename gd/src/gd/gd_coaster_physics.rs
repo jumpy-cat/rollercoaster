@@ -247,6 +247,8 @@ impl CoasterPhysicsV3 {
 
     #[func]
     fn future_target_pos(&self, curve: Gd<CoasterCurve>, delta_t: f64) -> Variant {
+        //let v: Vec<Vector3> = vec![];
+        //return Variant::from(v);
         let mut step: f64 = 0.00001;
         impl_physics_v3_getter!(self, |phys: &Inner| {
             let curve = &curve.bind().inner;

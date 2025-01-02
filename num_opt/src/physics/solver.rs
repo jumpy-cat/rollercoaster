@@ -2,6 +2,8 @@
 
 use crate::my_float::MyFloat;
 
+use super::{linalg::MyVector3, plot, TOL};
+
 pub enum DualResult<T> {
     Root(T),
     Minimum((T, T)),
@@ -128,3 +130,37 @@ pub fn find_minimum_golden_section<T: MyFloat>(
         }
     }
 }
+
+pub fn check_vec_continuity<T: MyFloat>(a: &T, b: &T, f: impl Fn(&T) -> MyVector3<T>) -> bool {
+    let mut x = a.clone();
+    let mut x_step = 0.001;
+    let mut p = f(&x);
+    let mut zs = vec![];
+    let mut ys = vec![];
+    let mut disc = false;
+    while x < *b {
+        if !disc && x_step > TOL {
+            disc = true;
+            x_step = 0.001;
+        }
+        let next_p = f(&(x.clone() + T::from_f64(x_step)));
+        zs.push((x.to_f64() , next_p.z.to_f64()));
+        ys.push((x.to_f64() , next_p.y.to_f64()));
+        let d = (next_p.clone() - p.clone()).magnitude();
+        if !disc {
+            if d > 0.01 {
+                x_step /= 2.0;
+                continue;
+            } else if d < 0.001 {
+                x_step *= 2.0;
+            }
+        }
+        x += T::from_f64(x_step);
+        p = next_p;
+
+    }
+    plot::plot2("zs", &zs);
+    plot::plot2("ys", &ys);
+    
+    !disc
+} 
