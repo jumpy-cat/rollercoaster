@@ -9,12 +9,12 @@ use solver::HitBoundary;
 
 use crate::{hermite, my_float::MyFloat};
 
+mod geo;
 mod info;
 pub mod legacy;
 pub mod linalg;
 mod plot;
 pub mod solver;
-mod geo;
 
 #[cfg(test)]
 mod geo_test;
@@ -102,6 +102,10 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         }
     }
 
+    pub fn set_v(&mut self, v: &MyVector3<T>) {
+        self.v = ComVel::new(v);
+    }
+
     /// Steps forward in time by `step`, may choose to perform smaller step(s)
     ///
     /// ### Implementation Details
@@ -131,7 +135,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     /// forms a sphere with radius `v_curr * dt`. The intersection of this
     /// sphere with a thick line of radius `o` about the curve is the domain of
     /// future possible positions.
-    /// 
+    ///
     /// We search for where on this domain we most closely match an ideal
     /// hl-normal.
     ///
@@ -145,25 +149,25 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             self.additional_info.total_t_.clone() + step.clone()
         );
 
-            // new update rule
-            let (tgt_pos, _norm, err): (_, MyVector3<T>, T) = todo!();
-            let new_v = self.updated_v(&step, &tgt_pos);
-            let new_x = self.x.clone() + new_v.to_displacement(step.clone());
+        // new update rule
+        let (tgt_pos, _norm, err): (_, MyVector3<T>, T) = todo!();
+        let new_v = self.updated_v(&step, &tgt_pos);
+        let new_x = self.x.clone() + new_v.to_displacement(step.clone());
 
-            // rotation
-            let target_hl_normal_ = self.next_hl_normal(new_u.clone(), curve, &new_v.speed());
-            self.hl_normal = target_hl_normal_;
+        // rotation
+        let target_hl_normal_ = self.next_hl_normal(new_u.clone(), curve, &new_v.speed());
+        self.hl_normal = target_hl_normal_;
 
-            // updates
-            self.prev_u = self.u.clone();
-            self.u = new_u;
-            self.v = new_v;
-            self.x = new_x;
+        // updates
+        self.prev_u = self.u.clone();
+        self.u = new_u;
+        self.v = new_v;
+        self.x = new_x;
 
-            let move_to_tgt_err = (tgt_pos - self.x.clone()).magnitude();
-            add_info!(self, move_to_tgt_err);
-            let hl_normal_shift_err = _norm.angle(&self.hl_normal);
-            add_info!(self, hl_normal_shift_err);
+        let move_to_tgt_err = (tgt_pos - self.x.clone()).magnitude();
+        add_info!(self, move_to_tgt_err);
+        let hl_normal_shift_err = _norm.angle(&self.hl_normal);
+        add_info!(self, hl_normal_shift_err);
 
         //self.x = ComPos::new(&null_tgt_pos); //null_tgt_pos;
 
@@ -213,11 +217,26 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         ComPos::new(&(curr_pos.inner() + self.g.clone() * delta_t.clone().pow(2)))
     }
 
-    fn possible_positions(&self, curve: &hermite::Spline<T>, delta_t: &T, u: &T) -> Vec<ComPos<T>> {
+    pub fn possible_positions(&self, curve: &hermite::Spline<T>, delta_t: &T, u: &T) -> Vec<ComPos<T>> {
         let fpnv = self.future_pos_no_vel(delta_t, &self.x);
-        let future_sphere = geo::Sphere{p: fpnv.inner(), r: self.v.speed() * delta_t.clone()};
+        let future_sphere = geo::Sphere {
+            p: fpnv.inner(),
+            r: self.v.speed() * delta_t.clone(),
+        };
 
-        vec![]
+        let circle_plane = geo::Plane::from_origin_normal_and_u(
+            curve.curve_at(u).unwrap(),
+            curve.curve_direction_at(u).unwrap(),
+            curve.curve_normal_at(u).unwrap(),
+        );
+
+        let circle = geo::Circle { r: self.o.clone(), u: T::zero(), v: T::zero() };
+
+        let intersections = geo::sphere_circle_intersections(&future_sphere, &circle, &circle_plane);
+
+        log::info!("Intersections: {:#?}", intersections);
+
+        intersections.iter().map(|p| ComPos::new(p)).collect()
     }
 
     fn energy(&self) -> T {

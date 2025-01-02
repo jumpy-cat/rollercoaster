@@ -61,9 +61,11 @@ pub fn circle_circle_intersections<T: MyFloat>(c1: &Circle<T>, c2: &Circle<T>) -
     let a = (c1.r.clone().pow(2) - c2.r.clone().pow(2) + d.clone().pow(2)) / (T::from_f64(2.0) * d.clone());
     let h_squared = c1.r.clone().pow(2) - a.clone().pow(2);
     
-    println!("h_squared: {}", h_squared);
-    println!("d: {}", d);
-    println!("c1.r: {}, c2.r: {}", c1.r, c2.r);
+    if LOG {
+        println!("h_squared: {}", h_squared);
+        println!("d: {}", d);
+        println!("c1.r: {}, c2.r: {}", c1.r, c2.r);
+    }
     
     // If h_squared is very close to zero, circles are tangent
     if h_squared.abs() < T::from_f64(1e-6) {
@@ -85,20 +87,26 @@ pub fn circle_circle_intersections<T: MyFloat>(c1: &Circle<T>, c2: &Circle<T>) -
     ]
 }
 
+const LOG: bool = false;
+
 pub fn sphere_circle_intersections<T: MyFloat>(sphere: &Sphere<T>, circle: &Circle<T>, circle_plane: &Plane<T>) -> Vec<MyVector3<T>> {
     // Project sphere center onto plane
     let (u, v) = circle_plane.project(sphere.p.clone());
     let dist_to_plane = circle_plane.distance_to(&sphere.p);
     let radius_squared = sphere.r.clone().pow(2) - dist_to_plane.clone().pow(2);
     
-    println!("Sphere center: {:?}", sphere.p);
-    println!("Projected center: ({}, {})", u, v);
-    println!("Distance to plane: {}", dist_to_plane);
-    println!("Sphere radius: {}", sphere.r);
-    println!("Projected radius squared: {}", radius_squared);
-    
+    if LOG {
+        println!("Sphere center: {:?}", sphere.p);
+        println!("Projected center: ({}, {})", u, v);
+        println!("Distance to plane: {}", dist_to_plane);
+        println!("Sphere radius: {}", sphere.r);
+        println!("Projected radius squared: {}", radius_squared);
+    }    
     if radius_squared < -T::from_f64(1e-10) {
+        if LOG {
+
         println!("No intersections: radius_squared < 0");
+        }
         return Vec::new();  // No intersections
     }
     
@@ -109,19 +117,22 @@ pub fn sphere_circle_intersections<T: MyFloat>(sphere: &Sphere<T>, circle: &Circ
         v,
     };
     
-    println!("Projected circle: r={}, u={}, v={}", proj_circle.r, proj_circle.u, proj_circle.v);
-    println!("Target circle: r={}, u={}, v={}", circle.r, circle.u, circle.v);
-    
     // Find intersections between projected circle and target circle
     let intersections = circle_circle_intersections(&proj_circle, circle);
-    println!("Number of intersections: {}", intersections.len());
-    
+
+    if LOG {
+        println!("Projected circle: r={}, u={}, v={}", proj_circle.r, proj_circle.u, proj_circle.v);
+        println!("Target circle: r={}, u={}, v={}", circle.r, circle.u, circle.v);
+        println!("Number of intersections: {}", intersections.len());
+    }    
     // Convert intersection points back to 3D
     let result = intersections
         .iter()
         .map(|(u, v)| circle_plane.unproject(u.clone(), v.clone()))
         .collect();
-    println!("3D intersection points: {:?}", result);
+    if LOG {
+        println!("3D intersection points: {:?}", result);
+    }
     result
 }
 

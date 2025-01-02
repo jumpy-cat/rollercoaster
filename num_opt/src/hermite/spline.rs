@@ -105,7 +105,7 @@ where
             out = self.curve_4th_derivative_at(u).unwrap();
         }
         assert!(out.magnitude() != 0.0);
-        Some(out)
+        Some(out.normalize())
     }
 
     /// Find the 1st derivative ("velocity") of the spline at `u`

@@ -2,37 +2,10 @@ use std::time::Instant;
 
 use num_opt::{
     hermite,
-    physics::{self},
+    physics::{self, linalg::MyVector3, solver},
 };
 
 fn main() {
-    /*// make some plots
-    use plotters::prelude::*;
-    let root = BitMapBackend::new("target_pos_err.png", (1024, 768)).into_drawing_area();
-    root.fill(&WHITE).unwrap();
-    let errors = vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 2.7, 0.8, 0.9, 1.0];
-    let mut chart = ChartBuilder::on(&root)
-        .caption("target_pos_err", ("sans-serif", 30))
-        .margin(5)
-        .x_label_area_size(30)
-        .y_label_area_size(30)
-        .build_cartesian_2d(0.0..100.0, 0.0..1.0)
-        .unwrap();
-    chart.configure_mesh().draw().unwrap();
-    chart
-        .draw_series(LineSeries::new(
-            (0..errors.len()).map(|i| (i as f64, errors[i])),
-            &RED,
-        ))
-        .unwrap();
-    chart
-        .configure_series_labels()
-        .background_style(&WHITE.mix(0.8))
-        .border_style(&BLACK)
-        .draw().unwrap();
-
-    root.present().unwrap();
-    return;*/
     let points = [
         [30, 24, 1],
         [21, 6, 1],
@@ -63,6 +36,39 @@ fn main() {
 
     let curve: hermite::Spline<f64> = num_opt::hermite::Spline::new(&points);
     let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 5.0);
+    phys.set_v(&MyVector3::new(0.0, 1.0, 0.0));
+
+    let mut max_u = 0.0;
+
+    let step = 0.05;
+
+    let err_at_u = |u: f64| {
+        let positions = phys.possible_positions(&curve, &step, &u);
+        let errs = positions.iter().map(|pos| {
+            let actual_hl_dir = curve.curve_at(&u).unwrap() - pos.inner();
+            let ideal_hl_dir = phys.next_hl_normal(u, &curve, &phys.v().speed());
+            actual_hl_dir.angle(&ideal_hl_dir)
+        });
+        errs.min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap_or(f64::MAX)
+    };
+
+    loop {
+        let p = phys.possible_positions(&curve, &step, &max_u);
+        
+        if p.len() == 0 {
+            break;
+        }
+        println!("{:?}", p);
+        println!("u: {max_u}");
+        max_u += 0.001;
+    } 
+
+    let res = solver::find_minimum_golden_section(&0.0, &max_u, |u| err_at_u(*u), 1e-10);
+    println!("{:#?}", res);
+    let tgt = phys.possible_positions(&curve, &step, &res.unwrap().0);
+    println!("Target: {:#?}", tgt);
+
+    return;
 
     let start = Instant::now();
     let mut iters = 0;
