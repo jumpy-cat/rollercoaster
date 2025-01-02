@@ -32,8 +32,8 @@ pub fn plot(name: &str, data: &[f64]) {
         .unwrap();
     chart
         .configure_series_labels()
-        .background_style(&WHITE.mix(0.8))
-        .border_style(&BLACK)
+        .background_style(WHITE.mix(0.8))
+        .border_style(BLACK)
         .draw()
         .unwrap();
 

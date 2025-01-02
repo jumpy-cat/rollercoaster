@@ -11,14 +11,11 @@ static LOGGER: GodotLogger = GodotLogger {};
 #[gdextension]
 unsafe impl ExtensionLibrary for MyExtension {
     fn on_level_init(level: InitLevel) {
-        match level {
-            InitLevel::Scene => {
-                log::set_logger(&LOGGER).unwrap();
-                log::set_max_level(log::LevelFilter::Trace);
-                log::error!("Hello Godot!");
-                godot_print!(">!!!!");
-            }
-            _ => {}
+        if level == InitLevel::Scene {
+            log::set_logger(&LOGGER).unwrap();
+            log::set_max_level(log::LevelFilter::Trace);
+            log::error!("Hello Godot!");
+            godot_print!(">!!!!");
         }
     }
 }

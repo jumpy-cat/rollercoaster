@@ -14,7 +14,7 @@ pub fn find_root_or_minimum<T: MyFloat>(
     f: impl Fn(&T) -> T,
     epsilon: f64,
 ) -> DualResult<T> {
-    match find_root_bisection::<T>(&a, &b, |u|f(&u), epsilon) {
+    match find_root_bisection::<T>(a, b, |u|f(u), epsilon) {
         Some(v) => DualResult::Root(v.clone()),
         None => match find_minimum_golden_section(a, b, |u| f(u).pow(2), epsilon) {
             Ok(inner) => DualResult::Minimum(inner),
@@ -122,9 +122,9 @@ pub fn find_minimum_golden_section<T: MyFloat>(
     } else {
         // minimum is a boundary
         if potential > a_.clone() + T::from_f64(epsilon) {
-            Err((b_.clone(), f(&b_), HitBoundary::Upper))
+            Err((b_.clone(), f(b_), HitBoundary::Upper))
         } else {
-            Err((a_.clone(), f(&a_), HitBoundary::Lower))
+            Err((a_.clone(), f(a_), HitBoundary::Lower))
         }
     }
 }

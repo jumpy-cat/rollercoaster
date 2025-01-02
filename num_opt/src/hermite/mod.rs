@@ -7,7 +7,6 @@ use std::array;
 use std::num::NonZeroU32;
 
 use matrix::{matrix_raw, multiply_matrix_vector};
-use rug::Float;
 
 use crate::my_float::MyFloat;
 // Refer to a custom module that defines a Point struct used in splines.

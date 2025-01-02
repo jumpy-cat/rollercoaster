@@ -123,7 +123,7 @@ impl INode for Optimizer {
                                             worker_outbox
                                                 .send(FromWorker::NewPoints((
                                                     points.clone(),
-                                                    prev_cost.map(|x| MyFloatType::from_f64(x)),
+                                                    prev_cost.map(MyFloatType::from_f64),
                                                 )))
                                                 .unwrap();
                                         }
