@@ -36,6 +36,7 @@ pub struct PhysicsStateV3<T: MyFloat> {
     o: T,
     rot_inertia: T,
 
+    prev_u: T,
     u: T,
     x: ComPos<T>,
     v: ComVel<T>,
@@ -81,6 +82,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             g: g.clone(),
             o: T::from_f64(o),
             // simulation state
+            prev_u: T::zero(),
             u: T::zero(), //0.0,
             // center of mass
             x: ComPos::new(&(hl_pos.clone() - hl_normal.clone() * T::from_f64(o))), //o,
@@ -149,18 +151,53 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                 add_info!(self, found_exact_solution_, true);
                 u
             }
-            NewUSolution::Minimum(u, err) => {
+            NewUSolution::Minimum(new_u, err) => {
                 add_info!(self, found_exact_solution_, false);
                 add_info!(self, sol_err, err);
-                log::info!("No exact solution found! Lets take a look...");
                 if self.future_pos_no_vel(&step, &self.x).dist_between(&self.x)
                     > self.v.speed() * step.clone()
                 {
-                    log::info!("Gravity is overpowering velocity, this is probably ok");
+                    //log::info!("Gravity is overpowering velocity, this is probably ok");
                 } else {
+                    log::info!("No exact solution found! Lets take a look...");
                     log::info!("Gravity is not overpowering velocity, this is NOT ok");
+                    // check for continuity from previous step
+                    let mut u_step = 0.001;
+                    let mut u = self.prev_u.clone();
+                    let tgt_at_u = |u: T| self.target_pos_norm(
+                        u.clone(),
+                        &step,
+                        curve,
+                        false,
+                        &self.x,
+                        &self.v,
+                    )
+                    .0.inner();
+                    let mut zs = vec![];
+                    let mut p = tgt_at_u(u.clone());
+                    zs.push(p.z.to_f64());
+                    while u < new_u.clone() + T::from_f64(0.0) && u_step > TOL {
+                        let next_p = tgt_at_u(u.clone() + T::from_f64(u_step));
+                        zs.push(next_p.z.to_f64());
+                        let d = (next_p.clone() - p.clone()).magnitude();
+                        if d > 0.01 {
+                            u_step /= 2.0;
+                            continue;
+                        } else if d < 0.001 {
+                            u_step *= 2.0;
+                        }
+                        u = u.clone() + T::from_f64(u_step);
+                        p = next_p;
+
+                    }
+                    plot::plot("zs", &zs);
+                    if u_step <= TOL {
+                        log::error!("Continuity check failed for tgt pos!");
+                    } else {
+                        log::error!("Continuity check succeeded for tgt pos!");
+                    }
                 }
-                u
+                new_u
             }
         };
         add_info!(self, delta_u_, new_u.clone() - self.u.clone());
@@ -183,6 +220,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.hl_normal = target_hl_normal_;
 
         // updates
+        self.prev_u = self.u.clone();
         self.u = new_u;
         self.v = new_v;
         self.x = new_x;
@@ -199,6 +237,16 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         )
         .0.inner();
         add_info!(self, null_tgt_pos);
+        let tgt_pos_ = self.target_pos_norm(
+            self.u.clone(),
+            &step,
+            curve,
+            false,
+            &self.x,
+            &self.v,
+        )
+        .0.inner();
+        add_info!(self, tgt_pos, tgt_pos_);
 
         add_info!(
             self,
@@ -331,8 +379,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         }
         if lr == 0.0 {
             log::error!("LR Reached Zero! Something is wrong");
-            plot::plot("Errors", &errors);
-            plot::plot("Speeds", &speeds);
+            //plot::plot("Errors", &errors);
+            //plot::plot("Speeds", &speeds);
         }
         (guess, norm, errors, speeds, _error)
     }

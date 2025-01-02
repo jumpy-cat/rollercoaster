@@ -18,6 +18,7 @@ pub struct PhysicsAdditionalInfo<T: MyFloat> {
     pub potential_energy: f64,
     pub kinetic_energy: f64,
     pub null_tgt_pos: MyVector3<T>,
+    pub tgt_pos: MyVector3<T>,
 }
 
 impl<T: MyFloat> Default for PhysicsAdditionalInfo<T> {
@@ -37,6 +38,7 @@ impl<T: MyFloat> Default for PhysicsAdditionalInfo<T> {
             potential_energy: 0.0,
             kinetic_energy: 0.0,
             null_tgt_pos: MyVector3::default(),
+            tgt_pos: MyVector3::default(),
         }
     }
 }

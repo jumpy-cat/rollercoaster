@@ -196,6 +196,9 @@ impl CoasterPhysicsV3 {
             let curve = &curve.bind().inner;
             for _ in 0..5 {
                 let _ = phys.step(MyFloatType::from_f64(step_size), curve).is_none();
+                if !phys.additional_info().found_exact_solution_ {
+                    break;
+                }
             }
         }
     }
@@ -327,4 +330,10 @@ impl CoasterPhysicsV3 {
     fn null_tgt_pos(&self) -> Variant {
         impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.additional_info().null_tgt_pos.clone()))
     }
+
+    #[func]
+    fn tgt_pos(&self) -> Variant {
+        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.additional_info().tgt_pos.clone()))
+    }
+
 }

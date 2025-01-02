@@ -195,8 +195,8 @@ func _process(_delta: float) -> void:
 			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.2, Color.YELLOW)
 		else:
 			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.4, Color.RED)
-		
-
+		DebugDraw3D.draw_sphere(physics.null_tgt_pos(), 0.2, Color.PURPLE)
+		DebugDraw3D.draw_sphere(physics.tgt_pos(), 0.2, Color.PINK)
 
 		if anim_pos != null:
 			anim_prev_pos = anim_pos
