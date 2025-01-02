@@ -246,7 +246,7 @@ impl CoasterPhysicsV3 {
     }
 
     #[func]
-    fn future_target_pos(&self, curve: Gd<CoasterCurve>, delta_t: f64) -> Variant {
+    fn future_target_pos_no_discont(&self, curve: Gd<CoasterCurve>, delta_t: f64) -> Variant {
         //let v: Vec<Vector3> = vec![];
         //return Variant::from(v);
         let mut step: f64 = 0.00001;
@@ -280,6 +280,40 @@ impl CoasterPhysicsV3 {
                     }
                 }
                 prev = Some(p.clone());
+                out.push(myvec_to_gd(p));
+                o += step;
+                
+            }
+            if step == 0.0 {
+                godot_error!("Something is wrong");
+            }
+            out
+        })
+    }
+
+    #[func]
+    fn future_target_pos(&self, curve: Gd<CoasterCurve>, delta_t: f64) -> Variant {
+
+        let step: f64 = 0.01;
+        impl_physics_v3_getter!(self, |phys: &Inner| {
+            let curve = &curve.bind().inner;
+            let u = phys.u().to_f64() - step;
+            let mut o = step;
+            let mut out = vec![];
+            while o < 1.0 {
+                if u + o > curve.max_u() {
+                    break;
+                }
+                let p = phys.target_pos_norm(
+                    MyFloatType::from_f64(u + o),
+                    &MyFloatType::from_f64(delta_t),
+                    curve,
+                    false,
+                    phys.x(),
+                    phys.v(),
+                )
+                .0
+                .inner();
                 out.push(myvec_to_gd(p));
                 o += step;
                 

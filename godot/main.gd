@@ -150,7 +150,8 @@ func _process(_delta: float) -> void:
 	# update physics simulation
 	if curve != null:
 		anim.visible = true
-		var physics_did_step = ((!manual_physics && physics.found_exact_solution())
+		"""&& physics.found_exact_solution()"""
+		var physics_did_step = ((!manual_physics)# && physics.found_exact_solution())
 			|| Input.is_action_just_pressed("step_physics"))
 		if physics_did_step:
 			physics.step(curve, anim_step_size)
@@ -167,8 +168,8 @@ func _process(_delta: float) -> void:
 				hist_tgt_pos[i + 1],
 				Color.PURPLE
 			)
-		const TGT_LINE_UPDATE_FREQ = 10
-		if floor(physics.u() * TGT_LINE_UPDATE_FREQ) != hist_tgt_pos_assoc_u:
+		const TGT_LINE_UPDATE_FREQ = 2
+		if true:#floor(physics.u() * TGT_LINE_UPDATE_FREQ) != hist_tgt_pos_assoc_u:
 			var target_pos = physics.future_target_pos(curve, anim_step_size)
 			for i in range(len(target_pos) - 1): 
 				DebugDraw3D.draw_line(
@@ -192,9 +193,9 @@ func _process(_delta: float) -> void:
 		DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_up, Color.GREEN)
 
 		if physics.found_exact_solution():
-			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.2, Color.YELLOW)
+			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.4, Color.YELLOW)
 		else:
-			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.4, Color.RED)
+			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.6, Color.RED)
 		DebugDraw3D.draw_sphere(physics.null_tgt_pos(), 0.2, Color.PURPLE)
 		DebugDraw3D.draw_sphere(physics.tgt_pos(), 0.2, Color.PINK)
 
