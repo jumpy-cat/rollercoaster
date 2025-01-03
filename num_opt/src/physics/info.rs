@@ -19,6 +19,7 @@ pub struct PhysicsAdditionalInfo<T: MyFloat> {
     pub kinetic_energy: f64,
     pub null_tgt_pos: MyVector3<T>,
     pub tgt_pos: MyVector3<T>,
+    pub jitter_detected: bool,
 }
 
 impl<T: MyFloat> Default for PhysicsAdditionalInfo<T> {
@@ -39,6 +40,7 @@ impl<T: MyFloat> Default for PhysicsAdditionalInfo<T> {
             kinetic_energy: 0.0,
             null_tgt_pos: MyVector3::default(),
             tgt_pos: MyVector3::default(),
+            jitter_detected: false,
         }
     }
 }

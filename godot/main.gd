@@ -178,7 +178,7 @@ func _process(_delta: float) -> void:
 		DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_vel, Color.BLUE)
 		DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_up, Color.GREEN)
 
-		if physics.found_exact_solution():
+		if !physics.jitter_detected():
 			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.4, Color.YELLOW)
 		else:
 			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.6, Color.RED)

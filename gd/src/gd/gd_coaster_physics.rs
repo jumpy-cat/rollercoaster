@@ -253,6 +253,13 @@ impl CoasterPhysicsV3 {
     }
 
     #[func]
+    fn jitter_detected(&self) -> Variant {
+        impl_physics_v3_getter!(self, |phys: &Inner| phys
+            .additional_info()
+            .jitter_detected)
+    }
+
+    #[func]
     fn null_tgt_pos(&self) -> Variant {
         impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.additional_info().null_tgt_pos.clone()))
     }

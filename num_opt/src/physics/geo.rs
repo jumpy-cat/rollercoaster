@@ -102,7 +102,7 @@ pub fn sphere_circle_intersections<T: MyFloat>(sphere: &Sphere<T>, circle: &Circ
         println!("Sphere radius: {}", sphere.r);
         println!("Projected radius squared: {}", radius_squared);
     }    
-    if radius_squared < -T::from_f64(1e-10) {
+    if radius_squared < 0.0 {//-T::from_f64(1e-10) {
         if LOG {
 
         println!("No intersections: radius_squared < 0");

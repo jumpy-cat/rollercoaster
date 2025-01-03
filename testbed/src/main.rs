@@ -1,11 +1,14 @@
 use std::time::Instant;
 
+use log::{error, info};
 use num_opt::{
     hermite,
     physics::{self, linalg::{ComPos, MyVector3}, solver},
 };
 
 fn main() {
+    env_logger::init();
+    info!("???");
     let points = [
         [30, 24, 1],
         [21, 6, 1],
@@ -36,13 +39,16 @@ fn main() {
 
     let curve: hermite::Spline<f64> = num_opt::hermite::Spline::new(&points);
     let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 5.0);
-    phys.set_v(&MyVector3::new(0.0, 1.0, 0.0));
+    phys.set_v(&MyVector3::new(0.0, 0.01 * 0.05 * 256.0, 0.0));
 
     let step = 0.05;
 
-    let r = phys.determine_future_u_pos_norm(&step, &curve);
+    let r = phys.determine_future_u_pos_norm_maxu(&step, &curve);
+    error!("\n\\nn\nHIIIII");
+    info!("HIIIII {:#?}", r);
+    phys.step(&step,& curve);
 
-    println!("{:#?}", r);
+    info!("??: {:#?}", r);
 
     return;
 
@@ -54,7 +60,7 @@ fn main() {
         phys.step(&0.05, &curve);
     }
 
-    println!("{:#?}", phys);
+    info!("{:#?}", phys);
     println!("Iters: {} ({}/s)", iters, iters / 5);
 
     //let max_time = 75.0;
