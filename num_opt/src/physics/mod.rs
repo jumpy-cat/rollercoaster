@@ -92,7 +92,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             u: T::zero(), //0.0,
             // center of mass
             x: ComPos::new(&(hl_pos.clone() - hl_normal.clone() * T::from_f64(o))), //o,
-            v: ComVel::new(&MyVector3::new_f64(0.0, 0.0005, 0.0)),
+            v: ComVel::new(&MyVector3::new_f64(0.0, 1.0, 0.0)),
 
             // heart line
             hl_normal,
@@ -104,6 +104,80 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
     pub fn set_v(&mut self, v: &MyVector3<T>) {
         self.v = ComVel::new(v);
+    }
+
+    pub fn determine_future_u_pos_norm(
+        &self,
+        step: &T,
+        curve: &hermite::Spline<T>,
+    ) -> (T, ComPos<T>, MyVector3<T>) {
+        let actual_hl_dir =
+            |u: &T, pos: &ComPos<T>| (curve.curve_at(&u).unwrap() - pos.inner()).normalize();
+        let err = |u: &T, pos: &ComPos<T>| {
+            let ideal_hl_dir = self.next_hl_normal(u, &curve, &self.v().speed());
+            actual_hl_dir(u, pos).angle(&ideal_hl_dir)
+        };
+        let err_at_u = |u: &T| {
+            let positions = self.possible_positions(&curve, &step, &u);
+            let errs = positions.iter().map(|pos| err(u, pos));
+            errs.min_by(|a, b| a.partial_cmp(b).unwrap())
+                .unwrap_or(T::from_f64(f64::MAX))
+        };
+
+        let mut max_u = self.u.clone();
+        let mut find_max_u_step_size = T::from_f64(0.1); //0.1;
+
+        while find_max_u_step_size > TOL{
+            let p = self.possible_positions(
+                &curve,
+                &step,
+                &(max_u.clone() + find_max_u_step_size.clone()),
+            );
+
+            if p.len() == 0 {
+                find_max_u_step_size /= 2.0;
+            } else {
+                max_u += find_max_u_step_size.clone();
+            }
+            println!("{:?}", p);
+            println!("u: {max_u}");
+        }
+
+        println!("Max u positions: {:?}", self.possible_positions(
+            &curve,
+            &step,
+            &max_u,
+        ));
+
+        let res = solver::find_minimum_golden_section(&self.u, &max_u, |u| err_at_u(u), 1e-10);
+        println!("Res: {:#?}", res);
+        let new_u = match res {
+            Ok((u, v)) => u,
+            Err((u, v, b)) => {
+                log::debug!("Imprecise with {v}");
+                u
+            }
+        };
+        let tgt = match self
+            .possible_positions(&curve, &step, &new_u)
+            .into_iter()
+            .min_by(|a, b| {
+                let a_err = err(&new_u, a);
+                let b_err = err(&new_u, b);
+                a_err.partial_cmp(&b_err).unwrap()
+            }) {
+            Some(pos) => pos,
+            None => {
+                log::error!(
+                    "No possible positions du:{:?}, {:#?}",
+                    new_u - self.u.clone(),
+                    self.possible_positions(&curve, &step, &self.u)
+                );
+                panic!()
+            }
+        };
+        println!("Target: {:#?}", tgt);
+        (new_u.clone(), tgt.clone(), actual_hl_dir(&new_u, &tgt))
     }
 
     /// Steps forward in time by `step`, may choose to perform smaller step(s)
@@ -139,8 +213,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     /// We search for where on this domain we most closely match an ideal
     /// hl-normal.
     ///
-    pub fn step(&mut self, step: T, curve: &hermite::Spline<T>) -> Option<()> {
-        let new_u: T = todo!();
+    pub fn step(&mut self, step: &T, curve: &hermite::Spline<T>) -> Option<()> {
+        let (new_u, tgt_pos, tgt_norm) = self.determine_future_u_pos_norm(step, curve);
         add_info!(self, delta_u_, new_u.clone() - self.u.clone());
         add_info!(self, delta_t_, step.clone());
         add_info!(
@@ -150,13 +224,13 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         );
 
         // new update rule
-        let (tgt_pos, _norm, err): (_, MyVector3<T>, T) = todo!();
+        //let (tgt_pos, _norm, err): (_, MyVector3<T>, T) = todo!();
         let new_v = self.updated_v(&step, &tgt_pos);
         let new_x = self.x.clone() + new_v.to_displacement(step.clone());
 
         // rotation
-        let target_hl_normal_ = self.next_hl_normal(new_u.clone(), curve, &new_v.speed());
-        self.hl_normal = target_hl_normal_;
+        //let target_hl_normal_ = self.next_hl_normal(&new_u, curve, &new_v.speed());
+        self.hl_normal = tgt_norm.clone();
 
         // updates
         self.prev_u = self.u.clone();
@@ -166,7 +240,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
         let move_to_tgt_err = (tgt_pos - self.x.clone()).magnitude();
         add_info!(self, move_to_tgt_err);
-        let hl_normal_shift_err = _norm.angle(&self.hl_normal);
+        let hl_normal_shift_err = tgt_norm.angle(&self.hl_normal);
         add_info!(self, hl_normal_shift_err);
 
         //self.x = ComPos::new(&null_tgt_pos); //null_tgt_pos;
@@ -196,7 +270,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         ComVel::new(&(rotated_v + self.g.clone() * step.clone()))
     }
 
-    pub fn next_hl_normal(&self, u: T, curve: &hermite::Spline<T>, speed: &T) -> MyVector3<T> {
+    pub fn next_hl_normal(&self, u: &T, curve: &hermite::Spline<T>, speed: &T) -> MyVector3<T> {
         // Calculate heart line acceleration, using center of mass values
         let kappa = curve.curve_kappa_at(&u).unwrap();
         assert!(kappa >= 0.0);
@@ -217,7 +291,12 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         ComPos::new(&(curr_pos.inner() + self.g.clone() * delta_t.clone().pow(2)))
     }
 
-    pub fn possible_positions(&self, curve: &hermite::Spline<T>, delta_t: &T, u: &T) -> Vec<ComPos<T>> {
+    pub fn possible_positions(
+        &self,
+        curve: &hermite::Spline<T>,
+        delta_t: &T,
+        u: &T,
+    ) -> Vec<ComPos<T>> {
         let fpnv = self.future_pos_no_vel(delta_t, &self.x);
         let future_sphere = geo::Sphere {
             p: fpnv.inner(),
@@ -230,11 +309,14 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             curve.curve_normal_at(u).unwrap(),
         );
 
-        let circle = geo::Circle { r: self.o.clone(), u: T::zero(), v: T::zero() };
+        let circle = geo::Circle {
+            r: self.o.clone(),
+            u: T::zero(),
+            v: T::zero(),
+        };
 
-        let intersections = geo::sphere_circle_intersections(&future_sphere, &circle, &circle_plane);
-
-        log::info!("Intersections: {:#?}", intersections);
+        let intersections =
+            geo::sphere_circle_intersections(&future_sphere, &circle, &circle_plane);
 
         intersections.iter().map(|p| ComPos::new(p)).collect()
     }

@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use num_opt::{
     hermite,
-    physics::{self, linalg::MyVector3, solver},
+    physics::{self, linalg::{ComPos, MyVector3}, solver},
 };
 
 fn main() {
@@ -38,35 +38,11 @@ fn main() {
     let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 5.0);
     phys.set_v(&MyVector3::new(0.0, 1.0, 0.0));
 
-    let mut max_u = 0.0;
-
     let step = 0.05;
 
-    let err_at_u = |u: f64| {
-        let positions = phys.possible_positions(&curve, &step, &u);
-        let errs = positions.iter().map(|pos| {
-            let actual_hl_dir = curve.curve_at(&u).unwrap() - pos.inner();
-            let ideal_hl_dir = phys.next_hl_normal(u, &curve, &phys.v().speed());
-            actual_hl_dir.angle(&ideal_hl_dir)
-        });
-        errs.min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap_or(f64::MAX)
-    };
+    let r = phys.determine_future_u_pos_norm(&step, &curve);
 
-    loop {
-        let p = phys.possible_positions(&curve, &step, &max_u);
-        
-        if p.len() == 0 {
-            break;
-        }
-        println!("{:?}", p);
-        println!("u: {max_u}");
-        max_u += 0.001;
-    } 
-
-    let res = solver::find_minimum_golden_section(&0.0, &max_u, |u| err_at_u(*u), 1e-10);
-    println!("{:#?}", res);
-    let tgt = phys.possible_positions(&curve, &step, &res.unwrap().0);
-    println!("Target: {:#?}", tgt);
+    println!("{:#?}", r);
 
     return;
 
@@ -75,7 +51,7 @@ fn main() {
 
     while start.elapsed().as_secs_f64() < 5.0 {
         iters += 1;
-        phys.step(0.05, &curve);
+        phys.step(&0.05, &curve);
     }
 
     println!("{:#?}", phys);
@@ -86,7 +62,4 @@ fn main() {
     //let file_suffix = std::time::SystemTime::now().duration_since(UNIX_EPOCH);
     //let mut file =
     //    std::fs::File::create(format!("{}.txt", file_suffix.unwrap().as_secs())).unwrap();
-
-    
-
 }

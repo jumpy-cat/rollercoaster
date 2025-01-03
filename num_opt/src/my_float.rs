@@ -2,7 +2,7 @@
 //! The float does not have to be `Copy`, allowing `rug::Float` to be used
 
 use std::{
-     fmt::Display, ops::{Add, AddAssign, Div, Mul, Neg, Sub},
+     fmt::Display, ops::{Add, AddAssign, Div, DivAssign, Mul, Neg, Sub},
 };
 
 use num_traits::Pow;
@@ -41,6 +41,7 @@ pub trait MyFloat:
     + Sub<Output = Self>
     + Sub<f64, Output = Self>
     + Div<Output = Self>
+    + DivAssign<f64>
     + Neg<Output = Self>
     + PartialEq<f64>
     + PartialOrd<f64>

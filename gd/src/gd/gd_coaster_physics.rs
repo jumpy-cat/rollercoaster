@@ -195,7 +195,7 @@ impl CoasterPhysicsV3 {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
             for _ in 0..5 {
-                let _ = phys.step(MyFloatType::from_f64(step_size), curve).is_none();
+                let _ = phys.step(&MyFloatType::from_f64(step_size), curve).is_none();
                 if !phys.additional_info().found_exact_solution_ {
                     break;
                 }

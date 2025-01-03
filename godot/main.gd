@@ -123,8 +123,8 @@ func _ready() -> void:
 
 
 var anim_prev_pos = null
-var hist_tgt_pos = []
-var hist_tgt_pos_assoc_u = -1
+var hist_pos = []
+var last_pos = Vector3.ZERO
 
 
 func _process(_delta: float) -> void:
@@ -162,30 +162,16 @@ func _process(_delta: float) -> void:
 		if camera_follow_anim:
 			camera.op = anim_pos
 		
-		for i in range(len(hist_tgt_pos) - 1): 
+		for i in range(len(hist_pos) - 1): 
 			DebugDraw3D.draw_line(
-				hist_tgt_pos[i],
-				hist_tgt_pos[i + 1],
+				hist_pos[i],
+				hist_pos[i + 1],
 				Color.PURPLE
 			)
-		const TGT_LINE_UPDATE_FREQ = 2
-		if true:#floor(physics.u() * TGT_LINE_UPDATE_FREQ) != hist_tgt_pos_assoc_u:
-			var target_pos = physics.future_target_pos(curve, anim_step_size)
-			for i in range(len(target_pos) - 1): 
-				DebugDraw3D.draw_line(
-					target_pos[i],
-					target_pos[i + 1],
-					Color.RED
-				)
-			hist_tgt_pos = target_pos
-			hist_tgt_pos_assoc_u = floor(physics.u() * TGT_LINE_UPDATE_FREQ)
-		"""target_pos = physics.past_target_pos(curve, anim_step_size)
-		for i in range(len(target_pos) - 1):
-			DebugDraw3D.draw_line(
-				target_pos[i],
-				target_pos[i + 1],
-				Color.MAROON
-			)"""
+		const HIST_LINE_UPDATE_DIST = 0.1
+		if (anim_pos - last_pos).length() > HIST_LINE_UPDATE_DIST:
+			hist_pos.push_back(anim_pos)
+			last_pos = anim_pos
 
 		const MULT = 40;
 

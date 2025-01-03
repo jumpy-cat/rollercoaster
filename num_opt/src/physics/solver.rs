@@ -110,6 +110,9 @@ pub fn find_minimum_golden_section<T: MyFloat>(
             d = c;
             c = a.clone() + r.clone() * (b.clone() - a.clone());
         } else {
+            /*if fc == fd {
+                log::warn!("Golden section encountered equality: {c} {d} {fc}");
+            }*/
             // minimum is between c and b
             a = c;
             c = d;
@@ -161,6 +164,6 @@ pub fn check_vec_continuity<T: MyFloat>(a: &T, b: &T, f: impl Fn(&T) -> MyVector
     }
     plot::plot2("zs", &zs);
     plot::plot2("ys", &ys);
-    
+
     !disc
 } 
