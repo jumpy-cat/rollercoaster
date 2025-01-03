@@ -40,6 +40,7 @@ shape = SubResource("SphereShape3D_r0wmb")
 
 [node name="MeshInstance3D2" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.70093, 0)
+visible = false
 transparency = 0.5
 mesh = SubResource("CapsuleMesh_ncu23")
 

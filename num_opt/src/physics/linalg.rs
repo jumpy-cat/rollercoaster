@@ -46,6 +46,10 @@ impl<T: MyFloat> MyVector3<T> {
             + self.z.clone() * other.z.clone()
     }
 
+    pub fn make_ortho_to(&self, other: &MyVector3<T>) -> MyVector3<T> {
+        self.clone() - vector_projection(self.clone(), other.clone())
+    }
+
     pub fn magnitude(&self) -> T {
         self.magnitude_squared().sqrt()
     }

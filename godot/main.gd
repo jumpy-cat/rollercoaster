@@ -144,14 +144,14 @@ func _process(_delta: float) -> void:
 		push_warning("hi3")
 
 		#gravity = 0
-		physics = CoasterPhysicsV3.create(mass, gravity, curve, 5.0)	
-		push_warning("hi4")	
+		physics = CoasterPhysicsV3.create(mass, gravity, curve, 1.0)
+		push_warning("hi4")
 	
 	# update physics simulation
 	if curve != null:
 		anim.visible = true
 		"""&& physics.found_exact_solution()"""
-		var physics_did_step = ((!manual_physics)# && physics.found_exact_solution())
+		var physics_did_step = ((!manual_physics) # && physics.found_exact_solution())
 			|| Input.is_action_just_pressed("step_physics"))
 		if physics_did_step:
 			physics.step(curve, anim_step_size)
@@ -162,7 +162,7 @@ func _process(_delta: float) -> void:
 		if camera_follow_anim:
 			camera.op = anim_pos
 		
-		for i in range(len(hist_pos) - 1): 
+		for i in range(len(hist_pos) - 1):
 			DebugDraw3D.draw_line(
 				hist_pos[i],
 				hist_pos[i + 1],
@@ -173,10 +173,16 @@ func _process(_delta: float) -> void:
 			hist_pos.push_back(anim_pos)
 			last_pos = anim_pos
 
-		const MULT = 40;
+		const MULT = 1000;
 
 		DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_vel, Color.BLUE)
-		DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_up, Color.GREEN)
+		#DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_up, Color.GREEN)
+		var cp = curve.pos_at(physics.u());
+		var r = 1 / curve.kappa_at(physics.u()) + 1
+		var cpag = cp + MULT * physics.vel().length() ** 2 / r * curve.normal_at(physics.u())
+		DebugDraw3D.draw_line(cp, cpag, Color.RED)
+		DebugDraw3D.draw_line(cpag, cpag + MULT * Vector3(0, 0.01, 0), Color.ORCHID)
+		DebugDraw3D.draw_line(cp, cpag + MULT * Vector3(0, 0.01, 0), Color.WHITE)
 
 		if !physics.jitter_detected():
 			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.4, Color.YELLOW)
@@ -215,9 +221,9 @@ func _process(_delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton\
-		and event.button_index == MOUSE_BUTTON_LEFT\
-		and event.is_pressed()\
+	if event is InputEventMouseButton \
+		and event.button_index == MOUSE_BUTTON_LEFT \
+		and event.is_pressed() \
 	:
 		selected_index = null
 		selected_point = null
@@ -321,7 +327,7 @@ func _on_save_dialogue_file_selected(path: String) -> void:
 	
 	file.store_string(
 		JSON.stringify(
-			control_points\
+			control_points \
 				.map(func(cp): return [cp.position.x, cp.position.y, cp.position.z]),
 			"\t"
 		)
@@ -351,11 +357,11 @@ func _on_load_dialogue_file_selected(path: String) -> void:
 		return
 	
 	for item in json:
-		if item is not Array\
-			or len(item) != 3\
-			or item[0] is not float\
-			or item[1] is not float\
-			or item[2] is not float\
+		if item is not Array \
+			or len(item) != 3 \
+			or item[0] is not float \
+			or item[1] is not float \
+			or item[2] is not float \
 		:
 			add_child(diag)
 			diag.popup_centered_ratio()

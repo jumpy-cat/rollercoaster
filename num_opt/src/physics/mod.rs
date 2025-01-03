@@ -5,6 +5,7 @@ use std::{f64::consts::PI, process::exit};
 
 use info::PhysicsAdditionalInfo;
 use linalg::{vector_projection, ComPos, ComVel, MyVector3};
+use log::warn;
 use solver::HitBoundary;
 
 use crate::{hermite, my_float::MyFloat};
@@ -121,14 +122,25 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     ) -> T {
         let actual_hl_dir = (curve.curve_at(&u).unwrap() - pos.inner()).normalize();
 
-        //let d_potential = self.m.clone() * self.g.magnitude() * (pos.height() - self.x.height());
-        //let future_k = self.kinetic_energy() - d_potential;
-        //let future_spd = (future_k * 2.0 / self.m.clone()).max(&T::zero()).sqrt();
+        let d_potential = self.m.clone() * self.g.magnitude() * (pos.height() - self.x.height());
+        let future_k = self.kinetic_energy() - d_potential;
+        let future_spd = (future_k * 2.0 / self.m.clone()).max(&T::zero()).sqrt();
         let fut_vel = self.updated_v(step, pos);
         let future_spd = fut_vel.speed();
 
-        let ideal_hl_dir = self.next_hl_normal(u, &curve, &future_spd);
-        actual_hl_dir.angle(&ideal_hl_dir) // * self.v.inner().angle(&fut_vel.inner())
+        let ideal_hl_dir = self.next_hl_normal(u, &curve, &fut_vel);
+        //let tgt_hl_dir = ideal_hl_dir;
+        let path_of_least_resistance = self
+            .hl_normal
+            .make_ortho_to(&curve.curve_direction_at(u).unwrap())
+            .normalize();
+        let tgt_hl_dir = (path_of_least_resistance * T::from_f64(0.0)
+            + ideal_hl_dir.clone() * T::from_f64(1.0))
+        .normalize();
+        actual_hl_dir.angle(&tgt_hl_dir)
+        //actual_hl_dir.angle(&tgt_hl_dir) // + T::from_f64(0.01) * self.v.inner().angle(&fut_vel.inner())
+        //actual_hl_dir.cross(&ideal_hl_dir).magnitude() // sin(angle)
+        //actual_hl_dir.cross(&ideal_hl_dir).magnitude()
     }
 
     fn hl_normal_errs_at_u(&self, u: &T, curve: &hermite::Spline<T>, step: &T) -> (T, T) {
@@ -152,17 +164,11 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         &self,
         step: &T,
         curve: &hermite::Spline<T>,
-    ) -> (T, ComPos<T>, MyVector3<T>, T) {
+    ) -> Option<(T, ComPos<T>, MyVector3<T>, T)> {
         let actual_hl_dir =
             |u: &T, pos: &ComPos<T>| (curve.curve_at(&u).unwrap() - pos.inner()).normalize();
-        /*let err = |u: &T, pos: &ComPos<T>| {
-            let ideal_hl_dir = self.next_hl_normal(u, &curve, &self.v().speed());
-            actual_hl_dir(u, pos).angle(&ideal_hl_dir)
-        };*/
 
-        let min_u_progress = T::from_f64(0.0001);
-
-        let mut max_u = self.u.clone() + min_u_progress.clone();
+        let mut max_u = self.u.clone();
         let mut find_max_u_step_size = T::from_f64(0.1); //0.1;
 
         while find_max_u_step_size > TOL {
@@ -187,7 +193,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         );
 
         let res = solver::find_minimum_golden_section(
-            &(self.u.clone() + min_u_progress),
+            &self.u,
             &max_u,
             |u| self.hl_normal_errs_at_u(u, curve, step).0,
             TOL,
@@ -196,7 +202,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let new_u = match res {
             Ok((u, v)) => u,
             Err((u, v, b)) => {
-                log::debug!("Imprecise with {v}");
+                log::debug!("Imprecise with {v} {:?}", b);
                 u
             }
         };
@@ -210,12 +216,19 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             }) {
             Some(pos) => pos,
             None => {
-                log::error!(
-                    "No possible positions du:{:?}, {:#?}",
-                    new_u - self.u.clone(),
-                    self.possible_positions(&curve, &step, &self.u)
-                );
-                panic!()
+                if self.v.speed() < self.g.magnitude() * step.clone() {
+                    warn!("Stuck due to gravity!");
+                    return None;
+                } else {
+                    log::error!(
+                        "No possible positions du:{:?}, {:#?} v: {:?} g-imp: {}",
+                        new_u - self.u.clone(),
+                        self.possible_positions(&curve, &step, &self.u),
+                        self.v.speed(),
+                        self.g.magnitude() * step.clone()
+                    );
+                    panic!()
+                }
             }
         };
         println!("Target: {:#?}", tgt);
@@ -226,7 +239,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             max_u,
         );
         println!("Ret: {:#?}", ret);
-        ret
+        Some(ret)
     }
 
     /// Steps forward in time by `step`, may choose to perform smaller step(s)
@@ -264,7 +277,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     ///
     pub fn step(&mut self, step: &T, curve: &hermite::Spline<T>) -> Option<()> {
         self.i += 1;
-        let (new_u, tgt_pos, tgt_norm, max_u) = self.determine_future_u_pos_norm_maxu(step, curve);
+        let (new_u, tgt_pos, tgt_norm, max_u) =
+            self.determine_future_u_pos_norm_maxu(step, curve)?;
         add_info!(self, delta_u_, new_u.clone() - self.u.clone());
         add_info!(self, delta_t_, step.clone());
         add_info!(
@@ -323,20 +337,26 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         ComVel::new(&(rotated_v + self.g.clone() * step.clone()))
     }
 
-    pub fn next_hl_normal(&self, u: &T, curve: &hermite::Spline<T>, speed: &T) -> MyVector3<T> {
+    pub fn next_hl_normal(
+        &self,
+        u: &T,
+        curve: &hermite::Spline<T>,
+        vel: &ComVel<T>,
+    ) -> MyVector3<T> {
         // Calculate heart line acceleration, using center of mass values
+        let curve_dir = curve.curve_direction_at(&u).unwrap().normalize();
         let kappa = curve.curve_kappa_at(&u).unwrap();
         assert!(kappa >= 0.0);
         let r = T::one() / kappa + self.o.clone();
         #[allow(non_snake_case)]
         let N = curve.curve_normal_at(&u).unwrap();
-        let accel = N * speed.clone().pow(2) / r;
+        //let accel = N * curve_dir.dot(&vel.inner()).pow(2) / r;
+        let accel = N * vel.speed().pow(2) / r;
 
         let inner_ag_ = accel.clone() - self.g.clone();
 
-        let ortho_to = curve.curve_direction_at(&u).unwrap().normalize();
         (inner_ag_.clone().normalize()
-            - vector_projection(inner_ag_.clone().normalize(), ortho_to.clone()))
+            - vector_projection(inner_ag_.clone().normalize(), curve_dir.clone()))
         .normalize()
     }
 
@@ -387,6 +407,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     }
 
     pub fn description(&self) -> String {
-        self.additional_info.description()
+        format!("SPEED: {:.2}\n{}", self.v.speed(), self.additional_info.description())
     }
 }
