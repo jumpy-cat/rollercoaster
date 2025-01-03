@@ -49,7 +49,7 @@ where
     pub fn new(points: &[point::Point<T>]) -> Self {
         let mut params = vec![];
         for pts in points.windows(2) {
-            params.push(solve(&pts[0],& pts[1]));
+            params.push(solve(&pts[0], &pts[1]));
         }
         Self { params }
     }

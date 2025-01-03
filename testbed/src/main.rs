@@ -3,7 +3,11 @@ use std::time::Instant;
 use log::{error, info};
 use num_opt::{
     hermite,
-    physics::{self, linalg::{ComPos, MyVector3}, solver},
+    physics::{
+        self,
+        linalg::{ComPos, MyVector3},
+        solver,
+    },
 };
 
 fn main() {
@@ -46,7 +50,7 @@ fn main() {
     let r = phys.determine_future_u_pos_norm_maxu(&step, &curve);
     error!("\n\\nn\nHIIIII");
     info!("HIIIII {:#?}", r);
-    phys.step(&step,& curve);
+    phys.step(&step, &curve);
 
     info!("??: {:#?}", r);
 

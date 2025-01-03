@@ -1,5 +1,8 @@
 use godot::prelude::*;
-use num_opt::{my_float::{MyFloat, MyFloatType}, point};
+use num_opt::{
+    my_float::{MyFloat, MyFloatType},
+    point,
+};
 
 #[derive(GodotClass)]
 #[class(no_init)]
@@ -7,8 +10,6 @@ use num_opt::{my_float::{MyFloat, MyFloatType}, point};
 pub struct CoasterPoint {
     inner: point::Point<MyFloatType>,
 }
-
-
 
 impl CoasterPoint {
     pub fn new(point: point::Point<MyFloatType>) -> Self {

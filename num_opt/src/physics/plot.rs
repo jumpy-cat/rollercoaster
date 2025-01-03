@@ -32,13 +32,11 @@ fn plot_helper(
         .unwrap();
 
     chart
-        .draw_series(
-            PointSeries::<_, _, Circle<_, _>, _>::new(
-                dp2.iter().cloned(),
-                5,
-                &RED,
-            ),
-        )
+        .draw_series(PointSeries::<_, _, Circle<_, _>, _>::new(
+            dp2.iter().cloned(),
+            5,
+            &RED,
+        ))
         .unwrap();
 
     chart

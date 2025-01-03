@@ -1,10 +1,8 @@
-
 use godot::prelude::*;
 
 mod gd;
 
 struct MyExtension;
-
 
 static LOGGER: GodotLogger = GodotLogger {};
 
@@ -40,11 +38,12 @@ impl log::Log for GodotLogger {
             log::Level::Debug => "magenta",
             log::Level::Trace => "pink",
         };
-        godot_print_rich!("[color={color}]{}[/color] - {}", record.level(), record.args());
+        godot_print_rich!(
+            "[color={color}]{}[/color] - {}",
+            record.level(),
+            record.args()
+        );
     }
 
-    fn flush(&self) {
-        
-    }
+    fn flush(&self) {}
 }
-

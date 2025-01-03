@@ -59,9 +59,9 @@ fn cost<T: MyFloat>(
 
 /// Performs one step of GD to minimize the cost of the curve (gradients
 /// calculated using secant approximation)  
-/// 
+///
 /// Returns: the original cost, or `None` if this calculation failed
-/// 
+///
 /// - `initial`: starting physics state
 /// - `curve`: The Hermite spline to optimize
 /// - `points`: Array of control points for the spline
@@ -96,8 +96,7 @@ pub fn optimize<T: MyFloat>(
         let mut max_deriv_mag = 0.0;
         for dlist in &deriv {
             for d in dlist {
-                if let Some(d) = d
-                {
+                if let Some(d) = d {
                     if d.abs() > max_deriv_mag {
                         max_deriv_mag = d.abs().to_f64();
                     }

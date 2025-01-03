@@ -2,7 +2,8 @@
 //! The float does not have to be `Copy`, allowing `rug::Float` to be used
 
 use std::{
-     fmt::Display, ops::{Add, AddAssign, Div, DivAssign, Mul, Neg, Sub},
+    fmt::Display,
+    ops::{Add, AddAssign, Div, DivAssign, Mul, Neg, Sub},
 };
 
 use num_traits::Pow;
@@ -121,7 +122,7 @@ impl MyFloat for f64 {
     fn abs(&self) -> Self {
         f64::abs(*self)
     }
-    
+
     fn one() -> Self {
         1.0
     }
@@ -187,7 +188,7 @@ impl MyFloat for Float {
     fn abs(&self) -> Self {
         Float::abs(self.clone())
     }
-    
+
     fn one() -> Self {
         float!(1.0)
     }
@@ -196,5 +197,3 @@ impl MyFloat for Float {
         float!(0.0)
     }
 }
-
-

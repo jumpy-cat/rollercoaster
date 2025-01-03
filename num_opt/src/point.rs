@@ -1,6 +1,5 @@
 //! Point in 3D space with 3 derivatives
 
-
 use crate::my_float::MyFloat;
 
 /// We use nudge to explore the effect of small changes to each derivative while
@@ -73,7 +72,6 @@ where
             xppp: T::zero(),
             yppp: T::zero(),
             zppp: T::zero(),
-            
         }
     }
 

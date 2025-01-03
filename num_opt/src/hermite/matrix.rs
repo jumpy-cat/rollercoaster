@@ -6,21 +6,21 @@ pub fn matrix_raw<T: crate::my_float::MyFloat>() -> Vec<[T; 8]> {
             T::from_f64(20.0),
             T::from_f64(10.0),
             T::from_f64(2.0),
-            T::from_f64_fraction(1.0 , 6.0),
+            T::from_f64_fraction(1.0, 6.0),
             T::from_f64(-20.0),
             T::from_f64(10.0),
             T::from_f64(-2.0),
-            T::from_f64_fraction(1.0 , 6.0),
+            T::from_f64_fraction(1.0, 6.0),
         ],
         [
             T::from_f64(-70.0),
             T::from_f64(-36.0),
-            T::from_f64_fraction(-15.0 , 2.0),
-            T::from_f64_fraction(-2.0 , 3.0),
+            T::from_f64_fraction(-15.0, 2.0),
+            T::from_f64_fraction(-2.0, 3.0),
             T::from_f64(70.0),
             T::from_f64(-34.0),
-            T::from_f64_fraction(13.0 , 2.0),
-            T::from_f64_fraction(-1.0 , 2.0),
+            T::from_f64_fraction(13.0, 2.0),
+            T::from_f64_fraction(-1.0, 2.0),
         ],
         [
             T::from_f64(84.0),
@@ -30,23 +30,23 @@ pub fn matrix_raw<T: crate::my_float::MyFloat>() -> Vec<[T; 8]> {
             T::from_f64(-84.0),
             T::from_f64(39.0),
             T::from_f64(-7.0),
-            T::from_f64_fraction(1.0 , 2.0),
+            T::from_f64_fraction(1.0, 2.0),
         ],
         [
             T::from_f64(-35.0),
             T::from_f64(-20.0),
             T::from_f64(-5.0),
-            T::from_f64_fraction(-2.0 , 3.0),
+            T::from_f64_fraction(-2.0, 3.0),
             T::from_f64(35.0),
             T::from_f64(-15.0),
-            T::from_f64_fraction(5.0 , 2.0),
-            T::from_f64_fraction(-1.0 , 6.0),
+            T::from_f64_fraction(5.0, 2.0),
+            T::from_f64_fraction(-1.0, 6.0),
         ],
         [
             T::from_f64(0.0),
             T::from_f64(0.0),
             T::from_f64(0.0),
-            T::from_f64_fraction(1.0 , 6.0),
+            T::from_f64_fraction(1.0, 6.0),
             T::from_f64(0.0),
             T::from_f64(0.0),
             T::from_f64(0.0),
@@ -55,7 +55,7 @@ pub fn matrix_raw<T: crate::my_float::MyFloat>() -> Vec<[T; 8]> {
         [
             T::from_f64(0.0),
             T::from_f64(0.0),
-            T::from_f64_fraction(1.0 , 2.0),
+            T::from_f64_fraction(1.0, 2.0),
             T::from_f64(0.0),
             T::from_f64(0.0),
             T::from_f64(0.0),
@@ -85,7 +85,7 @@ pub fn matrix_raw<T: crate::my_float::MyFloat>() -> Vec<[T; 8]> {
     ]
 }
 
-/// [a b c]   [x]   [ax + by + cz] 
+/// [a b c]   [x]   [ax + by + cz]
 /// [d e f] x [y] = [dx + ey + fz]
 /// [g h i]   [z]   [gx + hy + iz]
 pub fn multiply_matrix_vector<T: MyFloat>(m: &[[T; 8]], v: &[T]) -> Vec<T> {

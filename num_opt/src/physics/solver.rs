@@ -16,7 +16,7 @@ pub fn find_root_or_minimum<T: MyFloat>(
     f: impl Fn(&T) -> T,
     epsilon: f64,
 ) -> DualResult<T> {
-    match find_root_bisection::<T>(a, b, |u|f(u), epsilon) {
+    match find_root_bisection::<T>(a, b, |u| f(u), epsilon) {
         Some(v) => DualResult::Root(v.clone()),
         None => match find_minimum_golden_section(a, b, |u| f(u).pow(2), epsilon) {
             Ok(inner) => DualResult::Minimum(inner),
@@ -147,8 +147,8 @@ pub fn check_vec_continuity<T: MyFloat>(a: &T, b: &T, f: impl Fn(&T) -> MyVector
             x_step = 0.001;
         }
         let next_p = f(&(x.clone() + T::from_f64(x_step)));
-        zs.push((x.to_f64() , next_p.z.to_f64()));
-        ys.push((x.to_f64() , next_p.y.to_f64()));
+        zs.push((x.to_f64(), next_p.z.to_f64()));
+        ys.push((x.to_f64(), next_p.y.to_f64()));
         let d = (next_p.clone() - p.clone()).magnitude();
         if !disc {
             if d > 0.01 {
@@ -160,10 +160,9 @@ pub fn check_vec_continuity<T: MyFloat>(a: &T, b: &T, f: impl Fn(&T) -> MyVector
         }
         x += T::from_f64(x_step);
         p = next_p;
-
     }
     plot::plot2("zs", &zs);
     plot::plot2("ys", &ys);
 
     !disc
-} 
+}

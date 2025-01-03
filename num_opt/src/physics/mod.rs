@@ -120,7 +120,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         pos: &ComPos<T>,
     ) -> T {
         let actual_hl_dir = (curve.curve_at(&u).unwrap() - pos.inner()).normalize();
-        
+
         //let d_potential = self.m.clone() * self.g.magnitude() * (pos.height() - self.x.height());
         //let future_k = self.kinetic_energy() - d_potential;
         //let future_spd = (future_k * 2.0 / self.m.clone()).max(&T::zero()).sqrt();
@@ -128,50 +128,18 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let future_spd = fut_vel.speed();
 
         let ideal_hl_dir = self.next_hl_normal(u, &curve, &future_spd);
-        actual_hl_dir.angle(&ideal_hl_dir)// * self.v.inner().angle(&fut_vel.inner())
-    }
-
-    fn hl_normal_signed_err_at_u_manual_pos(
-        &self,
-        u: &T,
-        step: &T,
-        curve: &hermite::Spline<T>,
-        pos: &ComPos<T>,
-    ) -> T {
-        let actual_hl_dir = (curve.curve_at(&u).unwrap() - pos.inner()).normalize();
-        
-        //let d_potential = self.m.clone() * self.g.magnitude() * (pos.height() - self.x.height());
-        //let future_k = self.kinetic_energy() - d_potential;
-        //let future_spd = (future_k * 2.0 / self.m.clone()).max(&T::zero()).sqrt();
-        let future_spd = self.updated_v(step, pos).speed();
-
-        let ideal_hl_dir = self.next_hl_normal(u, &curve, &future_spd);
-        let measurement_axis = MyVector3::new_f64(0.0, 0.0, 1.0);
-        measurement_axis.angle(&actual_hl_dir) - measurement_axis.angle(&ideal_hl_dir)
-       // actual_hl_dir.angle(&ideal_hl_dir)
-    }
-
-    fn hl_normal_signed_err_at_u(&self, u: &T, curve: &hermite::Spline<T>, step: &T) -> T {
-        let positions = self.possible_positions(&curve, &step, &u);
-        let errs: Vec<_> = positions
-            .iter()
-            .map(|pos| self.hl_normal_signed_err_at_u_manual_pos(u,step, curve, pos)).collect();
-        if errs.len() == 1 {
-            errs[0].clone()
-        } else {
-            errs[0].min(&errs[1])
-        }
+        actual_hl_dir.angle(&ideal_hl_dir) // * self.v.inner().angle(&fut_vel.inner())
     }
 
     fn hl_normal_errs_at_u(&self, u: &T, curve: &hermite::Spline<T>, step: &T) -> (T, T) {
         let positions = self.possible_positions(&curve, &step, &u);
         let errs: Vec<_> = positions
             .iter()
-            .map(|pos| self.hl_normal_err_at_u_manual_pos(u,step, curve, pos)).collect();
+            .map(|pos| self.hl_normal_err_at_u_manual_pos(u, step, curve, pos))
+            .collect();
         if errs.len() == 0 {
             (T::from_f64(f64::MAX), T::from_f64(f64::MAX))
-        }
-        else if errs.len() == 1 {
+        } else if errs.len() == 1 {
             (errs[0].clone(), errs[0].clone())
         } else {
             let min_e = errs[0].min(&errs[1]);
@@ -236,8 +204,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             .possible_positions(&curve, &step, &new_u)
             .into_iter()
             .min_by(|a, b| {
-                let a_err = self.hl_normal_err_at_u_manual_pos(&new_u,step, curve, a);
-                let b_err = self.hl_normal_err_at_u_manual_pos(&new_u,step, curve, b);
+                let a_err = self.hl_normal_err_at_u_manual_pos(&new_u, step, curve, a);
+                let b_err = self.hl_normal_err_at_u_manual_pos(&new_u, step, curve, b);
                 a_err.partial_cmp(&b_err).unwrap()
             }) {
             Some(pos) => pos,
@@ -251,8 +219,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             }
         };
         println!("Target: {:#?}", tgt);
-        let ret = 
-        (
+        let ret = (
             new_u.clone(),
             tgt.clone(),
             actual_hl_dir(&new_u, &tgt),
@@ -297,18 +264,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     ///
     pub fn step(&mut self, step: &T, curve: &hermite::Spline<T>) -> Option<()> {
         self.i += 1;
-        /*if self.v.speed() - TOL <= self.g.magnitude() * step.clone() {
-            // special case
-            if curve.curve_direction_at(&self.u).unwrap().y < 0.0 {
-                // just update velocity
-                log::debug!("Velocity only step {} performed {:#?}", self.i, self.v);
-                self.v = ComVel::new(&(self.v.inner() + self.g.clone() * step.clone()));
-                return Some(());
-            } else {
-                log::warn!("Coaster stuck due to gravity!");
-                return None;
-            }
-        }*/
         let (new_u, tgt_pos, tgt_norm, max_u) = self.determine_future_u_pos_norm_maxu(step, curve);
         add_info!(self, delta_u_, new_u.clone() - self.u.clone());
         add_info!(self, delta_t_, step.clone());
@@ -329,47 +284,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
         let jitter_detected = new_v.inner().angle(&self.v.inner()) > T::from_f64(5.0 * PI / 180.0);
         add_info!(self, jitter_detected);
-        if jitter_detected {
-            /*let mut errs = vec![];
-            let mut dist_pos_poses = vec![];
-            for u in (0..=1000)
-                .map(|i| self.u.to_f64() + 0.001 * i as f64 * (max_u.to_f64() - self.u.to_f64()))
-            {
-                let e = self.hl_normal_errs_at_u(&T::from_f64(u), curve, step).0;
-                errs.push((
-                    u, e.to_f64() * 180.0 / PI,
-                ));
-
-                let pp = self.possible_positions(curve, &step, &T::from_f64(u));
-                let pp_dist = if pp.len() < 2 {
-                    0.0
-                } else {
-                    (pp[0].inner() - pp[1].inner()).magnitude().to_f64()
-                };
-                dist_pos_poses.push((u, pp_dist));//pp_dist);
-            }
-            plot::plot2_and_p(
-                "hl_normal_err_at_u",
-                &errs,
-                (
-                    new_u.to_f64(),
-                    self.hl_normal_errs_at_u(&new_u, curve, step).0.to_f64() * 180.0 / PI,
-                ),
-            );*/
-            /*plot::plot2_and_p(
-                "hl_normal_err2_at_u",
-                &other_errs,
-                (
-                    new_u.to_f64(),
-                    self.hl_normal_errs_at_u(&new_u, curve, step).0.to_f64() * 180.0 / PI,
-                ),
-            //);*/
-            /*plot::plot2_and_p(
-                "dist_pos_poses",
-                &dist_pos_poses,
-                (new_u.to_f64(), 0.0),
-            );*/
-        }
 
         // updates
         self.prev_u = self.u.clone();

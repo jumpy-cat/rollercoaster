@@ -41,7 +41,9 @@ impl<T: MyFloat> MyVector3<T> {
     }
 
     pub fn dot(&self, other: &MyVector3<T>) -> T {
-        self.x.clone() * other.x.clone() + self.y.clone() * other.y.clone() + self.z.clone() * other.z.clone()
+        self.x.clone() * other.x.clone()
+            + self.y.clone() * other.y.clone()
+            + self.z.clone() * other.z.clone()
     }
 
     pub fn magnitude(&self) -> T {
@@ -281,7 +283,6 @@ impl<T: MyFloat> Mul<MyQuaternion<T>> for MyQuaternion<T> {
         }
     }
 }
-
 
 // Typed Vectors
 

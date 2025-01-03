@@ -52,12 +52,9 @@ impl CoasterPhysics {
     /// Current position
     #[func]
     fn pos(&self, curve: Gd<CoasterCurve>) -> Variant {
-        if let Some(phys) = &self.inner
-            
-        {
-            if  let Some(pos) = phys.com_pos(&curve.bind().inner) {
+        if let Some(phys) = &self.inner {
+            if let Some(pos) = phys.com_pos(&curve.bind().inner) {
                 Variant::from(myvec_to_gd(&pos))
-
             } else {
                 Variant::nil()
             }
@@ -195,7 +192,9 @@ impl CoasterPhysicsV3 {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
             for _ in 0..5 {
-                let _ = phys.step(&MyFloatType::from_f64(step_size), curve).is_none();
+                let _ = phys
+                    .step(&MyFloatType::from_f64(step_size), curve)
+                    .is_none();
                 if !phys.additional_info().found_exact_solution_ {
                     break;
                 }
@@ -254,19 +253,20 @@ impl CoasterPhysicsV3 {
 
     #[func]
     fn jitter_detected(&self) -> Variant {
-        impl_physics_v3_getter!(self, |phys: &Inner| phys
-            .additional_info()
-            .jitter_detected)
+        impl_physics_v3_getter!(self, |phys: &Inner| phys.additional_info().jitter_detected)
     }
 
     #[func]
     fn null_tgt_pos(&self) -> Variant {
-        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.additional_info().null_tgt_pos.clone()))
+        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(
+            phys.additional_info().null_tgt_pos.clone()
+        ))
     }
 
     #[func]
     fn tgt_pos(&self) -> Variant {
-        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(phys.additional_info().tgt_pos.clone()))
+        impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(
+            phys.additional_info().tgt_pos.clone()
+        ))
     }
-
 }
