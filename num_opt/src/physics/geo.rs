@@ -73,11 +73,11 @@ pub fn circle_circle_intersections<T: MyFloat>(c1: &Circle<T>, c2: &Circle<T>) -
     }
 
     // If h_squared is very close to zero, circles are tangent
-    if h_squared.abs() < T::from_f64(1e-6) {
+    /*if h_squared.abs() < T::from_f64(1e-6) {
         let x0 = c1.u.clone() + a.clone() * (c2.u.clone() - c1.u.clone()) / d.clone();
         let y0 = c1.v.clone() + a.clone() * (c2.v.clone() - c1.v.clone()) / d.clone();
         return vec![(x0, y0)];
-    }
+    }*/
 
     let h = h_squared.sqrt();
     let x0 = c1.u.clone() + a.clone() * (c2.u.clone() - c1.u.clone()) / d.clone();

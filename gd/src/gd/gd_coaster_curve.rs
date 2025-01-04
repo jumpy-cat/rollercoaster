@@ -37,7 +37,7 @@ impl CoasterCurve {
     #[func]
     fn kappa_at(&self, u: f64) -> Variant {
         if let Some(kappa) = self.inner.curve_kappa_at(&MyFloat::from_f64(u)) {
-            Variant::from(kappa)
+            Variant::from(kappa.to_f64())
         } else {
             Variant::nil()
         }

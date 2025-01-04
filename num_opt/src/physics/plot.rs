@@ -7,8 +7,10 @@ fn plot_helper(
     max_x: f64,
     min_y: f64,
     max_y: f64,
-    dp: &[(f64, f64)],
-    dp2: &[(f64, f64)],
+    l: &[(f64, f64)],
+    p: &[(f64, f64)],
+    l2: &[(f64, f64)],
+    l3: &[(f64, f64)],
 ) {
     let save_path = format!(
         "/tmp/{name}_{}.png",
@@ -28,12 +30,18 @@ fn plot_helper(
         .unwrap();
     chart.configure_mesh().draw().unwrap();
     chart
-        .draw_series(LineSeries::new(dp.iter().cloned(), &RED))
+        .draw_series(LineSeries::new(l.iter().cloned(), &RED))
+        .unwrap();
+    chart
+        .draw_series(LineSeries::new(l2.iter().cloned(), &BLUE))
+        .unwrap();
+    chart
+        .draw_series(LineSeries::new(l3.iter().cloned(), &GREEN))
         .unwrap();
 
     chart
         .draw_series(PointSeries::<_, _, Circle<_, _>, _>::new(
-            dp2.iter().cloned(),
+            p.iter().cloned(),
             5,
             &RED,
         ))
@@ -53,7 +61,17 @@ pub fn plot(name: &str, data: &[f64]) {
     let data_min = data.iter().fold(f64::MAX, |acc, x| x.min(acc)).min(0.0);
     let data_max = data.iter().fold(f64::MIN, |acc, x| x.max(acc)).max(0.0);
     let dp: Vec<_> = (0..data.len()).map(|x| (x as f64, data[x])).collect();
-    plot_helper(name, 0.0, data.len() as f64, data_min, data_max, &dp, &[]);
+    plot_helper(
+        name,
+        0.0,
+        data.len() as f64,
+        data_min,
+        data_max,
+        &dp,
+        &[],
+        &[],
+        &[],
+    );
 }
 
 pub fn plot2(name: &str, data: &[(f64, f64)]) {
@@ -61,7 +79,7 @@ pub fn plot2(name: &str, data: &[(f64, f64)]) {
     let data_max = data.iter().fold(f64::MIN, |acc, x| x.1.max(acc)).max(0.0);
     let x_min = data.iter().fold(f64::MAX, |acc, x| x.0.min(acc));
     let x_max = data.iter().fold(f64::MIN, |acc, x| x.0.max(acc));
-    plot_helper(name, x_min, x_max, data_min, data_max, data, &[]);
+    plot_helper(name, x_min, x_max, data_min, data_max, data, &[], &[], &[]);
 }
 
 pub fn plot2_and_p(name: &str, data: &[(f64, f64)], p: (f64, f64)) {
@@ -69,5 +87,16 @@ pub fn plot2_and_p(name: &str, data: &[(f64, f64)], p: (f64, f64)) {
     let data_max = data.iter().fold(f64::MIN, |acc, x| x.1.max(acc)).max(0.0);
     let x_min = data.iter().fold(f64::MAX, |acc, x| x.0.min(acc));
     let x_max = data.iter().fold(f64::MIN, |acc, x| x.0.max(acc));
-    plot_helper(name, x_min, x_max, data_min, data_max, data, &[p]);
+    plot_helper(name, x_min, x_max, data_min, data_max, data, &[p], &[], &[]);
+}
+
+pub fn plot2_and_2_and_2(name: &str, d: &[(f64, f64)], d2: &[(f64, f64)], d3: &[(f64, f64)]) {
+    let c = d.iter().chain(d2.iter()).chain(d3.iter());
+    let data_min = c.clone()
+        .fold(f64::MAX, |acc, x| x.1.min(acc))
+        .min(0.0);
+    let data_max = c.clone().fold(f64::MIN, |acc, x| x.1.max(acc)).max(0.0);
+    let x_min = c.clone().fold(f64::MAX, |acc, x| x.0.min(acc));
+    let x_max = c.fold(f64::MIN, |acc, x| x.0.max(acc));
+    plot_helper(name, x_min, x_max, data_min, data_max, &d, &[], &d2, &d3);
 }

@@ -47,7 +47,7 @@ fn main() {
 
     let step = 0.05;
 
-    let r = phys.determine_future_u_pos_norm_maxu(&step, &curve);
+    let r = phys.determine_future_u_pos_norm_maxu_err(&step, &curve);
     error!("\n\\nn\nHIIIII");
     info!("HIIIII {:#?}", r);
     phys.step(&step, &curve);
