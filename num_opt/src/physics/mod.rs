@@ -504,7 +504,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.kinetic_energy() + self.potential_energy() + self.rot_energy(self.w.magnitude())
     }
 
-    fn kinetic_energy(&self) -> T {
+    pub fn kinetic_energy(&self) -> T {
         self.v.clone().speed().pow(2) * 0.5 * self.m.clone()
     }
 
@@ -512,7 +512,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.m.clone() * self.g.magnitude() * self.x.height().clone()
     }
 
-    fn rot_energy(&self, w_mag: T) -> T {
+    pub fn rot_energy(&self, w_mag: T) -> T {
         self.rot_inertia.clone() * w_mag.pow(2) * 0.5
     }
 

@@ -153,25 +153,6 @@ macro_rules! impl_physics_v3_getter {
     };
 }
 
-macro_rules! impl_physics_v3_getter_v2 {
-    ($self:ident, $closure:expr) => {
-        if let Some(phys) = &$self.inner {
-            Variant::from($closure(phys))
-        } else {
-            Variant::nil()
-        }
-    };
-}
-
-macro_rules! fn_maker {
-    () => {
-        #[func]
-        fn hi(&self) {}
-    };
-}
-
-// TODO: Consider a proc macro to reduce boilerplate
-// #[]
 #[godot_api]
 impl CoasterPhysicsV3 {
     /// Initialize with mass and gravity
@@ -268,5 +249,15 @@ impl CoasterPhysicsV3 {
         impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(
             phys.additional_info().tgt_pos.clone()
         ))
+    }
+
+    #[func]
+    fn t_kinetic_energy(&self) -> Variant {
+        impl_physics_v3_getter!(self, |phys: &Inner| phys.kinetic_energy())
+    }
+
+    #[func]
+    fn r_kinetic_energy(&self) -> Variant {
+        impl_physics_v3_getter!(self, |phys: &Inner| phys.rot_energy(phys.w().magnitude()))
     }
 }

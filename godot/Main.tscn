@@ -1,10 +1,11 @@
-[gd_scene load_steps=12 format=3 uid="uid://br738eihq2cus"]
+[gd_scene load_steps=11 format=3 uid="uid://br738eihq2cus"]
 
 [ext_resource type="Script" path="res://main.gd" id="1_w5dqp"]
 [ext_resource type="PackedScene" uid="uid://c3vuka4b0smhh" path="res://components/control_point.tscn" id="2_o72i1"]
 [ext_resource type="Script" path="res://util/camera_3d.gd" id="3_l1r6g"]
 [ext_resource type="PackedScene" uid="uid://c3kbfwnqi3i3v" path="res://components/ParamsManager.tscn" id="4_clt0v"]
 [ext_resource type="PackedScene" uid="uid://dp1iulbnn6wvy" path="res://components/anim.tscn" id="4_s6s4g"]
+[ext_resource type="PackedScene" uid="uid://dlwq4kmdb3bhs" path="res://addons/easy_charts/control_charts/chart.tscn" id="6_178b7"]
 [ext_resource type="PackedScene" uid="uid://lrwtmxyqpk37" path="res://components/PointEditComponent.tscn" id="7_lbbvv"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pnvk0"]
@@ -16,26 +17,16 @@ emission = Color(0.120418, 0.120418, 0.120418, 1)
 [sub_resource type="SystemFont" id="SystemFont_k2qav"]
 subpixel_positioning = 0
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_mwvwa"]
-shading_mode = 0
-vertex_color_use_as_albedo = true
-
-[sub_resource type="ImmediateMesh" id="ImmediateMesh_oh57q"]
-
-[node name="Main" type="Node3D" node_paths=PackedStringArray("point_edit_component", "params_manager", "save_file_dialog")]
+[node name="Main" type="Node3D" node_paths=PackedStringArray("point_edit_component", "params_manager", "save_file_dialog", "ke_chart")]
 script = ExtResource("1_w5dqp")
 control_point_scene = ExtResource("2_o72i1")
 point_edit_component = NodePath("VBoxContainer/PointEditComponent")
 params_manager = NodePath("VBoxContainer/ParamsManager")
 save_file_dialog = NodePath("SaveDialogue")
+ke_chart = NodePath("VBoxContainer/Chart")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 5.12004, 0)
-
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="DirectionalLight3D"]
-transform = Transform3D(1, 0, 0, 0, -1, 8.74228e-08, 0, -8.74228e-08, -1, 0, 1.6066, -5.28078)
-light_color = Color(0.0196078, 1, 1, 1)
-light_energy = 0.0
 
 [node name="BasicLines" type="MeshInstance3D" parent="."]
 material_override = SubResource("StandardMaterial3D_pnvk0")
@@ -49,8 +40,8 @@ script = null
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
 offset_left = 40.0
 offset_top = 62.0
-offset_right = 195.0
-offset_bottom = 662.0
+offset_right = 346.0
+offset_bottom = 1060.0
 scale = Vector2(1.5, 1.5)
 
 [node name="MainStats" type="Label" parent="VBoxContainer"]
@@ -86,9 +77,8 @@ layout_mode = 2
 [node name="PointEditComponent" parent="VBoxContainer" instance=ExtResource("7_lbbvv")]
 layout_mode = 2
 
-[node name="HLNormal" type="MeshInstance3D" parent="."]
-material_overlay = SubResource("StandardMaterial3D_mwvwa")
-mesh = SubResource("ImmediateMesh_oh57q")
+[node name="Chart" parent="VBoxContainer" instance=ExtResource("6_178b7")]
+layout_mode = 2
 
 [node name="PanOrbitCamera" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.941918)

@@ -8,6 +8,7 @@ extends Node3D
 @export var point_edit_component: PointEditComponent
 @export var params_manager: ParamsManager
 @export var save_file_dialog: FileDialog
+@export var ke_chart: Chart
 
 # Relevant child nodes
 @onready var camera: Camera3D = $PanOrbitCamera;
@@ -18,7 +19,6 @@ extends Node3D
 @onready var label: Label = $VBoxContainer/MainStats;
 @onready var optimizer_speed_label: Label = $VBoxContainer/OptimizerSpdLabel
 @onready var optimizer_checkbox: CheckButton = $VBoxContainer/CheckButton
-@onready var ke_chart: Chart = $KeChart
 
 var camera_follow_anim: bool = false
 var manual_physics = false
@@ -31,49 +31,7 @@ var control_points: Array[ControlPoint]
 var curve: CoasterCurve
 var physics: CoasterPhysicsV3
 
-## Input is an array of Vector3
-func set_points(points: Array[Vector3]) -> void:
-	# remove old control points
-	for cp in control_points:
-		cp.queue_free()
-	control_points = []
-
-	# create list of position vectors, calculate center, and create control points
-	var avg_pos = Vector3.ZERO
-	for i in range(len(points)):
-		var p = points[i]
-		var v = Vector3(p[0], p[1], p[2])
-		avg_pos += v
-		var control_point: ControlPoint = control_point_scene.instantiate();
-		control_point.initialize(v, i)
-		control_point.connect("clicked", Callable(self, "_on_control_point_clicked"))
-		control_points.push_back(control_point)
-		
-	avg_pos /= len(points)
-	
-	# position the camera so it can see all points
-	camera.op = avg_pos
-	var points_not_in_frame = true
-	while points_not_in_frame:
-		camera.recalculate_transform()
-		camera.od += 1
-		points_not_in_frame = false
-		for cp in control_points:
-			var p = cp.position
-			if not camera.is_position_in_frustum(p):
-				points_not_in_frame = true
-				break
-
-	# add points to scene
-	for cp in control_points:
-		add_child(cp)
-
-	var positions: Array[Vector3] = []
-	for cp in control_points:
-		positions.push_back(cp.position)
-	
-	# update optimizer
-	optimizer.set_points(positions)
+var f1: Function
 
 
 ## This function is called when the node is added to the scene.
@@ -88,8 +46,50 @@ func _ready() -> void:
 	conf.set_text_default_size(30)
 	DebugDraw2D.set_config(conf)
 
+	# Let's create our @x values
+	var x: Array = [0,0]
+	
+	# And our y values. It can be an n-size array of arrays.
+	# NOTE: `x.size() == y.size()` or `x.size() == y[n].size()`
+	var y: Array = ["Translation", "Rotation"]
+	
+	# Let's customize the chart properties, which specify how the chart
+	# should look, plus some additional elements like labels, the scale, etc...
+	var cp: ChartProperties = ChartProperties.new()
+	cp.colors.frame = Color("#161a1d")
+	cp.colors.background = Color.TRANSPARENT
+	cp.colors.grid = Color("#283442")
+	cp.colors.ticks = Color("#283442")
+	cp.colors.text = Color.WHITE_SMOKE
+	cp.show_tick_labels = false
+	cp.draw_bounding_box = false
+	cp.title = "Kinetic Energy"
+	cp.draw_grid_box = false
+	cp.show_legend = true
+	cp.interactive = true # false by default, it allows the chart to create a tooltip to show point values
+	# and intercept clicks on the plot
+	
+	var gradient: Gradient = Gradient.new()
+	gradient.set_color(0, Color.BLUE)
+	gradient.set_color(1, Color.DEEP_PINK)
+	
+	# Let's add values to our functions
+	f1 = Function.new(
+		x, y, "Language", # This will create a function with x and y values taken by the Arrays 
+						# we have created previously. This function will also be named "Pressure"
+						# as it contains 'pressure' values.
+						# If set, the name of a function will be used both in the Legend
+						# (if enabled thourgh ChartProperties) and on the Tooltip (if enabled).
+		{
+			gradient = gradient,
+			type = Function.Type.PIE
+		}
+	)
+	
+	# Now let's plot our data
+	ke_chart.plot([f1], cp)
 
-var anim_prev_pos = null
+
 var hist_pos = []
 var last_pos = Vector3.ZERO
 
@@ -98,20 +98,6 @@ const COM_OFFSET = 1;
 
 func _process(_delta: float) -> void:
 	DebugDraw2D.set_text("FPS", Engine.get_frames_per_second())
-
-	# handle key input
-	if Input.is_action_just_pressed("reset_curve"):
-		var positions: Array[Vector3] = []
-		for cp in control_points:
-			positions.push_back(cp.position)
-		optimizer.set_points(positions)
-	if Input.is_action_just_pressed("toggle_follow_anim"):
-		camera_follow_anim = !camera_follow_anim
-	if Input.is_action_just_pressed("run_simulation"):
-		curve = optimizer.get_curve()
-
-		#gravity = 0
-		physics = CoasterPhysicsV3.create(params_manager.mass, params_manager.gravity, curve, COM_OFFSET)
 	
 	# update physics simulation
 	if curve != null:
@@ -159,8 +145,11 @@ func _process(_delta: float) -> void:
 		DebugDraw3D.draw_sphere(physics.null_tgt_pos(), 0.2, Color.PURPLE)
 		DebugDraw3D.draw_sphere(physics.tgt_pos(), 0.2, Color.PINK)
 
+		f1.set_point(0, physics.t_kinetic_energy(), 0)
+		f1.set_point(1, physics.r_kinetic_energy(), 0)
+		ke_chart.queue_redraw()
+
 		if anim_pos != null:
-			anim_prev_pos = anim_pos
 			if anim_pos != anim_pos + anim_vel:
 				anim.look_at_from_position(anim_pos, anim_pos + anim_vel, anim_up)
 		else:
@@ -188,6 +177,51 @@ func _process(_delta: float) -> void:
 		optimizer_speed_label.text = "%.1f iter/s" % optimizer.iters_per_second()
 
 
+## Input is an array of Vector3
+func set_points(points: Array[Vector3]) -> void:
+	# remove old control points
+	for cp in control_points:
+		cp.queue_free()
+	control_points = []
+
+	# create list of position vectors, calculate center, and create control points
+	var avg_pos = Vector3.ZERO
+	for i in range(len(points)):
+		var p = points[i]
+		var v = Vector3(p[0], p[1], p[2])
+		avg_pos += v
+		var control_point: ControlPoint = control_point_scene.instantiate();
+		control_point.initialize(v, i)
+		control_point.connect("clicked", Callable(self, "_on_control_point_clicked"))
+		control_points.push_back(control_point)
+		
+	avg_pos /= len(points)
+	
+	# position the camera so it can see all points
+	camera.op = avg_pos
+	var points_not_in_frame = true
+	while points_not_in_frame:
+		camera.recalculate_transform()
+		camera.od += 1
+		points_not_in_frame = false
+		for cp in control_points:
+			var p = cp.position
+			if not camera.is_position_in_frustum(p):
+				points_not_in_frame = true
+				break
+
+	# add points to scene
+	for cp in control_points:
+		add_child(cp)
+
+	var positions: Array[Vector3] = []
+	for cp in control_points:
+		positions.push_back(cp.position)
+	
+	# update optimizer
+	optimizer.set_points(positions)
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton \
 		and event.button_index == MOUSE_BUTTON_LEFT \
@@ -206,6 +240,18 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			optimizer.enable_optimizer()
 		else:
 			optimizer.disable_optimizer()
+	if event.is_action_pressed("reset_curve"):
+		var positions: Array[Vector3] = []
+		for cp in control_points:
+			positions.push_back(cp.position)
+		optimizer.set_points(positions)
+	if event.is_action_pressed("toggle_follow_anim"):
+		camera_follow_anim = !camera_follow_anim
+	if event.is_action_pressed("run_simulation"):
+		curve = optimizer.get_curve()
+
+		#gravity = 0
+		physics = CoasterPhysicsV3.create(params_manager.mass, params_manager.gravity, curve, COM_OFFSET)
 	optimizer_checkbox.button_pressed = optimize
 
 
