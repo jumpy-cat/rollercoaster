@@ -1,10 +1,10 @@
 use std::{
-    num::NonZero,
-    sync::{mpsc, Mutex},
-    time::Instant,
+    collections::VecDeque, num::NonZero, sync::{mpsc, Mutex}, thread, time::Instant
 };
 
+use anyhow::anyhow;
 use godot::prelude::*;
+use log::{error, info, warn};
 use num_opt::{
     hermite,
     my_float::{MyFloat, MyFloatType},
@@ -14,12 +14,13 @@ use num_traits::cast::AsPrimitive;
 
 use super::{CoasterCurve, CoasterPoint};
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 enum Derivatives {
     Keep,
     Ignore,
 }
 
+#[derive(Debug, PartialEq)]
 /// Messages sent from an `Optimizer` to its worker thread
 enum ToWorker {
     Enable,
@@ -40,7 +41,7 @@ enum FromWorker {
 
 /// Makes the functionality in optimizer::optimize avaliable to Godot
 #[derive(GodotClass)]
-#[class(base=Node)]
+#[class(no_init)]
 pub struct Optimizer {
     points: Vec<point::Point<MyFloatType>>,
     curve: hermite::Spline<MyFloatType>,
@@ -53,90 +54,27 @@ pub struct Optimizer {
 }
 
 #[godot_api]
-impl INode for Optimizer {
+impl Optimizer {
+    #[func]
     /// Starts up the worker thread and sets point and curve to empty values
-    fn init(_base: Base<Node>) -> Self {
-        godot_print!("Hello from Optimizer!");
+    fn create() -> Gd<Optimizer> {
+        info!("Hello from Optimizer!");
 
         let (to_worker_tx, to_worker_rx) = mpsc::channel::<ToWorker>();
         let (to_main_tx, to_main_rx) = mpsc::channel();
 
-        let worker_outbox = to_main_tx;
-        let worker_inbox = to_worker_rx;
+        let outbox = to_main_tx;
+        let inbox = to_worker_rx;
 
-        std::thread::spawn(move || {
-            let mut active = false;
-            let mut points = vec![];
-            let mut curve: hermite::Spline<MyFloatType> = Default::default();
-            let mut mass = None;
-            let mut gravity = None;
-            let mut mu = None;
-            let mut lr = None;
-            let mut com_offset_mag = None;
-            loop {
-                while let Ok(msg) = if active {
-                    // avoid blocking if inactive
-                    worker_inbox.try_recv().map_err(|e| match e {
-                        mpsc::TryRecvError::Empty => (),
-                        mpsc::TryRecvError::Disconnected => panic!(),
-                    })
-                } else {
-                    // otherwise block
-                    worker_inbox.recv().map_err(|_| panic!())
-                } {
-                    match msg {
-                        ToWorker::Enable => active = true,
-                        ToWorker::Disable => active = false,
-                        ToWorker::SetPoints(vec, deriv) => {
-                            points = vec;
-                            if deriv == Derivatives::Ignore {
-                                hermite::set_derivatives_using_catmull_rom(&mut points);
-                            }
-                            curve = hermite::Spline::new(&points);
-                        }
-                        ToWorker::SetMass(v) => mass = Some(v),
-                        ToWorker::SetGravity(v) => gravity = Some(v),
-                        ToWorker::SetMu(v) => mu = Some(v),
-                        ToWorker::SetLR(v) => lr = Some(v),
-                        ToWorker::SetComOffsetMag(v) => com_offset_mag = Some(v),
-                    }
-                }
-                if active {
-                    if let Some(mass) = mass {
-                        if let Some(gravity) = gravity {
-                            if let Some(mu) = mu {
-                                if let Some(lr) = lr {
-                                    if let Some(com_offset_mag) = com_offset_mag {
-                                        let prev_cost = optimizer::optimize(
-                                            &physics::legacy::PhysicsState::new(
-                                                mass,
-                                                gravity,
-                                                mu,
-                                                com_offset_mag,
-                                            ),
-                                            &curve,
-                                            &mut points,
-                                            lr,
-                                        );
-                                        curve = hermite::Spline::new(&points);
-                                        if prev_cost.is_some() {
-                                            worker_outbox
-                                                .send(FromWorker::NewPoints((
-                                                    points.clone(),
-                                                    prev_cost.map(MyFloatType::from_f64),
-                                                )))
-                                                .unwrap();
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
+        let t = std::thread::spawn(|| Self::worker(inbox, outbox));
+        //log::debug!("{:#?}", t);
+        //let _r = t
+        //    .join()
+        //    .expect("Thread should be able to be joined");
 
-        Self {
+        //log::debug!("{:#?}", _r);
+
+        Gd::from_object(Self {
             points: vec![],
             curve: Default::default(),
             segment_points_cache: None,
@@ -145,17 +83,102 @@ impl INode for Optimizer {
             most_recent_cost: 0.0,
             num_iters: 0,
             start_time: None,
+        })
+    }
+    
+    fn worker(
+        inbox: mpsc::Receiver<ToWorker>,
+        outbox: mpsc::Sender<FromWorker>,
+    ) -> anyhow::Result<()> {
+        let mut active = false;
+        let mut points = vec![];
+        let mut curve: hermite::Spline<MyFloatType> = Default::default();
+        let mut mass = None;
+        let mut gravity = None;
+        let mut mu = None;
+        let mut lr = None;
+        let mut com_offset_mag = None;
+        let mut msg_queue = VecDeque::new();
+        loop {
+            // non-blocking optimistic check(s)
+            while let Ok(msg) = inbox.try_recv() {
+                if msg == ToWorker::Enable {
+                    active = true;
+                }
+                msg_queue.push_back(msg);
+            }
+            // also block if inactive
+            while !active {
+                match inbox.recv() {
+                    Ok(msg) => {
+                        if msg == ToWorker::Enable {
+                            active = true;
+                        }
+                        msg_queue.push_back(msg)
+                    }
+                    Err(e) => return Err(e.into()),
+                }
+            }
+            while let Some(msg) = msg_queue.pop_front() {
+                match msg {
+                    ToWorker::Enable => active = true,
+                    ToWorker::Disable => active = false,
+                    ToWorker::SetPoints(vec, deriv) => {
+                        points = vec;
+                        if deriv == Derivatives::Ignore {
+                            hermite::set_derivatives_using_catmull_rom(&mut points);
+                        }
+                        curve = hermite::Spline::new(&points);
+                    }
+                    ToWorker::SetMass(v) => mass = Some(v),
+                    ToWorker::SetGravity(v) => gravity = Some(v),
+                    ToWorker::SetMu(v) => mu = Some(v),
+                    ToWorker::SetLR(v) => lr = Some(v),
+                    ToWorker::SetComOffsetMag(v) => com_offset_mag = Some(v),
+                }
+            }
+            if active {
+                if let Some(mass) = mass {
+                    if let Some(gravity) = gravity {
+                        if let Some(mu) = mu {
+                            if let Some(lr) = lr {
+                                if let Some(com_offset_mag) = com_offset_mag {
+                                    let prev_cost = optimizer::optimize(
+                                        &physics::legacy::PhysicsState::new(
+                                            mass,
+                                            gravity,
+                                            mu,
+                                            com_offset_mag,
+                                        ),
+                                        &curve,
+                                        &mut points,
+                                        lr,
+                                    );
+                                    curve = hermite::Spline::new(&points);
+                                    if prev_cost.is_some() {
+                                        outbox.send(FromWorker::NewPoints((
+                                            points.clone(),
+                                            prev_cost.map(MyFloatType::from_f64),
+                                        )))?;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
+    #[func]
     /// Checks for results from worker thread
-    fn process(&mut self, _delta: f64) {
+    fn update(&mut self) {
         match self.from_worker.try_lock() {
             Ok(recv) => {
                 while let Ok(msg) = recv.try_recv() {
                     match msg {
                         FromWorker::NewPoints((points, cost)) => {
-                            //godot_print!("new points!");
+                            log::debug!("new points!");
                             self.segment_points_cache = None;
                             self.points = points;
                             if let Some(c) = cost {
@@ -169,25 +192,25 @@ impl INode for Optimizer {
             Err(e) => godot_print!("{:?}", e),
         }
     }
-}
 
-#[godot_api]
-impl Optimizer {
     /// Sets the mass
     #[func]
     fn set_mass(&mut self, mass: f64) {
+        info!("set_mass: {}", mass);
         self.to_worker.send(ToWorker::SetMass(mass)).unwrap();
     }
 
     /// Sets the value of gravity (acceleration, should be negative)
     #[func]
     fn set_gravity(&mut self, gravity: f64) {
+        info!("set_gravity: {}", gravity);
         self.to_worker.send(ToWorker::SetGravity(gravity)).unwrap();
     }
 
     /// Sets the friction coefficent between the coaster and the track
     #[func]
     fn set_mu(&mut self, mu: f64) {
+        info!("set_mu: {}", mu);
         self.to_worker.send(ToWorker::SetMu(mu)).unwrap();
     }
 
@@ -195,7 +218,14 @@ impl Optimizer {
     /// since derivatives are normalized if they exceed 1 in magnitude
     #[func]
     fn set_lr(&mut self, lr: f64) {
+        info!("set_lr: {}", lr);
         self.to_worker.send(ToWorker::SetLR(lr)).unwrap();
+    }
+
+    #[func]
+    fn set_com_offset_mag(&mut self, mag: f64) {
+        info!("set_com_offset_mag: {}", mag);
+        self.to_worker.send(ToWorker::SetComOffsetMag(mag)).unwrap();
     }
 
     /// Sets the points to be optimized.\
@@ -241,14 +271,10 @@ impl Optimizer {
             .unwrap();
     }
 
-    #[func]
-    fn set_com_offset_mag(&mut self, mag: f64) {
-        self.to_worker.send(ToWorker::SetComOffsetMag(mag)).unwrap();
-    }
-
     /// Enable the optimizer
     #[func]
     fn enable_optimizer(&mut self) {
+        info!("enable_optimizer");
         self.start_time = Some(Instant::now());
         self.num_iters = 0;
         self.to_worker.send(ToWorker::Enable).unwrap();
@@ -257,6 +283,7 @@ impl Optimizer {
     /// Disable the optimizer
     #[func]
     fn disable_optimizer(&mut self) {
+        info!("disable_optimizer");
         self.to_worker.send(ToWorker::Disable).unwrap();
     }
 

@@ -32,8 +32,6 @@ transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 5.1
 material_override = SubResource("StandardMaterial3D_pnvk0")
 mesh = SubResource("ImmediateMesh_hneuq")
 
-[node name="Optimizer" type="Optimizer" parent="."]
-
 [node name="Anim" parent="." instance=ExtResource("4_s6s4g")]
 script = null
 

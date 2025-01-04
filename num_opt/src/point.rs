@@ -38,7 +38,7 @@ macro_rules! adjust {
 }
 
 /// A point in 3D space with 1st, 2nd, and 3rd derivatives also specified
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Point<T> {
     pub x: T,
     pub y: T,

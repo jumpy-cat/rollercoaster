@@ -75,7 +75,7 @@ impl<T: MyFloat> PhysicsAdditionalInfo<T> {
     pub fn update(&mut self, u: &T) {
         if !self.has_made_plot && u > &2.0 {
             self.has_made_plot = true;
-            plot::plot2("curr_hl_tgt_hl_errs", &self.curr_hl_tgt_hl_errs);
+            //plot::plot2("curr_hl_tgt_hl_errs", &self.curr_hl_tgt_hl_errs);
         }
     }
 }

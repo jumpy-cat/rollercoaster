@@ -14,12 +14,12 @@ extends Node3D
 @onready var camera: Camera3D = $PanOrbitCamera;
 @onready var basic_lines: MeshInstance3D = $BasicLines;
 
-@onready var optimizer: Optimizer = $Optimizer;
 @onready var anim: Node3D = $Anim;
 @onready var label: Label = $VBoxContainer/MainStats;
 @onready var optimizer_speed_label: Label = $VBoxContainer/OptimizerSpdLabel
 @onready var optimizer_checkbox: CheckButton = $VBoxContainer/CheckButton
 
+var optimizer: Optimizer;
 var camera_follow_anim: bool = false
 var manual_physics = false
 var optimize: bool = false
@@ -40,6 +40,7 @@ func _ready() -> void:
 	point_edit_component.request_points();
 
 	# prepare the optimizer
+	optimizer = Optimizer.create();
 	params_manager.apply_to_optimizer(optimizer)
 	
 	var conf = DebugDraw2D.get_config()
@@ -97,6 +98,7 @@ const COM_OFFSET = 1;
 
 
 func _process(_delta: float) -> void:
+	optimizer.update()
 	DebugDraw2D.set_text("FPS", Engine.get_frames_per_second())
 	
 	# update physics simulation
@@ -240,6 +242,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			optimizer.enable_optimizer()
 		else:
 			optimizer.disable_optimizer()
+		optimizer_checkbox.button_pressed = optimize
 	if event.is_action_pressed("reset_curve"):
 		var positions: Array[Vector3] = []
 		for cp in control_points:
@@ -250,9 +253,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if event.is_action_pressed("run_simulation"):
 		curve = optimizer.get_curve()
 
-		#gravity = 0
 		physics = CoasterPhysicsV3.create(params_manager.mass, params_manager.gravity, curve, COM_OFFSET)
-	optimizer_checkbox.button_pressed = optimize
 
 
 func _on_check_button_toggled(toggled_on: bool) -> void:

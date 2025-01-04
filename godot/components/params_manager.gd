@@ -18,6 +18,7 @@ var com_offset_mag: float = 1.0
 @export var gravity_edit: FloatEdit
 @export var friction_edit: FloatEdit
 @export var anim_step_edit: FloatEdit
+@export var com_offset_edit: FloatEdit
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
@@ -27,6 +28,7 @@ func _ready() -> void:
 	gravity_edit.set_value(gravity)
 	friction_edit.set_value(friction)
 	anim_step_edit.set_value(anim_step_size)
+	com_offset_edit.set_value(com_offset_mag)
 
 
 func apply_to_optimizer(optimizer: Optimizer) -> void:
@@ -34,6 +36,7 @@ func apply_to_optimizer(optimizer: Optimizer) -> void:
 	optimizer.set_mass(mass)
 	optimizer.set_gravity(gravity)
 	optimizer.set_mu(friction)
+	optimizer.set_com_offset_mag(com_offset_mag)
 
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
@@ -68,4 +71,9 @@ func _on_friction_edit_value_changed(value: float) -> void:
 
 func _on_anim_step_edit_value_changed(value: float) -> void:
 	anim_step_size = value
+	params_changed.emit()
+
+
+func _on_com_offset_edit_value_changed(value: float) -> void:
+	com_offset_mag = value
 	params_changed.emit()
