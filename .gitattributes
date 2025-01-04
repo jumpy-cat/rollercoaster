@@ -1,2 +1,2 @@
-godot/addons linguist-vendored
-godot/examples_dd3d linguist-vendored
+godot/addons/** linguist-vendored
+godot/examples_dd3d/** linguist-vendored
