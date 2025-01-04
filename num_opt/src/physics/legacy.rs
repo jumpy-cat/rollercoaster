@@ -80,6 +80,7 @@ impl PhysicsState {
         //        = fg * dydu                           (dJ/ds)
         //        -> fg * dydu * step                   (ΔJ)
         // then add friction...
+        // my suggestion we should add ds/du for friction there
         let dkdu = fg * dydu - self.friction_force;
         let delta_k = step * dkdu;
         // dkdu is rate of work for this roller coaster.
