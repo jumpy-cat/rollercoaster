@@ -1,12 +1,11 @@
-[gd_scene load_steps=16 format=3 uid="uid://br738eihq2cus"]
+[gd_scene load_steps=12 format=3 uid="uid://br738eihq2cus"]
 
 [ext_resource type="Script" path="res://main.gd" id="1_w5dqp"]
 [ext_resource type="PackedScene" uid="uid://c3vuka4b0smhh" path="res://control_point.tscn" id="2_o72i1"]
 [ext_resource type="Script" path="res://util/camera_3d.gd" id="3_l1r6g"]
-[ext_resource type="Script" path="res://main_ui.gd" id="4_ejjj1"]
 [ext_resource type="PackedScene" uid="uid://dp1iulbnn6wvy" path="res://anim.tscn" id="4_s6s4g"]
 [ext_resource type="PackedScene" uid="uid://j0eftcg8cqve" path="res://ui/FloatEdit.tscn" id="5_svsvn"]
-[ext_resource type="PackedScene" uid="uid://dlwq4kmdb3bhs" path="res://addons/easy_charts/control_charts/chart.tscn" id="7_heboh"]
+[ext_resource type="PackedScene" uid="uid://lrwtmxyqpk37" path="res://ui/PointEditComponent.tscn" id="7_lbbvv"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pnvk0"]
 diffuse_mode = 2
@@ -17,23 +16,17 @@ emission = Color(0.120418, 0.120418, 0.120418, 1)
 [sub_resource type="SystemFont" id="SystemFont_k2qav"]
 subpixel_positioning = 0
 
-[sub_resource type="Theme" id="Theme_p2p34"]
-Label/colors/font_color = Color(1, 1, 1, 1)
-LineEdit/colors/font_color = Color(0.875, 0.875, 0.875, 1)
-
-[sub_resource type="Theme" id="Theme_kxmhj"]
-
-[sub_resource type="Theme" id="Theme_b8h1k"]
-
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_mwvwa"]
 shading_mode = 0
 vertex_color_use_as_albedo = true
 
 [sub_resource type="ImmediateMesh" id="ImmediateMesh_oh57q"]
 
-[node name="Main" type="Node3D"]
+[node name="Main" type="Node3D" node_paths=PackedStringArray("point_edit_component", "save_file_dialog")]
 script = ExtResource("1_w5dqp")
 control_point_scene = ExtResource("2_o72i1")
+point_edit_component = NodePath("PointEditComponent")
+save_file_dialog = NodePath("SaveDialogue")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 5.12004, 0)
@@ -58,7 +51,6 @@ offset_top = 62.0
 offset_right = 195.0
 offset_bottom = 662.0
 scale = Vector2(1.5, 1.5)
-script = ExtResource("4_ejjj1")
 
 [node name="MainStats" type="Label" parent="VBoxContainer"]
 layout_mode = 2
@@ -108,45 +100,9 @@ layout_mode = 2
 _name = "μ"
 value = 0.05
 
-[node name="XEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
-layout_mode = 2
-theme = SubResource("Theme_p2p34")
-_name = "x:"
-
-[node name="YEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
-layout_mode = 2
-theme = SubResource("Theme_kxmhj")
-_name = "y:"
-
-[node name="ZEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
-layout_mode = 2
-theme = SubResource("Theme_b8h1k")
-_name = "z:"
-
-[node name="LoadButton" type="Button" parent="VBoxContainer"]
-layout_mode = 2
-text = "Load Points"
-
 [node name="SaveButton" type="Button" parent="VBoxContainer"]
 layout_mode = 2
 text = "Save Points"
-
-[node name="LoadDialogue" type="FileDialog" parent="."]
-title = "Open a File"
-initial_position = 1
-size = Vector2i(600, 400)
-content_scale_factor = 2.0
-ok_button_text = "Open"
-file_mode = 0
-access = 2
-filters = PackedStringArray("*.json")
-use_native_dialog = true
-
-[node name="SaveDialogue" type="FileDialog" parent="."]
-size = Vector2i(303, 180)
-ok_button_text = "Save"
-access = 2
-use_native_dialog = true
 
 [node name="HLNormal" type="MeshInstance3D" parent="."]
 material_overlay = SubResource("StandardMaterial3D_mwvwa")
@@ -156,7 +112,19 @@ mesh = SubResource("ImmediateMesh_oh57q")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.941918)
 script = ExtResource("3_l1r6g")
 
-[node name="KeChart" parent="." instance=ExtResource("7_heboh")]
+[node name="PointEditComponent" parent="." instance=ExtResource("7_lbbvv")]
+offset_left = 38.0
+offset_top = 771.0
+offset_right = 38.0
+offset_bottom = 771.0
+scale = Vector2(1.5, 1.5)
+
+[node name="SaveDialogue" type="FileDialog" parent="."]
+auto_translate_mode = 1
+size = Vector2i(303, 180)
+ok_button_text = "Save"
+access = 2
+use_native_dialog = true
 
 [connection signal="toggled" from="VBoxContainer/CheckButton" to="." method="_on_check_button_toggled"]
 [connection signal="toggled" from="VBoxContainer/CheckBox" to="." method="_on_check_box_toggled"]
@@ -165,12 +133,8 @@ script = ExtResource("3_l1r6g")
 [connection signal="value_changed" from="VBoxContainer/MassEdit" to="." method="_on_mass_edit_value_changed"]
 [connection signal="value_changed" from="VBoxContainer/GravityEdit" to="." method="_on_gravity_edit_value_changed"]
 [connection signal="value_changed" from="VBoxContainer/FrictionEdit" to="." method="_on_friction_edit_value_changed"]
-[connection signal="value_changed" from="VBoxContainer/XEdit" to="." method="_on_x_edit_value_changed"]
-[connection signal="value_changed" from="VBoxContainer/YEdit" to="." method="_on_y_edit_value_changed"]
-[connection signal="value_changed" from="VBoxContainer/ZEdit" to="." method="_on_z_edit_value_changed"]
-[connection signal="pressed" from="VBoxContainer/LoadButton" to="." method="_on_load_button_pressed"]
 [connection signal="pressed" from="VBoxContainer/SaveButton" to="." method="_on_save_button_pressed"]
-[connection signal="file_selected" from="LoadDialogue" to="." method="_on_file_dialog_file_selected"]
-[connection signal="file_selected" from="LoadDialogue" to="." method="_on_load_dialogue_file_selected"]
-[connection signal="confirmed" from="SaveDialogue" to="." method="_on_save_dialogue_confirmed"]
+[connection signal="points_failed_to_load" from="PointEditComponent" to="." method="_on_point_edit_component_points_failed_to_load"]
+[connection signal="points_loaded" from="PointEditComponent" to="." method="_on_point_edit_component_points_loaded"]
+[connection signal="pos_changed" from="PointEditComponent" to="." method="_on_point_edit_component_pos_changed"]
 [connection signal="file_selected" from="SaveDialogue" to="." method="_on_save_dialogue_file_selected"]

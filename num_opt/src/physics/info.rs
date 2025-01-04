@@ -1,6 +1,7 @@
 use crate::my_float::MyFloat;
+use crate::plot;
 
-use super::{linalg::MyVector3, plot};
+use super::linalg::MyVector3;
 
 #[derive(Debug)]
 pub struct PhysicsAdditionalInfo<T: MyFloat> {

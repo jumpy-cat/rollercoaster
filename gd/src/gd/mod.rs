@@ -1,4 +1,4 @@
-//! Making the neccessary functionality accessible from Godot
+//! Wrappers for num_opt types
 
 extern crate nalgebra as na;
 

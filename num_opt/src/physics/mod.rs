@@ -8,13 +8,12 @@ use linalg::{vector_projection, ComPos, ComVel, MyQuaternion, MyVector3};
 use log::warn;
 use solver::HitBoundary;
 
-use crate::{hermite, my_float::MyFloat};
+use crate::{hermite, my_float::MyFloat, plot};
 
 mod geo;
 mod info;
 pub mod legacy;
 pub mod linalg;
-mod plot;
 pub mod solver;
 
 #[cfg(test)]
@@ -87,7 +86,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             i: 0,
             // constants
             m: T::from_f64(m),
-            rot_inertia: T::from_f64(1.0),
+            rot_inertia: T::from_f64(0.1),
             g: g.clone(),
             o: T::from_f64(o),
             // simulation state

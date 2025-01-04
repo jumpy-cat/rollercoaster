@@ -1,0 +1,68 @@
+[gd_scene load_steps=6 format=3 uid="uid://lrwtmxyqpk37"]
+
+[ext_resource type="PackedScene" uid="uid://j0eftcg8cqve" path="res://ui/FloatEdit.tscn" id="1_c3hxt"]
+[ext_resource type="Script" path="res://ui/point_edit_component.gd" id="1_of7fo"]
+
+[sub_resource type="Theme" id="Theme_cu08d"]
+Label/colors/font_color = Color(1, 0, 0, 1)
+LineEdit/colors/font_color = Color(1, 0, 0, 1)
+
+[sub_resource type="Theme" id="Theme_s1xom"]
+Label/colors/font_color = Color(0, 1, 0, 1)
+LineEdit/colors/font_color = Color(0, 1, 0, 1)
+
+[sub_resource type="Theme" id="Theme_we76f"]
+Label/colors/font_color = Color(0.529412, 0.807843, 0.921569, 1)
+LineEdit/colors/font_color = Color(0.529412, 0.807843, 0.921569, 1)
+
+[node name="PointEditComponent" type="Control" node_paths=PackedStringArray("x_edit", "y_edit", "z_edit", "load_file_dialog")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_of7fo")
+x_edit = NodePath("VBoxContainer/XEdit")
+y_edit = NodePath("VBoxContainer/YEdit")
+z_edit = NodePath("VBoxContainer/ZEdit")
+load_file_dialog = NodePath("LoadDialogue")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="XEdit" parent="VBoxContainer" instance=ExtResource("1_c3hxt")]
+layout_mode = 2
+theme = SubResource("Theme_cu08d")
+_name = "x:"
+
+[node name="YEdit" parent="VBoxContainer" instance=ExtResource("1_c3hxt")]
+layout_mode = 2
+theme = SubResource("Theme_s1xom")
+_name = "y:"
+
+[node name="ZEdit" parent="VBoxContainer" instance=ExtResource("1_c3hxt")]
+layout_mode = 2
+theme = SubResource("Theme_we76f")
+_name = "z:"
+
+[node name="LoadButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Load Points"
+
+[node name="LoadDialogue" type="FileDialog" parent="."]
+auto_translate_mode = 1
+title = "Open a File"
+initial_position = 1
+size = Vector2i(600, 400)
+content_scale_factor = 2.0
+ok_button_text = "Open"
+file_mode = 0
+access = 2
+filters = PackedStringArray("*.json")
+use_native_dialog = true
+
+[connection signal="pressed" from="VBoxContainer/LoadButton" to="." method="_on_load_button_pressed"]
+[connection signal="file_selected" from="LoadDialogue" to="." method="_on_load_dialogue_file_selected"]
