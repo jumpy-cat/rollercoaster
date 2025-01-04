@@ -32,7 +32,7 @@ enum NewUSolution<T: MyFloat> {
 /// delta_t(time step).  
 /// Determines cost based off of z direction (eyes down) g-forces measured at
 /// the heart, and rate of rotation.
-#[derive(getset::Getters, Debug)]
+#[derive(getset::Getters, Debug, Clone)]
 #[getset(get = "pub")]
 pub struct PhysicsStateV3<T: MyFloat> {
     // mostly constant
@@ -283,8 +283,13 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             return None;
         }
         self.i += 1;
-        let (new_u, tgt_pos, tgt_norm, max_u, err) =
-            self.determine_future_u_pos_norm_maxu_err(step, curve)?;
+        let r = self.determine_future_u_pos_norm_maxu_err(step, curve);
+        if r.is_none() {
+            // gravity stuck
+            self.cost = f64::NAN;
+            return None;
+        }
+        let (new_u, tgt_pos, tgt_norm, max_u, err) = r.unwrap();
         self.additional_info
             .curr_hl_tgt_hl_errs
             .push((new_u.to_f64(), err));

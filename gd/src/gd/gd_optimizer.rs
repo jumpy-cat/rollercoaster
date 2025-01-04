@@ -2,9 +2,8 @@ use std::{
     collections::VecDeque, num::NonZero, sync::{mpsc, Mutex}, thread, time::Instant
 };
 
-use anyhow::anyhow;
 use godot::prelude::*;
-use log::{error, info, warn};
+use log::info;
 use num_opt::{
     hermite,
     my_float::{MyFloat, MyFloatType},
@@ -66,13 +65,7 @@ impl Optimizer {
         let outbox = to_main_tx;
         let inbox = to_worker_rx;
 
-        let t = std::thread::spawn(|| Self::worker(inbox, outbox));
-        //log::debug!("{:#?}", t);
-        //let _r = t
-        //    .join()
-        //    .expect("Thread should be able to be joined");
-
-        //log::debug!("{:#?}", _r);
+        std::thread::spawn(|| Self::worker(inbox, outbox));
 
         Gd::from_object(Self {
             points: vec![],
@@ -143,13 +136,14 @@ impl Optimizer {
                         if let Some(mu) = mu {
                             if let Some(lr) = lr {
                                 if let Some(com_offset_mag) = com_offset_mag {
-                                    let prev_cost = optimizer::optimize(
-                                        &physics::legacy::PhysicsState::new(
+                                    let prev_cost = optimizer::optimize_v2(
+                                        &physics::PhysicsStateV3::new(mass, gravity, &curve, com_offset_mag)
+                                        /*&physics::legacy::PhysicsState::new(
                                             mass,
                                             gravity,
                                             mu,
                                             com_offset_mag,
-                                        ),
+                                        )*/,
                                         &curve,
                                         &mut points,
                                         lr,

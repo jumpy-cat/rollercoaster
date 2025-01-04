@@ -3,7 +3,7 @@ use crate::plot;
 
 use super::linalg::MyVector3;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PhysicsAdditionalInfo<T: MyFloat> {
     pub delta_u_: T,
     pub delta_t_: T,

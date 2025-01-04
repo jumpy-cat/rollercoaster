@@ -2,6 +2,7 @@
 /dist
 *.txt
 flamegraph.svg
+profile.json
 
 /godot/addons
 /godot/examples_dd3d

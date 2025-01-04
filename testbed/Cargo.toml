@@ -10,5 +10,11 @@ num_opt = { path = "../num_opt" }
 plotters = "0.3.7"
 rand = "0.8.5"
 
-[profile.release]
+[dev-dependencies]
+criterion = "0.5.1"
+
+[[bench]]
+name = "my_benchmark"
+harness = false
+
 
