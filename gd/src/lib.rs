@@ -10,8 +10,8 @@ struct MyExtension;
 unsafe impl ExtensionLibrary for MyExtension {
     fn on_level_init(level: InitLevel) {
         //if level == InitLevel::Scene {
-            logger::init();
-            log::info!("Hi");
+        logger::init();
+        log::info!("Hi");
         //}
     }
 }

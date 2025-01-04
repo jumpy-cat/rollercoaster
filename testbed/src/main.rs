@@ -42,17 +42,22 @@ fn main() {
     hermite::set_derivatives_using_catmull_rom(&mut points);
 
     let curve: hermite::Spline<f64> = num_opt::hermite::Spline::new(&points);
-    let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 5.0);
+    let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 1.0);
     phys.set_v(&MyVector3::new(0.0, 0.01 * 0.05 * 256.0, 0.0));
 
     let step = 0.05;
 
-    let r = phys.determine_future_u_pos_norm_maxu_err(&step, &curve);
-    error!("\n\\nn\nHIIIII");
-    info!("HIIIII {:#?}", r);
-    phys.step(&step, &curve);
+    let st = Instant::now();
 
-    info!("??: {:#?}", r);
+    while phys.step(&step, &curve).is_some() {
+        //log::trace!("{}", phys.u());
+    }
+
+    // elapsed ms
+    println!(
+        "Time: {}ms",
+        st.elapsed().as_millis(),
+    );
 
     return;
 

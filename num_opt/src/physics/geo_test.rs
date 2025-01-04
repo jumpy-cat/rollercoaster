@@ -103,9 +103,14 @@ mod tests {
         // Should return two very close points instead of exactly one
         assert_eq!(intersections.len(), 2);
         // Points should be very close to each other (within epsilon)
-        let dist = ((intersections[0].0 - intersections[1].0).powi(2) + 
-                   (intersections[0].1 - intersections[1].1).powi(2)).sqrt();
-        assert!(dist < 1e-6, "Tangent points should be very close, but were {} apart", dist);
+        let dist = ((intersections[0].0 - intersections[1].0).powi(2)
+            + (intersections[0].1 - intersections[1].1).powi(2))
+        .sqrt();
+        assert!(
+            dist < 1e-6,
+            "Tangent points should be very close, but were {} apart",
+            dist
+        );
         // The intersection points should be on both the circles
         for point in intersections.iter() {
             // Check if point is on c1 (distance from center = radius)
@@ -201,8 +206,13 @@ mod tests {
         // Should return two very close points instead of exactly one
         assert_eq!(tangent_intersections.len(), 2);
         // Points should be very close to each other (within epsilon)
-        let dist = (tangent_intersections[0].clone() - tangent_intersections[1].clone()).magnitude();
-        assert!(dist < 1e-6, "Tangent points should be very close, but were {} apart", dist);
+        let dist =
+            (tangent_intersections[0].clone() - tangent_intersections[1].clone()).magnitude();
+        assert!(
+            dist < 1e-6,
+            "Tangent points should be very close, but were {} apart",
+            dist
+        );
         // Verify the tangent points are on both sphere and circle
         for point in &tangent_intersections {
             // Check if point is on sphere (distance from center = radius)

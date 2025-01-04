@@ -58,11 +58,7 @@ impl Saver {
     #[func]
     fn to_path(path: String, points: Vec<Vector3>) -> Gd<Self> {
         Gd::from_object(Self {
-            success: Self::save(
-                path,  
-                points.iter().map(|p| [p.x, p.y, p.z]).collect(),
-            )
-            .is_ok(),
+            success: Self::save(path, points.iter().map(|p| [p.x, p.y, p.z]).collect()).is_ok(),
         })
     }
 

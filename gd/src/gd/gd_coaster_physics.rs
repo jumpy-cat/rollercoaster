@@ -38,13 +38,15 @@ impl CoasterPhysics {
             let u = phys.u();
 
             if let Some(drdu) = curve.curve_1st_derivative_at(&MyFloat::from_f64(u)) {
-                phys.step(
+                for _ in 0..5 {
+                        phys.step(
                     drdu.x.to_f64(),
                     drdu.y.to_f64(),
                     drdu.z.to_f64(),
                     physics::legacy::StepBehavior::Time,
                     step_size,
                 );
+            }
             }
         }
     }
@@ -172,7 +174,7 @@ impl CoasterPhysicsV3 {
     fn step(&mut self, curve: Gd<CoasterCurve>, step_size: f64) {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
-            for _ in 0..1 {
+            for _ in 0..5 {
                 let _ = phys
                     .step(&MyFloatType::from_f64(step_size), curve)
                     .is_none();

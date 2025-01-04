@@ -92,9 +92,7 @@ pub fn plot2_and_p(name: &str, data: &[(f64, f64)], p: (f64, f64)) {
 
 pub fn plot2_and_2_and_2(name: &str, d: &[(f64, f64)], d2: &[(f64, f64)], d3: &[(f64, f64)]) {
     let c = d.iter().chain(d2.iter()).chain(d3.iter());
-    let data_min = c.clone()
-        .fold(f64::MAX, |acc, x| x.1.min(acc))
-        .min(0.0);
+    let data_min = c.clone().fold(f64::MAX, |acc, x| x.1.min(acc)).min(0.0);
     let data_max = c.clone().fold(f64::MIN, |acc, x| x.1.max(acc)).max(0.0);
     let x_min = c.clone().fold(f64::MAX, |acc, x| x.0.min(acc));
     let x_max = c.fold(f64::MIN, |acc, x| x.0.max(acc));

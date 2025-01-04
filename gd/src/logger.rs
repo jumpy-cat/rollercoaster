@@ -1,5 +1,5 @@
 //! Colored logs to godot output
-//! 
+//!
 
 use godot::global::godot_print_rich;
 
@@ -20,7 +20,7 @@ impl log::Log for GodotLogger {
     fn log(&self, record: &log::Record) {
         //godot_print_rich!()
         let color = match record.level() {
-            log::Level::Error => "red", 
+            log::Level::Error => "red",
             log::Level::Warn => "yellow",
             log::Level::Info => "cyan",
             log::Level::Debug => "magenta",

@@ -6,5 +6,5 @@ pub mod hermite;
 pub mod my_float;
 pub mod optimizer;
 pub mod physics;
-pub mod point;
 mod plot;
+pub mod point;
