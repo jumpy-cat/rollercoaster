@@ -14,6 +14,7 @@ extends Node3D
 @onready var optimizer_checkbox: CheckButton = $VBoxContainer/CheckButton
 @onready var load_file_dialog: FileDialog = $LoadDialogue
 @onready var save_file_dialog: FileDialog = $SaveDialogue
+@onready var ke_chart: Chart = $KeChart
 
 # Point editing
 @onready var x_edit: FloatEdit = $VBoxContainer/XEdit

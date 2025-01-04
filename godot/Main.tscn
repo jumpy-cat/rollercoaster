@@ -1,11 +1,12 @@
-[gd_scene load_steps=15 format=3 uid="uid://br738eihq2cus"]
+[gd_scene load_steps=16 format=3 uid="uid://br738eihq2cus"]
 
 [ext_resource type="Script" path="res://main.gd" id="1_w5dqp"]
 [ext_resource type="PackedScene" uid="uid://c3vuka4b0smhh" path="res://control_point.tscn" id="2_o72i1"]
-[ext_resource type="Script" path="res://camera_3d.gd" id="3_l1r6g"]
+[ext_resource type="Script" path="res://util/camera_3d.gd" id="3_l1r6g"]
 [ext_resource type="Script" path="res://main_ui.gd" id="4_ejjj1"]
 [ext_resource type="PackedScene" uid="uid://dp1iulbnn6wvy" path="res://anim.tscn" id="4_s6s4g"]
-[ext_resource type="PackedScene" uid="uid://j0eftcg8cqve" path="res://FloatEdit.tscn" id="5_svsvn"]
+[ext_resource type="PackedScene" uid="uid://j0eftcg8cqve" path="res://ui/FloatEdit.tscn" id="5_svsvn"]
+[ext_resource type="PackedScene" uid="uid://dlwq4kmdb3bhs" path="res://addons/easy_charts/control_charts/chart.tscn" id="7_heboh"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pnvk0"]
 diffuse_mode = 2
@@ -154,6 +155,8 @@ mesh = SubResource("ImmediateMesh_oh57q")
 [node name="PanOrbitCamera" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.941918)
 script = ExtResource("3_l1r6g")
+
+[node name="KeChart" parent="." instance=ExtResource("7_heboh")]
 
 [connection signal="toggled" from="VBoxContainer/CheckButton" to="." method="_on_check_button_toggled"]
 [connection signal="toggled" from="VBoxContainer/CheckBox" to="." method="_on_check_box_toggled"]

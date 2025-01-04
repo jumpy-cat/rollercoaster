@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://j0eftcg8cqve"]
 
-[ext_resource type="Script" path="res://float_edit.gd" id="1_3h0y4"]
+[ext_resource type="Script" path="res://ui/float_edit.gd" id="1_3h0y4"]
 
 [node name="HBoxContainer" type="HBoxContainer"]
 offset_right = 40.0
