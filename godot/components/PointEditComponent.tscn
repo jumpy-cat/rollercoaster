@@ -1,7 +1,7 @@
 [gd_scene load_steps=6 format=3 uid="uid://lrwtmxyqpk37"]
 
-[ext_resource type="PackedScene" uid="uid://j0eftcg8cqve" path="res://ui/FloatEdit.tscn" id="1_c3hxt"]
-[ext_resource type="Script" path="res://ui/point_edit_component.gd" id="1_of7fo"]
+[ext_resource type="PackedScene" uid="uid://j0eftcg8cqve" path="res://components/FloatEdit.tscn" id="1_c3hxt"]
+[ext_resource type="Script" path="res://components/point_edit_component.gd" id="1_of7fo"]
 
 [sub_resource type="Theme" id="Theme_cu08d"]
 Label/colors/font_color = Color(1, 0, 0, 1)

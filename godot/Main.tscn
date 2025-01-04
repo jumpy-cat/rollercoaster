@@ -1,11 +1,11 @@
 [gd_scene load_steps=12 format=3 uid="uid://br738eihq2cus"]
 
 [ext_resource type="Script" path="res://main.gd" id="1_w5dqp"]
-[ext_resource type="PackedScene" uid="uid://c3vuka4b0smhh" path="res://control_point.tscn" id="2_o72i1"]
+[ext_resource type="PackedScene" uid="uid://c3vuka4b0smhh" path="res://components/control_point.tscn" id="2_o72i1"]
 [ext_resource type="Script" path="res://util/camera_3d.gd" id="3_l1r6g"]
-[ext_resource type="PackedScene" uid="uid://dp1iulbnn6wvy" path="res://anim.tscn" id="4_s6s4g"]
-[ext_resource type="PackedScene" uid="uid://j0eftcg8cqve" path="res://ui/FloatEdit.tscn" id="5_svsvn"]
-[ext_resource type="PackedScene" uid="uid://lrwtmxyqpk37" path="res://ui/PointEditComponent.tscn" id="7_lbbvv"]
+[ext_resource type="PackedScene" uid="uid://c3kbfwnqi3i3v" path="res://components/ParamsManager.tscn" id="4_clt0v"]
+[ext_resource type="PackedScene" uid="uid://dp1iulbnn6wvy" path="res://components/anim.tscn" id="4_s6s4g"]
+[ext_resource type="PackedScene" uid="uid://lrwtmxyqpk37" path="res://components/PointEditComponent.tscn" id="7_lbbvv"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pnvk0"]
 diffuse_mode = 2
@@ -22,10 +22,11 @@ vertex_color_use_as_albedo = true
 
 [sub_resource type="ImmediateMesh" id="ImmediateMesh_oh57q"]
 
-[node name="Main" type="Node3D" node_paths=PackedStringArray("point_edit_component", "save_file_dialog")]
+[node name="Main" type="Node3D" node_paths=PackedStringArray("point_edit_component", "params_manager", "save_file_dialog")]
 script = ExtResource("1_w5dqp")
 control_point_scene = ExtResource("2_o72i1")
-point_edit_component = NodePath("PointEditComponent")
+point_edit_component = NodePath("VBoxContainer/PointEditComponent")
+params_manager = NodePath("VBoxContainer/ParamsManager")
 save_file_dialog = NodePath("SaveDialogue")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
@@ -75,34 +76,15 @@ text = "-- iter/s"
 layout_mode = 2
 text = "Manual Physics"
 
-[node name="AnimStepEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
-layout_mode = 2
-_name = "Anim Step:"
-value = 0.01
-
-[node name="LREdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
-layout_mode = 2
-_name = "LR:"
-value = 1.0
-
-[node name="MassEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
-layout_mode = 2
-_name = "m:"
-value = 1.0
-
-[node name="GravityEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
-layout_mode = 2
-_name = "g:"
-value = -0.01
-
-[node name="FrictionEdit" parent="VBoxContainer" instance=ExtResource("5_svsvn")]
-layout_mode = 2
-_name = "μ"
-value = 0.05
-
 [node name="SaveButton" type="Button" parent="VBoxContainer"]
 layout_mode = 2
 text = "Save Points"
+
+[node name="ParamsManager" parent="VBoxContainer" instance=ExtResource("4_clt0v")]
+layout_mode = 2
+
+[node name="PointEditComponent" parent="VBoxContainer" instance=ExtResource("7_lbbvv")]
+layout_mode = 2
 
 [node name="HLNormal" type="MeshInstance3D" parent="."]
 material_overlay = SubResource("StandardMaterial3D_mwvwa")
@@ -111,13 +93,6 @@ mesh = SubResource("ImmediateMesh_oh57q")
 [node name="PanOrbitCamera" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.941918)
 script = ExtResource("3_l1r6g")
-
-[node name="PointEditComponent" parent="." instance=ExtResource("7_lbbvv")]
-offset_left = 38.0
-offset_top = 771.0
-offset_right = 38.0
-offset_bottom = 771.0
-scale = Vector2(1.5, 1.5)
 
 [node name="SaveDialogue" type="FileDialog" parent="."]
 auto_translate_mode = 1
@@ -128,13 +103,9 @@ use_native_dialog = true
 
 [connection signal="toggled" from="VBoxContainer/CheckButton" to="." method="_on_check_button_toggled"]
 [connection signal="toggled" from="VBoxContainer/CheckBox" to="." method="_on_check_box_toggled"]
-[connection signal="value_changed" from="VBoxContainer/AnimStepEdit" to="." method="_on_anim_step_edit_value_changed"]
-[connection signal="value_changed" from="VBoxContainer/LREdit" to="." method="_on_lr_edit_value_changed"]
-[connection signal="value_changed" from="VBoxContainer/MassEdit" to="." method="_on_mass_edit_value_changed"]
-[connection signal="value_changed" from="VBoxContainer/GravityEdit" to="." method="_on_gravity_edit_value_changed"]
-[connection signal="value_changed" from="VBoxContainer/FrictionEdit" to="." method="_on_friction_edit_value_changed"]
 [connection signal="pressed" from="VBoxContainer/SaveButton" to="." method="_on_save_button_pressed"]
-[connection signal="points_failed_to_load" from="PointEditComponent" to="." method="_on_point_edit_component_points_failed_to_load"]
-[connection signal="points_loaded" from="PointEditComponent" to="." method="_on_point_edit_component_points_loaded"]
-[connection signal="pos_changed" from="PointEditComponent" to="." method="_on_point_edit_component_pos_changed"]
+[connection signal="params_changed" from="VBoxContainer/ParamsManager" to="." method="_on_params_manager_params_changed"]
+[connection signal="points_failed_to_load" from="VBoxContainer/PointEditComponent" to="." method="_on_point_edit_component_points_failed_to_load"]
+[connection signal="points_loaded" from="VBoxContainer/PointEditComponent" to="." method="_on_point_edit_component_points_loaded"]
+[connection signal="pos_changed" from="VBoxContainer/PointEditComponent" to="." method="_on_point_edit_component_pos_changed"]
 [connection signal="file_selected" from="SaveDialogue" to="." method="_on_save_dialogue_file_selected"]

@@ -1,10 +1,12 @@
 extends Node3D
 
-const __ = preload("res://ui/PointEditComponent.tscn")
+#const __ = preload("res://components/PointEditComponent.tscn")
+#const ___ = preload("res://components/ParamsManager.tscn")
 
 # Used to show control points
 @export var control_point_scene: PackedScene
 @export var point_edit_component: PointEditComponent
+@export var params_manager: ParamsManager
 @export var save_file_dialog: FileDialog
 
 # Relevant child nodes
@@ -29,21 +31,6 @@ var control_points: Array[ControlPoint]
 var curve: CoasterCurve
 var physics: CoasterPhysicsV3
 
-# default parameter values
-var learning_rate: float = 1.0
-var mass: float = 1.00
-var gravity: float = -0.01
-var friction: float = 0.05
-var anim_step_size: float = 0.05
-var com_offset_mag: float = 1.0
-
-# parameter editing
-@onready var lr_edit: FloatEdit = $VBoxContainer/LREdit
-@onready var mass_edit: FloatEdit = $VBoxContainer/MassEdit
-@onready var gravity_edit: FloatEdit = $VBoxContainer/GravityEdit
-@onready var friction_edit: FloatEdit = $VBoxContainer/FrictionEdit
-@onready var anim_step_edit: FloatEdit = $VBoxContainer/AnimStepEdit
-
 ## Input is an array of Vector3
 func set_points(points: Array[Vector3]) -> void:
 	# remove old control points
@@ -51,7 +38,7 @@ func set_points(points: Array[Vector3]) -> void:
 		cp.queue_free()
 	control_points = []
 
-	# create list of position vectors, calculate center
+	# create list of position vectors, calculate center, and create control points
 	var avg_pos = Vector3.ZERO
 	for i in range(len(points)):
 		var p = points[i]
@@ -95,18 +82,7 @@ func _ready() -> void:
 	point_edit_component.request_points();
 
 	# prepare the optimizer
-	optimizer.set_mass(mass)
-	optimizer.set_gravity(gravity)
-	optimizer.set_mu(friction)
-	optimizer.set_lr(learning_rate)
-	optimizer.set_com_offset_mag(com_offset_mag)
-
-	# ui setup
-	lr_edit.set_value(learning_rate)
-	mass_edit.set_value(mass)
-	gravity_edit.set_value(gravity)
-	friction_edit.set_value(friction)
-	anim_step_edit.set_value(anim_step_size)
+	params_manager.apply_to_optimizer(optimizer)
 	
 	var conf = DebugDraw2D.get_config()
 	conf.set_text_default_size(30)
@@ -132,13 +108,10 @@ func _process(_delta: float) -> void:
 	if Input.is_action_just_pressed("toggle_follow_anim"):
 		camera_follow_anim = !camera_follow_anim
 	if Input.is_action_just_pressed("run_simulation"):
-		push_warning("hi2")
 		curve = optimizer.get_curve()
-		push_warning("hi3")
 
 		#gravity = 0
-		physics = CoasterPhysicsV3.create(mass, gravity, curve, COM_OFFSET)
-		push_warning("hi4")
+		physics = CoasterPhysicsV3.create(params_manager.mass, params_manager.gravity, curve, COM_OFFSET)
 	
 	# update physics simulation
 	if curve != null:
@@ -147,7 +120,7 @@ func _process(_delta: float) -> void:
 		var physics_did_step = ((!manual_physics) # && physics.found_exact_solution())
 			|| Input.is_action_just_pressed("step_physics"))
 		if physics_did_step:
-			physics.step(curve, anim_step_size)
+			physics.step(curve, params_manager.anim_step_size)
 		var anim_pos = physics.pos()
 		var anim_vel = physics.vel()
 		var anim_up = physics.hl_normal()
@@ -236,27 +209,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	optimizer_checkbox.button_pressed = optimize
 
 
-func _on_lr_edit_value_changed(value: float) -> void:
-	print(value)
-	learning_rate = value
-	optimizer.set_lr(learning_rate)
-
-
-func _on_mass_edit_value_changed(value: float) -> void:
-	mass = value
-	optimizer.set_mass(mass)
-
-
-func _on_gravity_edit_value_changed(value: float) -> void:
-	gravity = value
-	optimizer.set_gravity(gravity)
-
-
-func _on_friction_edit_value_changed(value: float) -> void:
-	friction = value
-	optimizer.set_mu(friction)
-
-
 func _on_check_button_toggled(toggled_on: bool) -> void:
 	if toggled_on:
 		optimizer.enable_optimizer()
@@ -274,10 +226,6 @@ func _on_control_point_clicked(index: int) -> void:
 		control_points[i].selected = (i == index)
 
 
-func _on_anim_step_edit_value_changed(value: float) -> void:
-	anim_step_size = value
-
-
 func _on_check_box_toggled(toggled_on: bool) -> void:
 	manual_physics = toggled_on
 
@@ -290,7 +238,6 @@ func _on_save_dialogue_file_selected(path: String) -> void:
 	var p: Array[Vector3] = [];
 	for cp in control_points:
 		p.push_back(cp.posi)
-	print(p)
 	
 	var saver = Saver.to_path(path, p)
 	if saver.success():
@@ -299,7 +246,6 @@ func _on_save_dialogue_file_selected(path: String) -> void:
 	var diag = AcceptDialog.new()
 	diag.content_scale_factor = 2
 	diag.dialog_text = "Failed to write file"
-
 	add_child(diag)
 	diag.popup_centered_ratio()
 
@@ -325,3 +271,7 @@ func _on_point_edit_component_points_failed_to_load() -> void:
 
 	add_child(diag)
 	diag.popup_centered_ratio()
+
+
+func _on_params_manager_params_changed() -> void:
+	params_manager.apply_to_optimizer(optimizer)

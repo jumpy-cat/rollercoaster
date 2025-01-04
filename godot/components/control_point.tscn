@@ -1,6 +1,6 @@
 [gd_scene load_steps=6 format=3 uid="uid://c3vuka4b0smhh"]
 
-[ext_resource type="Script" path="res://control_point.gd" id="1_3n11d"]
+[ext_resource type="Script" path="res://components/control_point.gd" id="1_3n11d"]
 
 [sub_resource type="SphereMesh" id="SphereMesh_ecjtu"]
 
