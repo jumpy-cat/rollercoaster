@@ -126,6 +126,8 @@ var anim_prev_pos = null
 var hist_pos = []
 var last_pos = Vector3.ZERO
 
+const COM_OFFSET = 1;
+
 
 func _process(_delta: float) -> void:
 	DebugDraw2D.set_text("FPS", Engine.get_frames_per_second())
@@ -144,7 +146,7 @@ func _process(_delta: float) -> void:
 		push_warning("hi3")
 
 		#gravity = 0
-		physics = CoasterPhysicsV3.create(mass, gravity, curve, 1.0)
+		physics = CoasterPhysicsV3.create(mass, gravity, curve, COM_OFFSET)
 		push_warning("hi4")
 	
 	# update physics simulation
@@ -178,11 +180,13 @@ func _process(_delta: float) -> void:
 		DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_vel, Color.BLUE)
 		#DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_up, Color.GREEN)
 		var cp = curve.pos_at(physics.u());
-		var r = 1 / curve.kappa_at(physics.u()) + 1
+		var r = 1 / curve.kappa_at(physics.u()) + COM_OFFSET
 		var cpag = cp + MULT * physics.vel().length() ** 2 / r * curve.normal_at(physics.u())
 		DebugDraw3D.draw_line(cp, cpag, Color.RED)
 		DebugDraw3D.draw_line(cpag, cpag + MULT * Vector3(0, 0.01, 0), Color.ORCHID)
 		DebugDraw3D.draw_line(cp, cpag + MULT * Vector3(0, 0.01, 0), Color.WHITE)
+
+		DebugDraw3D.draw_line(cp, cp + MULT * curve.normal_at(physics.u()), Color.YELLOW)
 
 		if !physics.jitter_detected():
 			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.4, Color.YELLOW)

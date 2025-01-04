@@ -155,9 +155,19 @@ mesh = SubResource("ImmediateMesh_oh57q")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.941918)
 script = ExtResource("3_l1r6g")
 
+[connection signal="toggled" from="VBoxContainer/CheckButton" to="." method="_on_check_button_toggled"]
 [connection signal="toggled" from="VBoxContainer/CheckBox" to="." method="_on_check_box_toggled"]
 [connection signal="value_changed" from="VBoxContainer/AnimStepEdit" to="." method="_on_anim_step_edit_value_changed"]
-[connection signal="file_selected" from="LoadDialogue" to="." method="_on_load_dialogue_file_selected"]
+[connection signal="value_changed" from="VBoxContainer/LREdit" to="." method="_on_lr_edit_value_changed"]
+[connection signal="value_changed" from="VBoxContainer/MassEdit" to="." method="_on_mass_edit_value_changed"]
+[connection signal="value_changed" from="VBoxContainer/GravityEdit" to="." method="_on_gravity_edit_value_changed"]
+[connection signal="value_changed" from="VBoxContainer/FrictionEdit" to="." method="_on_friction_edit_value_changed"]
+[connection signal="value_changed" from="VBoxContainer/XEdit" to="." method="_on_x_edit_value_changed"]
+[connection signal="value_changed" from="VBoxContainer/YEdit" to="." method="_on_y_edit_value_changed"]
+[connection signal="value_changed" from="VBoxContainer/ZEdit" to="." method="_on_z_edit_value_changed"]
+[connection signal="pressed" from="VBoxContainer/LoadButton" to="." method="_on_load_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/SaveButton" to="." method="_on_save_button_pressed"]
 [connection signal="file_selected" from="LoadDialogue" to="." method="_on_file_dialog_file_selected"]
+[connection signal="file_selected" from="LoadDialogue" to="." method="_on_load_dialogue_file_selected"]
 [connection signal="confirmed" from="SaveDialogue" to="." method="_on_save_dialogue_confirmed"]
 [connection signal="file_selected" from="SaveDialogue" to="." method="_on_save_dialogue_file_selected"]

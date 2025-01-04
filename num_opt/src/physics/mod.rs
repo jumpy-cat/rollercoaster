@@ -87,7 +87,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             i: 0,
             // constants
             m: T::from_f64(m),
-            rot_inertia: T::from_f64(0.2),
+            rot_inertia: T::from_f64(1.0),
             g: g.clone(),
             o: T::from_f64(o),
             // simulation state
@@ -135,11 +135,12 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             .hl_normal
             .make_ortho_to(&curve.curve_direction_at(u).unwrap())
             .normalize();
-        //let tgt_hl_dir = (path_of_least_resistance * T::from_f64(0.0)
-        //    + ideal_hl_dir.clone() * T::from_f64(1.0))
-        let tgt_hl_dir = ideal_hl_dir_c; //(ideal_hl_dir_p + ideal_hl_dir_c).normalize();
+        //let tgt_hl_dir = (path_of_least_resistance * T::from_f64(100.0)
+         //   + ideal_hl_dir_c.clone() * T::from_f64(1.0));
+        //let tgt_hl_dir = (ideal_hl_dir_p + path_of_least_resistance * 10.0).normalize();
                                          //.normalize();
-        (actual_hl_dir - tgt_hl_dir).magnitude()
+        let tgt_hl_dir = ideal_hl_dir_p;
+        (actual_hl_dir - tgt_hl_dir).magnitude_squared()
         //actual_hl_dir.angle(&tgt_hl_dir)
         //actual_hl_dir.angle(&tgt_hl_dir) // + T::from_f64(0.01) * self.v.inner().angle(&fut_vel.inner())
         //actual_hl_dir.cross(&ideal_hl_dir).magnitude() // sin(angle)
@@ -207,7 +208,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         println!("Res: {:#?}", res);
         let (new_u) = match res {
             Ok((u, v)) => {
-                if v > TOL {
+                if v > TOL * 1e2 {
                     log::debug!("Imprecise with {v}");
                 }
                 u
@@ -321,10 +322,10 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         //let target_hl_normal_ = self.next_hl_normal(&new_u, curve, &new_v.speed());
         //self.hl_normal = tgt_norm.clone();
 
-        let jitter_detected = new_v.inner().angle(&self.v.inner()) > T::from_f64(5.0 * PI / 180.0);
+        let jitter_detected = new_v.inner().angle(&self.v.inner()) > T::from_f64(10.0 * PI / 180.0);
         add_info!(self, jitter_detected);
         if jitter_detected {
-            /*//let mut errs = vec![];
+            //let mut errs = vec![];
             //let mut dist_pos_poses = vec![];
             let mut min_z = vec![];
             let mut max_z = vec![];
@@ -338,14 +339,10 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                 let get_z = |pp: &ComPos<T>| {
                     (curve.curve_at(&T::from_f64(u)).unwrap() - pp.inner())
                         .z
-                        .to_f64()
+                        .to_f64() / self.o.to_f64()
                 };
 
-                if pp.len() == 1 {
-                    let x = get_z(&pp[0]);
-                    min_z.push((u, x));
-                    max_z.push((u, x));
-                } else {
+                if pp.len() == 2 {
                     let z0 = get_z(&pp[0]);
                     let z1 = get_z(&pp[1]);
                     min_z.push((u, z0.min(z1)));
@@ -385,7 +382,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                 "dist_pos_poses",
                 &dist_pos_poses,
                 (new_u.to_f64(), 0.0),
-            );*/*/
+            );*/
         }
 
         let new_w = self.hl_normal.cross(&tgt_norm).normalize() * self.hl_normal.angle(&tgt_norm);
@@ -432,7 +429,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             * (corr_k * T::from_f64(2.0) / self.m.clone())
                 .max(&T::zero())
                 .sqrt();
-        //self.v = ComVel::new(&corr_v);
+        self.v = ComVel::new(&corr_v);
 
         self.additional_info.update(&self.u);
 
