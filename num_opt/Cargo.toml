@@ -14,6 +14,7 @@ ndarray = "0.16.1"
 num-traits = "0.2.19"
 plotters = "0.3.7"
 rand = "0.8.5"
+rayon = "1.10.0"
 roots = "0.0.8"
 rug = { version = "1.26.1", features = ["num-traits"] }
 

@@ -2,7 +2,7 @@
 
 use crate::my_float::MyFloat;
 
-use super::{linalg::MyVector3, plot, TOL};
+use super::{linalg::MyVector3, plot, tol};
 
 pub enum DualResult<T> {
     Root(T),
@@ -142,7 +142,7 @@ pub fn check_vec_continuity<T: MyFloat>(a: &T, b: &T, f: impl Fn(&T) -> MyVector
     let mut ys = vec![];
     let mut disc = false;
     while x < *b {
-        if !disc && x_step > TOL {
+        if !disc && x_step > tol() {
             disc = true;
             x_step = 0.001;
         }

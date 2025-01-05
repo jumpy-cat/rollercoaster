@@ -55,4 +55,9 @@ layout_mode = 2
 _name = "o:"
 value = 1.0
 
+[connection signal="value_changed" from="VBoxContainer/AnimStepEdit" to="." method="_on_anim_step_edit_value_changed"]
+[connection signal="value_changed" from="VBoxContainer/LREdit" to="." method="_on_lr_edit_value_changed"]
+[connection signal="value_changed" from="VBoxContainer/MassEdit" to="." method="_on_mass_edit_value_changed"]
+[connection signal="value_changed" from="VBoxContainer/GravityEdit" to="." method="_on_gravity_edit_value_changed"]
+[connection signal="value_changed" from="VBoxContainer/FrictionEdit" to="." method="_on_friction_edit_value_changed"]
 [connection signal="value_changed" from="VBoxContainer/ComOffsetEdit" to="." method="_on_com_offset_edit_value_changed"]

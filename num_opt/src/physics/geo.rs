@@ -55,11 +55,11 @@ pub struct Circle<T: MyFloat> {
     pub v: T,
 }
 
-pub fn circle_circle_intersections<T: MyFloat>(c1: &Circle<T>, c2: &Circle<T>) -> Vec<(T, T)> {
+pub fn circle_circle_intersections<T: MyFloat>(c1: &Circle<T>, c2: &Circle<T>) -> Option<[(T, T); 2]> {
     let d = ((c1.u.clone() - c2.u.clone()).pow(2) + (c1.v.clone() - c2.v.clone()).pow(2)).sqrt();
 
     if d > c1.r.clone() + c2.r.clone() || d < (c1.r.clone() - c2.r.clone()).abs() {
-        return vec![]; // No intersection
+        return None; // No intersection
     }
 
     let a = (c1.r.clone().pow(2) - c2.r.clone().pow(2) + d.clone().pow(2))
@@ -72,13 +72,6 @@ pub fn circle_circle_intersections<T: MyFloat>(c1: &Circle<T>, c2: &Circle<T>) -
         println!("c1.r: {}, c2.r: {}", c1.r, c2.r);
     }
 
-    // If h_squared is very close to zero, circles are tangent
-    /*if h_squared.abs() < T::from_f64(1e-6) {
-        let x0 = c1.u.clone() + a.clone() * (c2.u.clone() - c1.u.clone()) / d.clone();
-        let y0 = c1.v.clone() + a.clone() * (c2.v.clone() - c1.v.clone()) / d.clone();
-        return vec![(x0, y0)];
-    }*/
-
     let h = h_squared.sqrt();
     let x0 = c1.u.clone() + a.clone() * (c2.u.clone() - c1.u.clone()) / d.clone();
     let y0 = c1.v.clone() + a.clone() * (c2.v.clone() - c1.v.clone()) / d.clone();
@@ -86,10 +79,10 @@ pub fn circle_circle_intersections<T: MyFloat>(c1: &Circle<T>, c2: &Circle<T>) -
     let rx = -(c2.v.clone() - c1.v.clone()) * (h.clone() / d.clone());
     let ry = (c2.u.clone() - c1.u.clone()) * (h / d);
 
-    vec![
+    Some([
         (x0.clone() + rx.clone(), y0.clone() + ry.clone()),
         (x0 - rx, y0 - ry),
-    ]
+    ])
 }
 
 const LOG: bool = false;
@@ -98,7 +91,7 @@ pub fn sphere_circle_intersections<T: MyFloat>(
     sphere: &Sphere<T>,
     circle: &Circle<T>,
     circle_plane: &Plane<T>,
-) -> Vec<MyVector3<T>> {
+) -> Option<[MyVector3<T>; 2]> {
     // Project sphere center onto plane
     let (u, v) = circle_plane.project(sphere.p.clone());
     let dist_to_plane = circle_plane.distance_to(&sphere.p);
@@ -116,7 +109,7 @@ pub fn sphere_circle_intersections<T: MyFloat>(
         if LOG {
             println!("No intersections: radius_squared < 0");
         }
-        return Vec::new(); // No intersections
+        return None; // No intersections
     }
 
     // Create projected circle
@@ -129,26 +122,12 @@ pub fn sphere_circle_intersections<T: MyFloat>(
     // Find intersections between projected circle and target circle
     let intersections = circle_circle_intersections(&proj_circle, circle);
 
-    if LOG {
-        println!(
-            "Projected circle: r={}, u={}, v={}",
-            proj_circle.r, proj_circle.u, proj_circle.v
-        );
-        println!(
-            "Target circle: r={}, u={}, v={}",
-            circle.r, circle.u, circle.v
-        );
-        println!("Number of intersections: {}", intersections.len());
-    }
-    // Convert intersection points back to 3D
-    let result = intersections
-        .iter()
-        .map(|(u, v)| circle_plane.unproject(u.clone(), v.clone()))
-        .collect();
-    if LOG {
-        println!("3D intersection points: {:?}", result);
-    }
-    result
+    intersections.map(|[p1, p2]| {
+        [
+            circle_plane.unproject(p1.0, p1.1),
+            circle_plane.unproject(p2.0, p2.1),
+        ]
+    }) 
 }
 
 pub struct Sphere<T: MyFloat> {

@@ -845,6 +845,7 @@ dependencies = [
  "num-traits",
  "plotters",
  "rand",
+ "rayon",
  "roots",
  "rug",
 ]

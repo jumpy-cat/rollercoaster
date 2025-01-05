@@ -12,6 +12,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 1.0);
             phys.set_v(&MyVector3::new(0.0, 0.01 * 0.05 * 256.0, 0.0));
             let step = 0.05;
+            //let step = 0.1;
 
             while phys.step(&step, &curve).is_some() {}
             

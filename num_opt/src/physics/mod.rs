@@ -1,7 +1,7 @@
 //! Physics solver and cost function
 
 use core::f64;
-use std::{f64::consts::PI, process::exit};
+use std::{f64::consts::PI, process::exit, sync::RwLock};
 
 use info::{use_sigfigs, PhysicsAdditionalInfo};
 use linalg::{vector_projection, ComPos, ComVel, MyQuaternion, MyVector3};
@@ -53,9 +53,18 @@ pub struct PhysicsStateV3<T: MyFloat> {
     cost: f64,
 }
 
+pub static TOL: RwLock<f64> = RwLock::new(1e-10f64);
+
+pub fn set_tol(tol: f64) {
+    *TOL.write().unwrap() = tol;
+}
+
 /// tolerance for du from dt calculations
-const TOL: f64 = 1e-10f64;
-//const TOL: f64 = 1e-6f64;
+#[inline(always)]
+fn tol() -> f64 {
+    //1e-10f64
+    *TOL.read().unwrap()
+}
 
 /// Makes info adjustments very clear to avoid confusion with vital for physics
 /// operations
@@ -134,18 +143,16 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
     fn hl_normal_errs_at_u(&self, u: &T, curve: &hermite::Spline<T>, step: &T) -> (T, T) {
         let positions = self.possible_positions(&curve, &step, &u);
-        let errs: Vec<_> = positions
-            .iter()
-            .map(|pos| self.hl_normal_err_at_u_manual_pos(u, step, curve, pos))
-            .collect();
-        if errs.len() == 0 {
-            (T::from_f64(f64::MAX), T::from_f64(f64::MAX))
-        } else if errs.len() == 1 {
-            (errs[0].clone(), errs[0].clone())
-        } else {
+        if let Some([p1, p2]) = positions {
+            let errs = [
+                self.hl_normal_err_at_u_manual_pos(u, step, curve, &p1),
+                self.hl_normal_err_at_u_manual_pos(u, step, curve, &p2),
+            ];
             let min_e = errs[0].min(&errs[1]);
             let max_e = errs[0].max(&errs[1]);
-            (min_e, max_e)
+            return (min_e, max_e);
+        } else {
+            return (T::from_f64(f64::MAX), T::from_f64(f64::MAX));
         }
     }
 
@@ -160,7 +167,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let mut max_u = self.u.clone();
         let mut find_max_u_step_size = T::from_f64(0.1); //0.1;
 
-        while find_max_u_step_size > TOL {
+        while find_max_u_step_size > tol() {
             let mut attempt = max_u.clone() + find_max_u_step_size.clone();
             let mut hitting_end = false;
             if attempt > curve.max_u() {
@@ -173,7 +180,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                 &attempt,
             );
 
-            if p.len() == 0 {
+            if p.is_none() {
                 find_max_u_step_size /= 2.0;
             } else if hitting_end {
                 max_u = attempt;
@@ -189,12 +196,12 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             &self.u,
             &(max_u.clone()),
             |u| self.hl_normal_errs_at_u(u, curve, step).0,
-            TOL,
+            tol(),
         );
         //println!("Res: {:#?}", res);
         let new_u = match res {
             Ok((u, v)) => {
-                if v > TOL * 1e2 {
+                if v > tol() * 1e2 {
                     //log::debug!("Imprecise with {v}");
                 }
                 u
@@ -207,11 +214,14 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         };
         let tgt = match self
             .possible_positions(&curve, &step, &new_u)
-            .into_iter()
-            .min_by(|a, b| {
-                let a_err = self.hl_normal_err_at_u_manual_pos(&new_u, step, curve, a);
-                let b_err = self.hl_normal_err_at_u_manual_pos(&new_u, step, curve, b);
-                a_err.partial_cmp(&b_err).unwrap()
+            .map(|[p1, p2]| {
+                let p1_err = self.hl_normal_err_at_u_manual_pos(&new_u, step, curve, &p1);
+                let p2_err = self.hl_normal_err_at_u_manual_pos(&new_u, step, curve, &p2);
+                if p1_err < p2_err {
+                    p1
+                } else {
+                    p2
+                }
             }) {
             Some(pos) => pos,
             None => {
@@ -425,7 +435,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         curve: &hermite::Spline<T>,
         delta_t: &T,
         u: &T,
-    ) -> Vec<ComPos<T>> {
+    ) -> Option<[ComPos<T>; 2]> {
         let fpnv = self.future_pos_no_vel(delta_t, &self.x);
         let future_sphere = geo::Sphere {
             p: fpnv.inner(),
@@ -447,7 +457,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let intersections =
             geo::sphere_circle_intersections(&future_sphere, &circle, &circle_plane);
 
-        intersections.iter().map(|p| ComPos::new(p)).collect()
+        intersections.map(|[p1, p2]| [ComPos::new(&p1), ComPos::new(&p2)])
     }
 
     fn energy(&self) -> T {

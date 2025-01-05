@@ -124,13 +124,14 @@ pub fn optimize<T: MyFloat>(
 }
 
 
-fn cost_v2<T: MyFloat>(
+pub fn cost_v2<T: MyFloat>(
     initial: physics::PhysicsStateV3<T>,
     curve: &hermite::Spline<T>,
+    step: f64,
 ) -> Option<f64> {
     let mut phys = initial;
     while phys.step(
-        &T::from_f64(0.05), curve).is_some() {
+        &T::from_f64(step), curve).is_some() {
         
     }
     if phys.cost().is_nan() {
@@ -148,7 +149,7 @@ pub fn optimize_v2<T: MyFloat>(
     lr: f64,
 ) -> Option<f64> {
     const NUDGE_DIST: f64 = 0.001; // small step size for derivative approximation
-    if let Some(curr) = cost_v2(initial.clone(), curve) {
+    if let Some(curr) = cost_v2(initial.clone(), curve, 0.05) {
         let mut deriv: Vec<Vec<Option<T>>> = vec![];
         let mut controls = points.to_vec();
         for i in 1..controls.len() {
@@ -160,7 +161,7 @@ pub fn optimize_v2<T: MyFloat>(
                 log::debug!("trial for point {i}");
                 controls[i] = np;
                 let params = hermite::Spline::<T>::new(&controls);
-                let new_cost = cost_v2(initial.clone(), &params);
+                let new_cost = cost_v2(initial.clone(), &params, 0.05);
                 // sublist stores the calculated gradients for this control point.
                 sublist.push(new_cost.map(|c| T::from_f64((c - curr) / NUDGE_DIST)));
             }
