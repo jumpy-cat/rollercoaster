@@ -1,3 +1,5 @@
+//! Use plotters to plot to /tmp
+
 use plotters::prelude::*;
 use std::time::SystemTime;
 
@@ -57,6 +59,7 @@ fn plot_helper(
     root.present().unwrap();
 }
 
+#[allow(dead_code)]
 pub fn plot(name: &str, data: &[f64]) {
     let data_min = data.iter().fold(f64::MAX, |acc, x| x.min(acc)).min(0.0);
     let data_max = data.iter().fold(f64::MIN, |acc, x| x.max(acc)).max(0.0);
@@ -82,6 +85,7 @@ pub fn plot2(name: &str, data: &[(f64, f64)]) {
     plot_helper(name, x_min, x_max, data_min, data_max, data, &[], &[], &[]);
 }
 
+#[allow(dead_code)]
 pub fn plot2_and_p(name: &str, data: &[(f64, f64)], p: (f64, f64)) {
     let data_min = data.iter().fold(f64::MAX, |acc, x| x.1.min(acc)).min(0.0);
     let data_max = data.iter().fold(f64::MIN, |acc, x| x.1.max(acc)).max(0.0);
@@ -90,6 +94,7 @@ pub fn plot2_and_p(name: &str, data: &[(f64, f64)], p: (f64, f64)) {
     plot_helper(name, x_min, x_max, data_min, data_max, data, &[p], &[], &[]);
 }
 
+#[allow(dead_code)]
 pub fn plot2_and_2_and_2(name: &str, d: &[(f64, f64)], d2: &[(f64, f64)], d3: &[(f64, f64)]) {
     let c = d.iter().chain(d2.iter()).chain(d3.iter());
     let data_min = c.clone().fold(f64::MAX, |acc, x| x.1.min(acc)).min(0.0);

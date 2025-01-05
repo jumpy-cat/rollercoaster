@@ -3,7 +3,6 @@ use std::{
     collections::VecDeque,
     num::NonZero,
     sync::{mpsc, Mutex},
-    thread::{self, JoinHandle},
     time::Instant,
 };
 

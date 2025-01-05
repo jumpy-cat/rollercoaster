@@ -8,10 +8,8 @@ struct MyExtension;
 
 #[gdextension]
 unsafe impl ExtensionLibrary for MyExtension {
-    fn on_level_init(level: InitLevel) {
-        //if level == InitLevel::Scene {
+    fn on_level_init(_level: InitLevel) {
         logger::init();
         log::info!("Hi");
-        //}
     }
 }

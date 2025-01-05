@@ -1,12 +1,10 @@
 //! Physics solver and cost function
 
 use core::f64;
-use std::{f64::consts::PI, process::exit, sync::RwLock};
+use std::{f64::consts::PI, sync::RwLock};
 
 use info::{use_sigfigs, PhysicsAdditionalInfo};
 use linalg::{vector_projection, ComPos, ComVel, MyQuaternion, MyVector3};
-use log::warn;
-use solver::HitBoundary;
 
 use crate::{hermite, my_float::MyFloat, plot};
 
@@ -18,11 +16,6 @@ pub mod solver;
 
 #[cfg(test)]
 mod geo_test;
-
-enum NewUSolution<T: MyFloat> {
-    Root(T),
-    Minimum(T, T),
-}
 
 /// Physics solver v3  
 /// ### Overview (check `Self::step` for details)
@@ -197,10 +190,10 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             tol(),
         );
         let new_u = match res {
-            Ok((u, v)) => {
+            Ok((u, _v)) => {
                 u
             }
-            Err((u, v, b)) => {
+            Err((u, _v, _b)) => {
                 u
             }
         };
@@ -280,7 +273,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             self.cost = f64::NAN;
             return None;
         }
-        let (new_u, tgt_pos, tgt_norm, max_u, err) = r.unwrap();
+        let (new_u, tgt_pos, tgt_norm, _max_u, err) = r.unwrap();
         self.additional_info
             .curr_hl_tgt_hl_errs
             .push((new_u.to_f64(), err));
@@ -420,6 +413,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         intersections.map(|[p1, p2]| [ComPos::new(&p1), ComPos::new(&p2)])
     }
 
+    #[allow(dead_code)]
     fn energy(&self) -> T {
         self.kinetic_energy() + self.potential_energy() + self.rot_energy(self.w.magnitude())
     }

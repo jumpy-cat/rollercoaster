@@ -134,21 +134,3 @@ pub struct Sphere<T: MyFloat> {
     pub r: T,
     pub p: MyVector3<T>,
 }
-
-impl<T: MyFloat> Sphere<T> {
-    pub fn project(&self, plane: &Plane<T>) -> Option<Circle<T>> {
-        let (u, v) = plane.project(self.p.clone());
-        let dist_to_plane = plane.distance_to(&self.p);
-        let radius_squared = self.r.clone().pow(2) - dist_to_plane.pow(2);
-
-        if radius_squared < T::zero() {
-            None
-        } else {
-            Some(Circle {
-                r: radius_squared.sqrt(),
-                u,
-                v,
-            })
-        }
-    }
-}

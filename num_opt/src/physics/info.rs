@@ -1,5 +1,4 @@
 use crate::my_float::MyFloat;
-use crate::plot;
 
 use super::linalg::MyVector3;
 
