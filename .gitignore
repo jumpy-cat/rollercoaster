@@ -3,6 +3,7 @@
 *.txt
 flamegraph.svg
 profile.json
+*.mp4
 
 /godot/addons
 /godot/examples_dd3d
