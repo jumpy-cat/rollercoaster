@@ -1,6 +1,7 @@
 use crate::my_float::MyFloat;
 
 use super::linalg::MyVector3;
+use super::plot;
 
 #[derive(Debug, Clone)]
 pub struct PhysicsAdditionalInfo<T: MyFloat> {
@@ -21,7 +22,7 @@ pub struct PhysicsAdditionalInfo<T: MyFloat> {
     pub null_tgt_pos: MyVector3<T>,
     pub tgt_pos: MyVector3<T>,
     pub jitter_detected: bool,
-    pub curr_hl_tgt_hl_errs: Vec<(f64, f64)>,
+    pub ang_energies: Vec<(f64, f64)>,
     has_made_plot: bool,
 }
 
@@ -45,7 +46,7 @@ impl<T: MyFloat> Default for PhysicsAdditionalInfo<T> {
             null_tgt_pos: MyVector3::default(),
             tgt_pos: MyVector3::default(),
             jitter_detected: false,
-            curr_hl_tgt_hl_errs: Vec::new(),
+            ang_energies: Vec::new(),
             has_made_plot: false,
         }
     }
@@ -74,7 +75,7 @@ impl<T: MyFloat> PhysicsAdditionalInfo<T> {
     pub fn update(&mut self, u: &T) {
         if !self.has_made_plot && u > &2.0 {
             self.has_made_plot = true;
-            //plot::plot2("curr_hl_tgt_hl_errs", &self.curr_hl_tgt_hl_errs);
+            //plot::plot2("ang_energies", &self.ang_energies);
         }
     }
 }

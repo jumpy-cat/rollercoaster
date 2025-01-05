@@ -133,9 +133,17 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
         let change_in_angular_energy =
             self.rot_energy(fut_w.magnitude()) - self.rot_energy(self.w.magnitude());
-        let fut_vel_corr = self.correct_for_angular_energy(change_in_angular_energy, &fut_vel);
+        let fut_vel_corr = fut_vel;
+        //let fut_vel_corr = self.correct_for_angular_energy(change_in_angular_energy, &fut_vel);
 
-        let ideal_hl_dir_p = self.next_hl_normal(u, &curve, &fut_vel_corr);
+        let least_resistance = self
+            .hl_normal
+            .make_ortho_to(&curve.curve_direction_at(&u).unwrap())
+            .normalize();
+
+        //let ideal_hl_dir_p = self.next_hl_normal(u, &curve, &fut_vel_corr);
+        let ideal_hl_dir_p =
+            (self.next_hl_normal(u, &curve, &fut_vel_corr) + least_resistance * T::from_f64(10.0)).normalize();
 
         let tgt_hl_dir = ideal_hl_dir_p;
         (actual_hl_dir - tgt_hl_dir).magnitude_squared()
@@ -273,9 +281,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             return None;
         }
         let (new_u, tgt_pos, tgt_norm, _max_u, err) = r.unwrap();
-        self.additional_info
-            .curr_hl_tgt_hl_errs
-            .push((new_u.to_f64(), err));
+
         add_info!(self, delta_u_, new_u.clone() - self.u.clone());
         add_info!(self, delta_t_, step.clone());
         add_info!(
@@ -292,7 +298,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         add_info!(self, jitter_detected);
 
         let new_w = self.new_ang_vel(step, &tgt_norm);
-        
+
         let change_in_angular_energy =
             self.rot_energy(new_w.magnitude()) - self.rot_energy(self.w.magnitude());
 
@@ -307,11 +313,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         //self.hl_normal = tgt_norm.clone();
         self.hl_normal = MyQuaternion::from_scaled_axis(self.w.clone() * step.clone())
             .rotate_vector(&self.hl_normal);
-
-        /*log::debug!(
-            "Angle: {}",
-            self.hl_normal.angle(&tgt_norm).to_f64() * 180.0 / PI
-        );*/
 
         let move_to_tgt_err = (tgt_pos - self.x.clone()).magnitude();
         add_info!(self, move_to_tgt_err);
@@ -342,6 +343,11 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.additional_info.update(&self.u);
 
         self.cost += accel.magnitude_squared().to_f64() * step.to_f64();
+
+        self.additional_info.ang_energies.push((
+            self.u.to_f64(),
+            self.rot_energy(self.w.magnitude()).to_f64(),
+        ));
 
         Some(())
     }
