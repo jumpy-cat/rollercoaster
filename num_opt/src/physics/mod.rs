@@ -10,7 +10,6 @@ use crate::{hermite, my_float::MyFloat, plot};
 
 mod geo;
 mod info;
-pub mod legacy;
 pub mod linalg;
 pub mod solver;
 
