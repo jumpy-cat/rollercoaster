@@ -167,11 +167,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
                 hitting_end = true;
                 attempt = T::from_f64(curve.max_u());
             }
-            let p = self.possible_positions(
-                &curve,
-                &step,
-                &attempt,
-            );
+            let p = self.possible_positions(&curve, &step, &attempt);
 
             if p.is_none() {
                 find_max_u_step_size /= 2.0;
@@ -190,12 +186,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             tol(),
         );
         let new_u = match res {
-            Ok((u, _v)) => {
-                u
-            }
-            Err((u, _v, _b)) => {
-                u
-            }
+            Ok((u, _v)) => u,
+            Err((u, _v, _b)) => u,
         };
         let tgt = match self
             .possible_positions(&curve, &step, &new_u)
@@ -330,8 +322,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             self.rot_energy(self.w.magnitude()).to_f64()
         );
 
-        self.v = self.correct_for_angular_energy(
-            change_in_angular_energy, &self.v);
+        self.v = self.correct_for_angular_energy(change_in_angular_energy, &self.v);
 
         self.additional_info.update(&self.u);
 
@@ -340,10 +331,14 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         Some(())
     }
 
-
-    fn correct_for_angular_energy(&self, change_in_angular_energy: T, vel_to_correct: &ComVel<T>) -> ComVel<T> {
+    fn correct_for_angular_energy(
+        &self,
+        change_in_angular_energy: T,
+        vel_to_correct: &ComVel<T>,
+    ) -> ComVel<T> {
         let kinetic_energy_correction = -change_in_angular_energy;
-        let corr_k = vel_to_correct.speed() * 0.5 * self.m.clone() + kinetic_energy_correction;
+        let corr_k =
+            vel_to_correct.speed().pow(2) * 0.5 * self.m.clone() + kinetic_energy_correction;
         let corr_v = vel_to_correct.inner().normalize()
             * (corr_k * T::from_f64(2.0) / self.m.clone())
                 .max(&T::zero())
@@ -376,7 +371,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let inner_ag_ = accel.clone() - self.g.clone();
 
         inner_ag_.make_ortho_to(&curve_dir).normalize()
-
     }
 
     pub fn future_pos_no_vel(&self, delta_t: &T, curr_pos: &ComPos<T>) -> ComPos<T> {
