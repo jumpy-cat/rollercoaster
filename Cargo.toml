@@ -2,7 +2,7 @@
 
 members = [
      "gd",
-    "num_opt", "testbed",
+    "num_opt", "testbed", "py"
 ]
 
 [profile.dev]
