@@ -1,4 +1,5 @@
 from manim import *
+from numpy import array
 
 
 class CreateCircle(Scene):
@@ -23,12 +24,38 @@ class SquareToCircle(Scene):
 class Interp(Scene):
     def construct(self):
 
-        p = (-2, 1)
-        q = (3,2)
+        p = array([-2, 1])
+        pp = array([1, 1])
+        ppp = array([2, 2])
+        pppp = array([1, -3])
+        q = array([3, 2])
+        qp = array([1, 1])
+        qpp = array([2, -2])
+        qppp = array([-3, -3])
 
+        #SHRINK_FACTOR =
         p_dot = Dot(point=(*p, 0))
-        pp
-        q_dot = Dot(point=(q, 0))
+        p_d1_a = Arrow((*p, 0), (*(p + pp), 0))
+        p_d1_a.stroke_color = RED
+        p_d2_a = Arrow((*(p + pp), 0), (*(p + pp + ppp), 0))
+        p_d2_a.stroke_color = ORANGE
+        p_d3_a = Arrow((*(p + pp + ppp), 0), (*(p + pp + ppp + pppp), 0))
+        p_d3_a.stroke_color = GREEN
+
+        q_dot = Dot(point=(*q, 0))
+        q_d1_a = Arrow((*q, 0), (*(q + qp), 0))
+        q_d1_a.stroke_color = RED
+        q_d2_a = Arrow((*(q + qp), 0), (*(q + qp + qpp), 0))
+        q_d2_a.stroke_color = ORANGE
+        q_d3_a = Arrow((*(q + qp + qpp), 0), (*(q + qp + qpp + qppp), 0))
+        q_d3_a.stroke_color = GREEN
+
+        self.play(Create(p_dot), Create(q_dot))
+        self.play(Create(p_d1_a), Create(q_d1_a))
+        self.play(Create(p_d2_a), Create(q_d2_a))
+        self.play(Create(p_d3_a), Create(q_d3_a))
+
+        return
 
         circle = Circle()
         circle.set_fill(PINK, opacity=0.5)
@@ -83,8 +110,6 @@ class Interp(Scene):
         mat_equat4.next_to(mat_equat3, DOWN)
         mat_equat5.next_to(mat_equat3, DOWN)
 
-        self.play(Create(p_dot))
-        self.play(Create(q_dot))
         self.play(Create(eq))
 
         self.next_section()
