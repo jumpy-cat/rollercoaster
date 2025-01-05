@@ -47,6 +47,7 @@ pub trait MyFloat:
     + PartialEq<f64>
     + PartialOrd<f64>
     + PartialOrd<Self>
+    + Send + Sync
 {
     fn precision() -> u32;
     fn from_f64(f: f64) -> Self;

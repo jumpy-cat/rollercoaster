@@ -62,8 +62,8 @@ pub fn set_tol(tol: f64) {
 /// tolerance for du from dt calculations
 #[inline(always)]
 fn tol() -> f64 {
-    //1e-10f64
-    *TOL.read().unwrap()
+    1e-10f64
+    //*TOL.read().unwrap()
 }
 
 /// Makes info adjustments very clear to avoid confusion with vital for physics
@@ -226,16 +226,16 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             Some(pos) => pos,
             None => {
                 if self.v.speed() < self.g.magnitude() * step.clone() {
-                    warn!("Stuck due to gravity!");
+                    //warn!("Stuck due to gravity!");
                     return None;
                 } else {
-                    log::error!(
+                    /*log::error!(
                         "No possible positions du:{:?}, {:#?} v: {:?} g-imp: {}",
                         new_u - self.u.clone(),
                         self.possible_positions(&curve, &step, &self.u),
                         self.v.speed(),
                         self.g.magnitude() * step.clone()
-                    );
+                    );*/
                     panic!()
                 }
             }

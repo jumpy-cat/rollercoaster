@@ -1,5 +1,7 @@
 //! Calculates the cost of a curve, and performs gradient descent to optimize it
 
+use rand::Rng;
+
 use crate::{
     hermite,
     my_float::MyFloat,
@@ -150,24 +152,42 @@ pub fn optimize_v2<T: MyFloat>(
 ) -> Option<f64> {
     const NUDGE_DIST: f64 = 0.001; // small step size for derivative approximation
     if let Some(curr) = cost_v2(initial.clone(), curve, 0.05) {
-        let mut deriv: Vec<Vec<Option<T>>> = vec![];
-        let mut controls = points.to_vec();
-        for i in 1..controls.len() {
+        //let mut deriv: Vec<Vec<Option<T>>> = vec![];
+        let controls = points.to_vec();
+
+        const SKIP_CHANCE: f64 = 0.9;
+
+        let c = |i: usize| {
+            
+            let mut controls = controls.clone();
             let orig = controls[i].clone();
-            let nudged = orig.nudged(T::from_f64(NUDGE_DIST)); // generate all possible variations of the derivatives for this control point
+            // Generate all possible variations of the derivatives for this
+            // control point
+            let nudged = orig.nudged(T::from_f64(NUDGE_DIST));
             let mut sublist = vec![];
-            // for each control point, compute the gradient of the cost function with respect to its derivatives.
+            // For each control point, compute the gradient of the cost function
+            // with respect to its derivatives.
             for np in nudged {
-                log::debug!("trial for point {i}");
+                if rand::thread_rng().gen_bool(SKIP_CHANCE) {
+                    //log::debug!("Skipping trial for point {i}");
+                    sublist.push(None);
+                    continue;
+                }
+                //log::debug!("trial for point {i}");
                 controls[i] = np;
                 let params = hermite::Spline::<T>::new(&controls);
                 let new_cost = cost_v2(initial.clone(), &params, 0.05);
-                // sublist stores the calculated gradients for this control point.
+                // Store the calculated gradients for this control point.
                 sublist.push(new_cost.map(|c| T::from_f64((c - curr) / NUDGE_DIST)));
             }
-            deriv.push(sublist);
-            controls[i] = orig;
-        }
+            sublist
+        };
+
+        use rayon::prelude::*;
+
+        let mut deriv = (1..controls.len()).into_par_iter().map(c).collect::<Vec<_>>();
+        //let mut deriv = (1..controls.len()).into_iter().map(c).collect::<Vec<_>>();
+        //(1..controls.len()).for_each(c);
         // get the largest gradient magnitude across all control points. if gradient value is too large, normalize all
         // gradients by dividing by the maximum magnitude for the smoothness.
         let mut max_deriv_mag = 0.0;

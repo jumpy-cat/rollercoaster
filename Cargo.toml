@@ -1,7 +1,7 @@
 [workspace]
 
 members = [
-    # "gd",
+     "gd",
     "num_opt", "testbed",
 ]
 
