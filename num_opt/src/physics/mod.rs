@@ -127,8 +127,12 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let actual_hl_dir = (curve.curve_at(&u).unwrap() - pos.inner()).normalize();
 
         let fut_vel = self.updated_v(step, pos);
+        // let fut_w =
 
-        let ideal_hl_dir_p = self.next_hl_normal(u, &curve, &fut_vel);
+        //let fut_vel_corr = self.correct_for_angular_energy(, &fut_vel);
+        let fut_vel_corr = fut_vel;
+
+        let ideal_hl_dir_p = self.next_hl_normal(u, &curve, &fut_vel_corr);
 
         let tgt_hl_dir = ideal_hl_dir_p;
         (actual_hl_dir - tgt_hl_dir).magnitude_squared()
@@ -284,7 +288,10 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let jitter_detected = new_v.inner().angle(&self.v.inner()) > T::from_f64(10.0 * PI / 180.0);
         add_info!(self, jitter_detected);
 
-        let new_w = self.hl_normal.cross(&tgt_norm).normalize() * self.hl_normal.angle(&tgt_norm);
+        let rot_impulse =
+            self.hl_normal.cross(&tgt_norm).normalize() * self.hl_normal.angle(&tgt_norm);
+        let new_w = rot_impulse.clone() / step.clone();
+        
         let change_in_angular_energy =
             self.rot_energy(new_w.magnitude()) - self.rot_energy(self.w.magnitude());
 
@@ -293,10 +300,17 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.u = new_u;
 
         let accel = (new_v.inner() - self.v.inner()) / step.clone();
+        // new values
         (self.x, self.v, self.w) = (new_x, new_v, new_w);
 
-        self.hl_normal = MyQuaternion::from_scaled_axis(self.w.clone() * step.clone())
+        //self.hl_normal = tgt_norm.clone();
+        self.hl_normal = MyQuaternion::from_scaled_axis(rot_impulse)
             .rotate_vector(&self.hl_normal);
+
+        log::debug!(
+            "Angle: {}",
+            self.hl_normal.angle(&tgt_norm).to_f64() * 180.0 / PI
+        );
 
         let move_to_tgt_err = (tgt_pos - self.x.clone()).magnitude();
         add_info!(self, move_to_tgt_err);

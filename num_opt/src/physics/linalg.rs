@@ -72,7 +72,7 @@ impl<T: MyFloat> MyVector3<T> {
     }
 
     pub fn angle_dbg<Q: 'static>(&self, other: &MyVector3<T>) -> T {
-        let dot = self.dot(other);
+        /*let dot = self.dot(other);
         let mag1 = self.magnitude();
         let mag2 = other.magnitude();
         let cos = (dot.clone() / (mag1.clone() * mag2.clone())).clamp(-1.0, 1.0);
@@ -81,7 +81,18 @@ impl<T: MyFloat> MyVector3<T> {
         } else if TypeId::of::<Q>() != TypeId::of::<Silence>() {
             panic!();
         }
-        cos.acos()
+        cos.acos()*/
+        //log::info!("Angle!");
+        let self_mag = self.magnitude();
+        let other_mag = other.magnitude();
+
+        let self_mag_other = other.clone() * self_mag;
+        let other_mag_self = self.clone() * other_mag;
+        
+        T::from_f64(2.0) * T::atan2(
+            &(self_mag_other.clone() - other_mag_self.clone()).magnitude(),
+            &(self_mag_other + other_mag_self).magnitude()
+        )
     }
 
     pub fn cross(&self, other: &MyVector3<T>) -> MyVector3<T> {
@@ -218,6 +229,7 @@ pub struct MyQuaternion<T: MyFloat> {
 impl<T: MyFloat> MyQuaternion<T> {
     pub fn from_scaled_axis(x: MyVector3<T>) -> Self {
         let half_angle: T = x.magnitude() / T::from_f64(2.0);
+        let x = x.normalize();
         Self {
             q0: half_angle.clone().cos(),
             q1: x.x * half_angle.clone().sin(),
@@ -227,9 +239,9 @@ impl<T: MyFloat> MyQuaternion<T> {
     }
 
     pub fn normalize(self) -> Self {
-        let mag = ((self.q0.clone() * self.q0.clone() + self.q1.clone() * self.q1.clone())
-            + self.q2.clone() * self.q2.clone()
-            + self.q3.clone() * self.q3.clone())
+        let mag = (self.q0.clone().pow(2) + self.q1.clone().pow(2)
+            + self.q2.clone().pow(2)
+            + self.q3.clone().pow(2))
         .sqrt();
         Self {
             q0: self.q0 / mag.clone(),

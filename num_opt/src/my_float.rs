@@ -61,6 +61,7 @@ pub trait MyFloat:
     fn sin(&self) -> Self;
     fn cos(&self) -> Self;
     fn acos(&self) -> Self;
+    fn atan2(&self, other: &Self) -> Self;
     fn is_nan(&self) -> bool;
     fn abs(&self) -> Self;
     fn one() -> Self;
@@ -147,6 +148,10 @@ impl MyFloat for f64 {
     fn zero() -> Self {
         0.0
     }
+
+    fn atan2(&self, other: &Self) -> Self {
+        f64::atan2(*self, *other)
+    }
 }
 
 impl MyFloat for Float {
@@ -212,5 +217,9 @@ impl MyFloat for Float {
 
     fn zero() -> Self {
         float!(0.0)
+    }
+
+    fn atan2(&self, other: &Self) -> Self {
+        Float::atan2(self.clone(), other)
     }
 }
