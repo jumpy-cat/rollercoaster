@@ -1,4 +1,4 @@
-use crate::my_float::MyFloat;
+use crate::my_float::{Fpt, MyFloat};
 
 use super::linalg::MyVector3;
 use super::plot;
@@ -15,14 +15,14 @@ pub struct PhysicsAdditionalInfo<T: MyFloat> {
     pub move_to_tgt_err: T,
     pub prev_hl_normal_shift_err: T,
     pub hl_normal_shift_err: T,
-    pub tgt_pos_spd_err: f64,
-    pub potential_energy: f64,
-    pub kinetic_energy: f64,
-    pub rot_energy: f64,
+    pub tgt_pos_spd_err: Fpt,
+    pub potential_energy: Fpt,
+    pub kinetic_energy: Fpt,
+    pub rot_energy: Fpt,
     pub null_tgt_pos: MyVector3<T>,
     pub tgt_pos: MyVector3<T>,
     pub jitter_detected: bool,
-    pub ang_energies: Vec<(f64, f64)>,
+    pub ang_energies: Vec<(Fpt, Fpt)>,
     has_made_plot: bool,
 }
 
@@ -81,5 +81,5 @@ impl<T: MyFloat> PhysicsAdditionalInfo<T> {
 }
 
 pub fn use_sigfigs<T: MyFloat>(x: &T) -> rug::Float {
-    rug::Float::with_val(64, x.to_f64())
+    rug::Float::with_val(64, x.to_f())
 }

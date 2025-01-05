@@ -1,4 +1,4 @@
-use crate::{my_float::MyFloat, physics::linalg::MyVector3, point};
+use crate::{my_float::{Fpt, MyFloat}, physics::linalg::MyVector3, point};
 
 use super::{solve, CurveParams};
 
@@ -54,8 +54,8 @@ where
         Self { params }
     }
 
-    pub fn max_u(&self) -> f64 {
-        self.params.len() as f64 - 0.00001
+    pub fn max_u(&self) -> Fpt {
+        self.params.len() as Fpt - 0.00001
     }
 
     /// Iterate through the hermite curves of the spline
@@ -72,7 +72,7 @@ where
     pub fn curve_at(&self, u: &T) -> Option<MyVector3<T>> {
         let i = u.clone().floor();
         let rem = u.clone() - i.clone();
-        let i = i.to_f64() as usize;
+        let i = i.to_f() as usize;
         if i >= self.params.len() {
             return None;
         }
@@ -86,7 +86,7 @@ where
     fn u_to_i_rem(&self, u: &T) -> (usize, T) {
         let i = u.clone().floor();
         let rem = u.clone() - i.clone();
-        let i = i.to_f64() as usize;
+        let i = i.to_f() as usize;
         (i, rem)
     }
 

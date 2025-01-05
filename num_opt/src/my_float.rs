@@ -24,6 +24,7 @@ macro_rules! float {
 }
 /// What float to use for physics
 pub type MyFloatType = f64;
+pub type Fpt = f64;
 /// Bits of precision if `rug::Float` is used
 pub const PRECISION: u32 = 640;
 
@@ -33,31 +34,31 @@ pub trait MyFloat:
     + std::fmt::Debug
     + Display
     + Add<Output = Self>
-    + AddAssign<f64>
+    + AddAssign<Fpt>
     + AddAssign<Self>
     + Pow<i32, Output = Self>
     + Add<Output = Self>
     + Mul<Self, Output = Self>
-    + Mul<f64, Output = Self>
+    + Mul<Fpt, Output = Self>
     + Sub<Output = Self>
-    + Sub<f64, Output = Self>
+    + Sub<Fpt, Output = Self>
     + Div<Output = Self>
-    + DivAssign<f64>
+    + DivAssign<Fpt>
     + Neg<Output = Self>
-    + PartialEq<f64>
-    + PartialOrd<f64>
+    + PartialEq<Fpt>
+    + PartialOrd<Fpt>
     + PartialOrd<Self>
     + Send + Sync
 {
     fn precision() -> u32;
-    fn from_f64(f: f64) -> Self;
-    fn from_f64_fraction(n: f64, d: f64) -> Self;
-    fn to_f64(&self) -> f64;
+    fn from_f(f: Fpt) -> Self;
+    fn from_f_fraction(n: Fpt, d: Fpt) -> Self;
+    fn to_f(&self) -> Fpt;
     fn floor(&self) -> Self;
     fn sqrt(&self) -> Self;
     fn max(&self, other: &Self) -> Self;
     fn min(&self, other: &Self) -> Self;
-    fn clamp(&self, min: f64, max: f64) -> Self;
+    fn clamp(&self, min: Fpt, max: Fpt) -> Self;
     fn sin(&self) -> Self;
     fn cos(&self) -> Self;
     fn acos(&self) -> Self;
@@ -68,75 +69,75 @@ pub trait MyFloat:
     fn zero() -> Self;
 }
 
-impl MyFloat for f64 {
+impl MyFloat for Fpt {
     #[inline(always)]
     fn precision() -> u32 {
         0
     }
 
     #[inline(always)]
-    fn from_f64(f: f64) -> Self {
+    fn from_f(f: Fpt) -> Self {
         f
     }
 
     #[inline(always)]
-    fn from_f64_fraction(n: f64, d: f64) -> Self {
+    fn from_f_fraction(n: Fpt, d: Fpt) -> Self {
         n / d
     }
     
     #[inline(always)]
-    fn to_f64(&self) -> f64 {
+    fn to_f(&self) -> Fpt {
         *self
     }
     
     #[inline(always)]
     fn floor(&self) -> Self {
-        f64::floor(*self)
+        Fpt::floor(*self)
     }
     
     #[inline(always)]
     fn sqrt(&self) -> Self {
-        f64::sqrt(*self)
+        Fpt::sqrt(*self)
     }
     
     #[inline(always)]
-    fn clamp(&self, min: f64, max: f64) -> Self {
-        f64::clamp(*self, min, max)
+    fn clamp(&self, min: Fpt, max: Fpt) -> Self {
+        Fpt::clamp(*self, min, max)
     }
     
     #[inline(always)]
     fn sin(&self) -> Self {
-        f64::sin(*self)
+        Fpt::sin(*self)
     }
     
     #[inline(always)]
     fn cos(&self) -> Self {
-        f64::cos(*self)
+        Fpt::cos(*self)
     }
     
     #[inline(always)]
     fn acos(&self) -> Self {
-        f64::acos(*self)
+        Fpt::acos(*self)
     }
     
     #[inline(always)]
     fn is_nan(&self) -> bool {
-        f64::is_nan(*self)
+        Fpt::is_nan(*self)
     }
     
     #[inline(always)]
     fn max(&self, other: &Self) -> Self {
-        f64::max(*self, *other)
+        Fpt::max(*self, *other)
     }
     
     #[inline(always)]
     fn min(&self, other: &Self) -> Self {
-        f64::min(*self, *other)
+        Fpt::min(*self, *other)
     }
     
     #[inline(always)]
     fn abs(&self) -> Self {
-        f64::abs(*self)
+        Fpt::abs(*self)
     }
     
     #[inline(always)]
@@ -150,7 +151,7 @@ impl MyFloat for f64 {
     }
 
     fn atan2(&self, other: &Self) -> Self {
-        f64::atan2(*self, *other)
+        Fpt::atan2(*self, *other)
     }
 }
 
@@ -159,16 +160,16 @@ impl MyFloat for Float {
         PRECISION
     }
 
-    fn from_f64(f: f64) -> Self {
+    fn from_f(f: Fpt) -> Self {
         float!(f)
     }
 
-    fn from_f64_fraction(n: f64, d: f64) -> Self {
+    fn from_f_fraction(n: Fpt, d: Fpt) -> Self {
         float!(n / d)
     }
 
-    fn to_f64(&self) -> f64 {
-        Float::to_f64(self)
+    fn to_f(&self) -> Fpt {
+        Float::to_f64(self) as Fpt
     }
 
     fn floor(&self) -> Self {
@@ -179,7 +180,7 @@ impl MyFloat for Float {
         Float::sqrt(self.clone())
     }
 
-    fn clamp(&self, min: f64, max: f64) -> Self {
+    fn clamp(&self, min: Fpt, max: Fpt) -> Self {
         Float::clamp(self.clone(), &min, &max)
     }
 

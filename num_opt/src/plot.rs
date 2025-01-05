@@ -3,16 +3,18 @@
 use plotters::prelude::*;
 use std::time::SystemTime;
 
+use crate::my_float::Fpt;
+
 fn plot_helper(
     name: &str,
-    min_x: f64,
-    max_x: f64,
-    min_y: f64,
-    max_y: f64,
-    l: &[(f64, f64)],
-    p: &[(f64, f64)],
-    l2: &[(f64, f64)],
-    l3: &[(f64, f64)],
+    min_x: Fpt,
+    max_x: Fpt,
+    min_y: Fpt,
+    max_y: Fpt,
+    l: &[(Fpt, Fpt)],
+    p: &[(Fpt, Fpt)],
+    l2: &[(Fpt, Fpt)],
+    l3: &[(Fpt, Fpt)],
 ) {
     let save_path = format!(
         "/tmp/{name}_{}.png",
@@ -60,14 +62,14 @@ fn plot_helper(
 }
 
 #[allow(dead_code)]
-pub fn plot(name: &str, data: &[f64]) {
-    let data_min = data.iter().fold(f64::MAX, |acc, x| x.min(acc)).min(0.0);
-    let data_max = data.iter().fold(f64::MIN, |acc, x| x.max(acc)).max(0.0);
-    let dp: Vec<_> = (0..data.len()).map(|x| (x as f64, data[x])).collect();
+pub fn plot(name: &str, data: &[Fpt]) {
+    let data_min = data.iter().fold(Fpt::MAX, |acc, x| x.min(acc)).min(0.0);
+    let data_max = data.iter().fold(Fpt::MIN, |acc, x| x.max(acc)).max(0.0);
+    let dp: Vec<_> = (0..data.len()).map(|x| (x as Fpt, data[x])).collect();
     plot_helper(
         name,
         0.0,
-        data.len() as f64,
+        data.len() as Fpt,
         data_min,
         data_max,
         &dp,
@@ -77,29 +79,29 @@ pub fn plot(name: &str, data: &[f64]) {
     );
 }
 
-pub fn plot2(name: &str, data: &[(f64, f64)]) {
-    let data_min = data.iter().fold(f64::MAX, |acc, x| x.1.min(acc)).min(0.0);
-    let data_max = data.iter().fold(f64::MIN, |acc, x| x.1.max(acc)).max(0.0);
-    let x_min = data.iter().fold(f64::MAX, |acc, x| x.0.min(acc));
-    let x_max = data.iter().fold(f64::MIN, |acc, x| x.0.max(acc));
+pub fn plot2(name: &str, data: &[(Fpt, Fpt)]) {
+    let data_min = data.iter().fold(Fpt::MAX, |acc, x| x.1.min(acc)).min(0.0);
+    let data_max = data.iter().fold(Fpt::MIN, |acc, x| x.1.max(acc)).max(0.0);
+    let x_min = data.iter().fold(Fpt::MAX, |acc, x| x.0.min(acc));
+    let x_max = data.iter().fold(Fpt::MIN, |acc, x| x.0.max(acc));
     plot_helper(name, x_min, x_max, data_min, data_max, data, &[], &[], &[]);
 }
 
 #[allow(dead_code)]
-pub fn plot2_and_p(name: &str, data: &[(f64, f64)], p: (f64, f64)) {
-    let data_min = data.iter().fold(f64::MAX, |acc, x| x.1.min(acc)).min(0.0);
-    let data_max = data.iter().fold(f64::MIN, |acc, x| x.1.max(acc)).max(0.0);
-    let x_min = data.iter().fold(f64::MAX, |acc, x| x.0.min(acc));
-    let x_max = data.iter().fold(f64::MIN, |acc, x| x.0.max(acc));
+pub fn plot2_and_p(name: &str, data: &[(Fpt, Fpt)], p: (Fpt, Fpt)) {
+    let data_min = data.iter().fold(Fpt::MAX, |acc, x| x.1.min(acc)).min(0.0);
+    let data_max = data.iter().fold(Fpt::MIN, |acc, x| x.1.max(acc)).max(0.0);
+    let x_min = data.iter().fold(Fpt::MAX, |acc, x| x.0.min(acc));
+    let x_max = data.iter().fold(Fpt::MIN, |acc, x| x.0.max(acc));
     plot_helper(name, x_min, x_max, data_min, data_max, data, &[p], &[], &[]);
 }
 
 #[allow(dead_code)]
-pub fn plot2_and_2_and_2(name: &str, d: &[(f64, f64)], d2: &[(f64, f64)], d3: &[(f64, f64)]) {
+pub fn plot2_and_2_and_2(name: &str, d: &[(Fpt, Fpt)], d2: &[(Fpt, Fpt)], d3: &[(Fpt, Fpt)]) {
     let c = d.iter().chain(d2.iter()).chain(d3.iter());
-    let data_min = c.clone().fold(f64::MAX, |acc, x| x.1.min(acc)).min(0.0);
-    let data_max = c.clone().fold(f64::MIN, |acc, x| x.1.max(acc)).max(0.0);
-    let x_min = c.clone().fold(f64::MAX, |acc, x| x.0.min(acc));
-    let x_max = c.fold(f64::MIN, |acc, x| x.0.max(acc));
+    let data_min = c.clone().fold(Fpt::MAX, |acc, x| x.1.min(acc)).min(0.0);
+    let data_max = c.clone().fold(Fpt::MIN, |acc, x| x.1.max(acc)).max(0.0);
+    let x_min = c.clone().fold(Fpt::MAX, |acc, x| x.0.min(acc));
+    let x_max = c.fold(Fpt::MIN, |acc, x| x.0.max(acc));
     plot_helper(name, x_min, x_max, data_min, data_max, &d, &[], &d2, &d3);
 }

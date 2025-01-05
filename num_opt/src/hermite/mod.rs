@@ -8,7 +8,7 @@ use std::num::NonZeroU32;
 
 use matrix::{matrix_raw, multiply_matrix_vector};
 
-use crate::my_float::MyFloat;
+use crate::my_float::{Fpt, MyFloat};
 // Refer to a custom module that defines a Point struct used in splines.
 use crate::point;
 
@@ -55,7 +55,7 @@ where
 
     // coefficents and power
     /// position
-    const D0: [(f64, i32); 8] = [
+    const D0: [(Fpt, i32); 8] = [
         (1.0, 7),
         (1.0, 6),
         (1.0, 5),
@@ -66,7 +66,7 @@ where
         (1.0, 0),
     ];
     /// velocity
-    const D1: [(f64, i32); 7] = [
+    const D1: [(Fpt, i32); 7] = [
         (7.0, 6),
         (6.0, 5),
         (5.0, 4),
@@ -76,7 +76,7 @@ where
         (1.0, 0),
     ];
     /// acceleration
-    const D2: [(f64, i32); 6] = [
+    const D2: [(Fpt, i32); 6] = [
         (7.0 * 6.0, 5),
         (6.0 * 5.0, 4),
         (5.0 * 4.0, 3),
@@ -85,7 +85,7 @@ where
         (2.0, 0),
     ];
     /// jerk
-    const D3: [(f64, i32); 5] = [
+    const D3: [(Fpt, i32); 5] = [
         (7.0 * 6.0 * 5.0, 4),
         (6.0 * 5.0 * 4.0, 3),
         (5.0 * 4.0 * 3.0, 2),
@@ -93,7 +93,7 @@ where
         (3.0 * 2.0, 0),
     ];
     /// snap
-    const D4: [(f64, i32); 4] = [
+    const D4: [(Fpt, i32); 4] = [
         (7.0 * 6.0 * 5.0 * 4.0, 3),
         (6.0 * 5.0 * 4.0 * 3.0, 2),
         (5.0 * 4.0 * 3.0 * 2.0, 1),
@@ -126,9 +126,9 @@ where
     pub fn curve_normal_at(&self, u: &T) -> MyVector3<T> {
         assert!(*u >= 0.0 && *u <= 1.0);
         // midpoint approximation
-        const DELTA: f64 = 0.0001;
-        let u1 = u.clone() + T::from_f64(DELTA);
-        let u2 = u.clone() - T::from_f64(DELTA);
+        const DELTA: Fpt = 0.0001;
+        let u1 = u.clone() + T::from_f(DELTA);
+        let u2 = u.clone() - T::from_f(DELTA);
         let t1 = self.d1(&u1).normalize();
         let t2 = self.d1(&u2).normalize();
         (t1 - t2).normalize()
@@ -256,11 +256,8 @@ where
     }
     godot_print!("0)");*/
 
-    //let x_params: Box<[T]> = x_out.into_iter().map(|x| T::from_f64(x)).collect();
     let x_params = x_out;
-    //let y_params: Box<[T]> = y_out.into_iter().map(|x| T::from_f64(x)).collect();
     let y_params = y_out;
-    //let z_params: Box<[T]> = z_out.into_iter().map(|x| T::from_f64(x)).collect();
     let z_params = z_out;
 
     CurveParams::new(&x_params, &y_params, &z_params)
@@ -268,19 +265,19 @@ where
 
 /// Samples a hermite curve, splitting it into `segments` segments
 /// The segments are __not__ equal in length
-pub fn curve_points<T>(params: &CurveParams<T>, segments: NonZeroU32) -> Vec<(f64, f64, f64)>
+pub fn curve_points<T>(params: &CurveParams<T>, segments: NonZeroU32) -> Vec<(Fpt, Fpt, Fpt)>
 where
     T: MyFloat,
 {
     (0..segments.get() + 1)
         .map(|t| {
-            let t = T::from_f64_fraction(t as f64, segments.get() as f64);
+            let t = T::from_f_fraction(t as Fpt, segments.get() as Fpt);
             let x = params.x_d0(&t);
             let y = params.y_d0(&t);
             let z = params.z_d0(&t);
             // just get points on the curve
 
-            (x.to_f64(), y.to_f64(), z.to_f64())
+            (x.to_f(), y.to_f(), z.to_f())
         })
         .collect()
 }
@@ -292,7 +289,7 @@ where
 /// tangents based on neighboring points.
 ///
 /// Returns a vector the derivatives.
-pub fn catmull_rom<T: MyFloat>(values: &[T], coeff: f64) -> Vec<T> {
+pub fn catmull_rom<T: MyFloat>(values: &[T], coeff: Fpt) -> Vec<T> {
     if values.len() < 2 {
         return vec![T::zero(); values.len()];
     }
@@ -312,7 +309,7 @@ pub fn catmull_rom<T: MyFloat>(values: &[T], coeff: f64) -> Vec<T> {
 }
 
 /// Gets derivatives using Catmull-Rom, then gets derivatives of derivatives, ...
-pub fn catmull_rom_recursive<T: MyFloat>(values: &Vec<T>, coeff: f64, depth: u32) -> Vec<Vec<T>> {
+pub fn catmull_rom_recursive<T: MyFloat>(values: &Vec<T>, coeff: Fpt, depth: u32) -> Vec<Vec<T>> {
     let mut out = vec![];
     let mut v = values;
     for _ in 0..depth {
@@ -326,7 +323,7 @@ pub fn catmull_rom_recursive<T: MyFloat>(values: &Vec<T>, coeff: f64, depth: u32
 /// This is needed to get reasonable starting values for the derivatives.  
 /// That way the optimization can proceed smoothly.
 pub fn set_derivatives_using_catmull_rom<T: MyFloat>(points: &mut Vec<point::Point<T>>) {
-    const SCALE: f64 = 0.5;
+    const SCALE: Fpt = 0.5;
 
     let x_pos = points.iter().map(|p| p.x.clone()).collect();
     let y_pos = points.iter().map(|p| p.y.clone()).collect();

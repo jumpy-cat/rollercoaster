@@ -63,7 +63,7 @@ pub fn circle_circle_intersections<T: MyFloat>(c1: &Circle<T>, c2: &Circle<T>) -
     }
 
     let a = (c1.r.clone().pow(2) - c2.r.clone().pow(2) + d.clone().pow(2))
-        / (T::from_f64(2.0) * d.clone());
+        / (T::from_f(2.0) * d.clone());
     let h_squared = c1.r.clone().pow(2) - a.clone().pow(2);
 
     if LOG {

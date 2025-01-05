@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use num_opt::{
-    hermite::{self, Spline}, optimizer::{self, cost_v2}, physics::{
+    hermite::{self, Spline}, my_float::Fpt, optimizer::{self, cost_v2}, physics::{
         self,
         linalg::MyVector3,
     }
@@ -14,7 +14,7 @@ fn does_changing_step_size_affect_cost() {
     let step_sizes = [0.3, 0.1, 0.05, 0.01];
     let mut points = points();
     hermite::set_derivatives_using_catmull_rom(&mut points);
-    let curve: hermite::Spline<f64> = num_opt::hermite::Spline::new(&points);
+    let curve: hermite::Spline<Fpt> = num_opt::hermite::Spline::new(&points);
     let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 1.0);
     phys.set_v(&MyVector3::new(0.0, 0.01 * 0.05 * 256.0, 0.0));
 
@@ -31,7 +31,7 @@ fn does_changing_tol_affect_cost() {
     let tols = [1e0, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10];
     let mut points = points();
     hermite::set_derivatives_using_catmull_rom(&mut points);
-    let curve: hermite::Spline<f64> = num_opt::hermite::Spline::new(&points);
+    let curve: hermite::Spline<Fpt> = num_opt::hermite::Spline::new(&points);
     let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 1.0);
     phys.set_v(&MyVector3::new(0.0, 0.01 * 0.05 * 256.0, 0.0));
 
@@ -49,7 +49,7 @@ fn main() {
 
     let mut points = points();
     hermite::set_derivatives_using_catmull_rom(&mut points);
-    let mut curve: hermite::Spline<f64> = num_opt::hermite::Spline::new(&points);
+    let mut curve: hermite::Spline<Fpt> = num_opt::hermite::Spline::new(&points);
 
     let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 1.0);
     phys.set_v(&MyVector3::new(0.0, 0.01 * 0.05 * 256.0, 0.0));

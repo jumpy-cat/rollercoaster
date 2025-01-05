@@ -16,8 +16,8 @@ use num_opt::{my_float::MyFloat, physics::linalg::MyVector3};
 
 pub fn myvec_to_gd<T: MyFloat, V: AsRef<MyVector3<T>>>(v: V) -> godot::prelude::Vector3 {
     godot::prelude::Vector3::new(
-        v.as_ref().x.to_f64() as f32,
-        v.as_ref().y.to_f64() as f32,
-        v.as_ref().z.to_f64() as f32,
+        v.as_ref().x.to_f() as f32,
+        v.as_ref().y.to_f() as f32,
+        v.as_ref().z.to_f() as f32,
     )
 }

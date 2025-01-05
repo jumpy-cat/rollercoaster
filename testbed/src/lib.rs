@@ -1,4 +1,6 @@
-pub fn points() -> Vec<num_opt::point::Point<f64>> {
+use num_opt::my_float::Fpt;
+
+pub fn points() -> Vec<num_opt::point::Point<Fpt>> {
     let points = [
         [30, 24, 1],
         [21, 6, 1],
@@ -23,6 +25,6 @@ pub fn points() -> Vec<num_opt::point::Point<f64>> {
     ];
     points
         .iter()
-        .map(|p| num_opt::point::Point::new(p[0] as f64, p[1] as f64, p[2] as f64))
+        .map(|p| num_opt::point::Point::new(p[0] as Fpt, p[1] as Fpt, p[2] as Fpt))
         .collect()
 }

@@ -10,7 +10,7 @@ use godot::prelude::*;
 use log::info;
 use num_opt::{
     hermite,
-    my_float::{MyFloat, MyFloatType},
+    my_float::{Fpt, MyFloat, MyFloatType},
     optimizer,
     physics::{self, PhysicsStateV3},
     point,
@@ -31,11 +31,11 @@ enum ToWorker {
     Enable,
     Disable,
     SetPoints(Vec<point::Point<MyFloatType>>, Derivatives),
-    SetMass(f64),
-    SetGravity(f64),
-    SetMu(f64),
-    SetLR(f64),
-    SetComOffsetMag(f64),
+    SetMass(Fpt),
+    SetGravity(Fpt),
+    SetMu(Fpt),
+    SetLR(Fpt),
+    SetComOffsetMag(Fpt),
 }
 
 /// Messages gotten by an `Optimizer` from its worker thread
@@ -53,7 +53,7 @@ pub struct Optimizer {
     segment_points_cache: Option<Vec<Vector3>>,
     from_worker: Mutex<mpsc::Receiver<FromWorker>>,
     to_worker: mpsc::Sender<ToWorker>,
-    most_recent_cost: f64,
+    most_recent_cost: Fpt,
     num_iters: u64,
     start_time: Option<std::time::Instant>,
 }
@@ -163,7 +163,7 @@ impl Optimizer {
                                     if prev_cost.is_some() {
                                         outbox.send(FromWorker::NewPoints((
                                             points.clone(),
-                                            prev_cost.map(MyFloatType::from_f64),
+                                            prev_cost.map(MyFloatType::from_f),
                                         )))?;
                                     }
                                 }
@@ -187,7 +187,7 @@ impl Optimizer {
                             self.segment_points_cache = None;
                             self.points = points;
                             if let Some(c) = cost {
-                                self.most_recent_cost = c.to_f64();
+                                self.most_recent_cost = c.to_f();
                             }
                             self.num_iters += 1;
                         }
@@ -200,21 +200,21 @@ impl Optimizer {
 
     /// Sets the mass
     #[func]
-    fn set_mass(&mut self, mass: f64) {
+    fn set_mass(&mut self, mass: Fpt) {
         info!("set_mass: {}", mass);
         self.to_worker.send(ToWorker::SetMass(mass)).unwrap();
     }
 
     /// Sets the value of gravity (acceleration, should be negative)
     #[func]
-    fn set_gravity(&mut self, gravity: f64) {
+    fn set_gravity(&mut self, gravity: Fpt) {
         info!("set_gravity: {}", gravity);
         self.to_worker.send(ToWorker::SetGravity(gravity)).unwrap();
     }
 
     /// Sets the friction coefficent between the coaster and the track
     #[func]
-    fn set_mu(&mut self, mu: f64) {
+    fn set_mu(&mut self, mu: Fpt) {
         info!("set_mu: {}", mu);
         self.to_worker.send(ToWorker::SetMu(mu)).unwrap();
     }
@@ -222,13 +222,13 @@ impl Optimizer {
     /// Sets the learning rate. Also sets the max delta possible
     /// since derivatives are normalized if they exceed 1 in magnitude
     #[func]
-    fn set_lr(&mut self, lr: f64) {
+    fn set_lr(&mut self, lr: Fpt) {
         info!("set_lr: {}", lr);
         self.to_worker.send(ToWorker::SetLR(lr)).unwrap();
     }
 
     #[func]
-    fn set_com_offset_mag(&mut self, mag: f64) {
+    fn set_com_offset_mag(&mut self, mag: Fpt) {
         info!("set_com_offset_mag: {}", mag);
         self.to_worker.send(ToWorker::SetComOffsetMag(mag)).unwrap();
     }
@@ -244,9 +244,9 @@ impl Optimizer {
             .iter_shared()
             .map(|p| {
                 point::Point::new(
-                    MyFloatType::from_f64(p.x.as_f64()),
-                    MyFloatType::from_f64(p.y.as_f64()),
-                    MyFloatType::from_f64(p.z.as_f64()),
+                    MyFloatType::from_f(p.x as Fpt),
+                    MyFloatType::from_f(p.y as Fpt),
+                    MyFloatType::from_f(p.z as Fpt),
                 )
             })
             .collect();
@@ -325,19 +325,19 @@ impl Optimizer {
 
     /// Most recent cost value from optimizer
     #[func]
-    fn cost(&self) -> f64 {
+    fn cost(&self) -> Fpt {
         self.most_recent_cost
     }
 
     #[func]
-    fn calc_cost_inst(&self, mass: f64, gravity: f64, mu: f64, com_offset_mag: f64) -> f64 {
+    fn calc_cost_inst(&self, mass: Fpt, gravity: Fpt, mu: Fpt, com_offset_mag: Fpt) -> Fpt {
         // TODO: friction
         optimizer::cost_v2(
             PhysicsStateV3::new(mass, gravity, &self.curve, com_offset_mag),
             &self.curve,
             0.05,
         )
-        .unwrap_or(f64::NAN)
+        .unwrap_or(MyFloatType::NAN)
     }
 
     /// Get the iterations per second from the most recent optimizer start

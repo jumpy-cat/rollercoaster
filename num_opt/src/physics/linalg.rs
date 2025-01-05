@@ -1,11 +1,9 @@
-//! Vector and Quaternion math, generic over `rug::Float` and `f64`
+//! Vector and Quaternion math, generic over `rug::Float` and primative floats
 
-use std::{
-    any::TypeId,
-    ops::{Add, Div, Mul, Sub},
-};
+use std::
+    ops::{Add, Div, Mul, Sub};
 
-use crate::my_float::MyFloat;
+use crate::my_float::{Fpt, MyFloat};
 
 /// Projects `a` onto `b`
 pub fn vector_projection<T: MyFloat>(a: MyVector3<T>, b: MyVector3<T>) -> MyVector3<T> {
@@ -30,11 +28,11 @@ impl<T: MyFloat> MyVector3<T> {
         Self { x, y, z }
     }
 
-    pub fn new_f64(x: f64, y: f64, z: f64) -> Self {
+    pub fn new_f(x: Fpt, y: Fpt, z: Fpt) -> Self {
         Self {
-            x: T::from_f64(x),
-            y: T::from_f64(y),
-            z: T::from_f64(z),
+            x: T::from_f(x),
+            y: T::from_f(y),
+            z: T::from_f(z),
         }
     }
 
@@ -89,7 +87,7 @@ impl<T: MyFloat> MyVector3<T> {
         let self_mag_other = other.clone() * self_mag;
         let other_mag_self = self.clone() * other_mag;
         
-        T::from_f64(2.0) * T::atan2(
+        T::from_f(2.0) * T::atan2(
             &(self_mag_other.clone() - other_mag_self.clone()).magnitude(),
             &(self_mag_other + other_mag_self).magnitude()
         )
@@ -107,14 +105,14 @@ impl<T: MyFloat> MyVector3<T> {
         self.x.is_nan() || self.y.is_nan() || self.z.is_nan()
     }
 
-    pub fn rotate_around_axis(&self, axis: &Self, angle: f64) -> Self {
+    pub fn rotate_around_axis(&self, axis: &Self, angle: Fpt) -> Self {
         let axis = axis.clone().normalize();
         // For a rotation of angle θ around axis (x,y,z), the scaled axis should be:
         // (x*sin(θ/2), y*sin(θ/2), z*sin(θ/2))
         // And the quaternion should have cos(θ/2) as its scalar part
         let half_angle = angle / 2.0;
-        let sin_half = T::from_f64(half_angle.sin());
-        let cos_half = T::from_f64(half_angle.cos());
+        let sin_half = T::from_f(half_angle.sin());
+        let cos_half = T::from_f(half_angle.cos());
         let quat = MyQuaternion {
             q0: cos_half,
             q1: axis.x * sin_half.clone(),
@@ -228,7 +226,7 @@ pub struct MyQuaternion<T: MyFloat> {
 
 impl<T: MyFloat> MyQuaternion<T> {
     pub fn from_scaled_axis(x: MyVector3<T>) -> Self {
-        let half_angle: T = x.magnitude() / T::from_f64(2.0);
+        let half_angle: T = x.magnitude() / T::from_f(2.0);
         let x = x.normalize();
         Self {
             q0: half_angle.clone().cos(),

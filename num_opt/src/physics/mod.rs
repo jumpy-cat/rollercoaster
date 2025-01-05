@@ -1,12 +1,11 @@
 //! Physics solver and cost function
 
-use core::f64;
-use std::{f64::consts::PI, sync::RwLock};
+use std::{ f64::consts::PI, sync::RwLock};
 
 use info::{use_sigfigs, PhysicsAdditionalInfo};
 use linalg::{vector_projection, ComPos, ComVel, MyQuaternion, MyVector3};
 
-use crate::{hermite, my_float::MyFloat, plot};
+use crate::{hermite, my_float::{Fpt, MyFloat}, plot};
 
 mod geo;
 mod info;
@@ -15,6 +14,19 @@ pub mod solver;
 
 #[cfg(test)]
 mod geo_test;
+
+pub static TOL: RwLock<Fpt> = RwLock::new(1e-10);
+
+pub fn set_tol(tol: Fpt) {
+    *TOL.write().unwrap() = tol;
+}
+
+/// tolerance for du from dt calculations
+#[inline(always)]
+fn tol() -> Fpt {
+    1e-10
+    //*TOL.read().unwrap()
+}
 
 /// Physics solver v3  
 /// ### Overview (check `Self::step` for details)
@@ -42,20 +54,7 @@ pub struct PhysicsStateV3<T: MyFloat> {
     w: MyVector3<T>,
     additional_info: PhysicsAdditionalInfo<T>,
 
-    cost: f64,
-}
-
-pub static TOL: RwLock<f64> = RwLock::new(1e-10f64);
-
-pub fn set_tol(tol: f64) {
-    *TOL.write().unwrap() = tol;
-}
-
-/// tolerance for du from dt calculations
-#[inline(always)]
-fn tol() -> f64 {
-    1e-10f64
-    //*TOL.read().unwrap()
+    cost: Fpt,
 }
 
 /// Makes info adjustments very clear to avoid confusion with vital for physics
@@ -72,11 +71,11 @@ macro_rules! add_info {
 impl<T: MyFloat> PhysicsStateV3<T> {
     /// Initialize the physics state: `m` mass, `g` Gravity vector,
     /// `curve.curve_at(0.0)`: Starting position of the curve at `u=0`
-    pub fn new(m: f64, g_: f64, curve: &hermite::Spline<T>, o: f64) -> Self {
+    pub fn new(m: Fpt, g_: Fpt, curve: &hermite::Spline<T>, o: Fpt) -> Self {
         assert!(curve.max_u() > 0.0);
-        let g = MyVector3::new_f64(0.0, g_, 0.0);
+        let g = MyVector3::new_f(0.0, g_, 0.0);
         let g_dir = if g_ == 0.0 {
-            MyVector3::new_f64(0.0, -1.0, 0.0)
+            MyVector3::new_f(0.0, -1.0, 0.0)
         } else {
             g.clone().normalize()
         };
@@ -88,18 +87,18 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         Self {
             i: 0,
             // constants
-            m: T::from_f64(m),
-            rot_inertia: T::from_f64(0.1),
+            m: T::from_f(m),
+            rot_inertia: T::from_f(0.1),
             g: g.clone(),
-            o: T::from_f64(o),
+            o: T::from_f(o),
             // simulation state
             prev_u: T::zero(),
             u: T::zero(), //0.0,
             // center of mass
-            x: ComPos::new(&(hl_pos.clone() - hl_normal.clone() * T::from_f64(o))), //o,
-            v: ComVel::new(&MyVector3::new_f64(
+            x: ComPos::new(&(hl_pos.clone() - hl_normal.clone() * T::from_f(o))), //o,
+            v: ComVel::new(&MyVector3::new_f(
                 0.0,
-                g.magnitude().to_f64() * 0.05 * 256.0,
+                g.magnitude().to_f() * 0.05 * 256.0,
                 0.0,
             )),
 
@@ -142,7 +141,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
         //let ideal_hl_dir_p = self.next_hl_normal(u, &curve, &fut_vel_corr);
         let ideal_hl_dir_p =
-            (self.next_hl_normal(u, &curve, &fut_vel_corr) + least_resistance * T::from_f64(10.0)).normalize();
+            (self.next_hl_normal(u, &curve, &fut_vel_corr) + least_resistance * T::from_f(10.0)).normalize();
 
         let tgt_hl_dir = ideal_hl_dir_p;
         (actual_hl_dir - tgt_hl_dir).magnitude_squared()
@@ -159,7 +158,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             let max_e = errs[0].max(&errs[1]);
             return (min_e, max_e);
         } else {
-            return (T::from_f64(f64::MAX), T::from_f64(f64::MAX));
+            return (T::from_f(Fpt::MAX), T::from_f(Fpt::MAX));
         }
     }
 
@@ -167,19 +166,19 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         &self,
         step: &T,
         curve: &hermite::Spline<T>,
-    ) -> Option<(T, ComPos<T>, MyVector3<T>, T, f64)> {
+    ) -> Option<(T, ComPos<T>, MyVector3<T>, T, Fpt)> {
         let actual_hl_dir =
             |u: &T, pos: &ComPos<T>| (curve.curve_at(&u).unwrap() - pos.inner()).normalize();
 
         let mut max_u = self.u.clone();
-        let mut find_max_u_step_size = T::from_f64(0.1); //0.1;
+        let mut find_max_u_step_size = T::from_f(0.1); //0.1;
 
         while find_max_u_step_size > tol() {
             let mut attempt = max_u.clone() + find_max_u_step_size.clone();
             let mut hitting_end = false;
             if attempt > curve.max_u() {
                 hitting_end = true;
-                attempt = T::from_f64(curve.max_u());
+                attempt = T::from_f(curve.max_u());
             }
             let p = self.possible_positions(&curve, &step, &attempt);
 
@@ -229,7 +228,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             tgt.clone(),
             tgt_hl_dir.clone(),
             max_u,
-            self.v().inner().z.to_f64(),
+            self.v().inner().z.to_f(),
         );
 
         Some(ret)
@@ -276,7 +275,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let r = self.determine_future_u_pos_norm_maxu_err(step, curve);
         if r.is_none() {
             // gravity stuck
-            self.cost = f64::NAN;
+            self.cost = Fpt::NAN;
             return None;
         }
         let (new_u, tgt_pos, tgt_norm, _max_u, err) = r.unwrap();
@@ -293,7 +292,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let new_v = self.updated_v(&step, &tgt_pos);
         let new_x = self.x.clone() + new_v.to_displacement(step.clone());
 
-        let jitter_detected = new_v.inner().angle(&self.v.inner()) > T::from_f64(10.0 * PI / 180.0);
+        let jitter_detected = new_v.inner().angle(&self.v.inner()) > T::from_f(10.0 * PI as Fpt / 180.0);
         add_info!(self, jitter_detected);
 
         let new_w = self.new_ang_vel(step, &tgt_norm);
@@ -329,23 +328,23 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             self.additional_info.hl_normal_shift_err.clone()
         );
 
-        add_info!(self, potential_energy, self.potential_energy().to_f64());
-        add_info!(self, kinetic_energy, self.kinetic_energy().to_f64());
+        add_info!(self, potential_energy, self.potential_energy().to_f());
+        add_info!(self, kinetic_energy, self.kinetic_energy().to_f());
         add_info!(
             self,
             rot_energy,
-            self.rot_energy(self.w.magnitude()).to_f64()
+            self.rot_energy(self.w.magnitude()).to_f()
         );
 
         self.v = self.correct_for_angular_energy(change_in_angular_energy, &self.v);
 
         self.additional_info.update(&self.u);
 
-        self.cost += accel.magnitude_squared().to_f64() * step.to_f64();
+        self.cost += accel.magnitude_squared().to_f() * step.to_f();
 
         self.additional_info.ang_energies.push((
-            self.u.to_f64(),
-            self.rot_energy(self.w.magnitude()).to_f64(),
+            self.u.to_f(),
+            self.rot_energy(self.w.magnitude()).to_f(),
         ));
 
         Some(())
@@ -366,7 +365,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let corr_k =
             vel_to_correct.speed().pow(2) * 0.5 * self.m.clone() + kinetic_energy_correction;
         let corr_v = vel_to_correct.inner().normalize()
-            * (corr_k * T::from_f64(2.0) / self.m.clone())
+            * (corr_k * T::from_f(2.0) / self.m.clone())
                 .max(&T::zero())
                 .sqrt();
         ComVel::new(&corr_v)

@@ -2,7 +2,7 @@ use godot::prelude::*;
 
 use num_opt::{
     hermite,
-    my_float::{MyFloat, MyFloatType},
+    my_float::{Fpt, MyFloat, MyFloatType},
 };
 
 use super::myvec_to_gd;
@@ -17,8 +17,8 @@ pub struct CoasterCurve {
 #[godot_api]
 impl CoasterCurve {
     #[func]
-    fn pos_at(&self, u: f64) -> Variant {
-        if let Some(pos) = self.inner.curve_at(&MyFloat::from_f64(u)) {
+    fn pos_at(&self, u: Fpt) -> Variant {
+        if let Some(pos) = self.inner.curve_at(&MyFloat::from_f(u)) {
             Variant::from(myvec_to_gd(&pos))
         } else {
             Variant::nil()
@@ -26,8 +26,8 @@ impl CoasterCurve {
     }
 
     #[func]
-    fn normal_at(&self, u: f64) -> Variant {
-        if let Some(pos) = self.inner.curve_normal_at(&MyFloat::from_f64(u)) {
+    fn normal_at(&self, u: Fpt) -> Variant {
+        if let Some(pos) = self.inner.curve_normal_at(&MyFloat::from_f(u)) {
             Variant::from(myvec_to_gd(&pos))
         } else {
             Variant::nil()
@@ -35,9 +35,9 @@ impl CoasterCurve {
     }
 
     #[func]
-    fn kappa_at(&self, u: f64) -> Variant {
-        if let Some(kappa) = self.inner.curve_kappa_at(&MyFloat::from_f64(u)) {
-            Variant::from(kappa.to_f64())
+    fn kappa_at(&self, u: Fpt) -> Variant {
+        if let Some(kappa) = self.inner.curve_kappa_at(&MyFloat::from_f(u)) {
+            Variant::from(kappa.to_f())
         } else {
             Variant::nil()
         }

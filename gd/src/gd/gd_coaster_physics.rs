@@ -1,5 +1,6 @@
 use godot::prelude::*;
 
+use num_opt::my_float::Fpt;
 use num_opt::my_float::MyFloat;
 use num_opt::my_float::MyFloatType;
 use num_opt::physics;
@@ -29,7 +30,7 @@ macro_rules! impl_physics_v3_getter {
 impl CoasterPhysicsV3 {
     /// Initialize with mass and gravity
     #[func]
-    fn create(mass: f64, gravity: f64, curve: Gd<CoasterCurve>, o: f64) -> Gd<Self> {
+    fn create(mass: Fpt, gravity: Fpt, curve: Gd<CoasterCurve>, o: Fpt) -> Gd<Self> {
         Gd::from_object(Self {
             inner: Some(physics::PhysicsStateV3::new(
                 mass,
@@ -41,12 +42,12 @@ impl CoasterPhysicsV3 {
     }
 
     #[func]
-    fn step(&mut self, curve: Gd<CoasterCurve>, step_size: f64) {
+    fn step(&mut self, curve: Gd<CoasterCurve>, step_size: Fpt) {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
             for _ in 0..1 {
                 let _ = phys
-                    .step(&MyFloatType::from_f64(step_size), curve)
+                    .step(&MyFloatType::from_f(step_size), curve)
                     .is_none();
                 //if !phys.additional_info().found_exact_solution_ {
                 //    break;
@@ -86,13 +87,13 @@ impl CoasterPhysicsV3 {
 
     #[func]
     fn u(&self) -> Variant {
-        impl_physics_v3_getter!(self, |phys: &Inner| phys.u().to_f64())
+        impl_physics_v3_getter!(self, |phys: &Inner| phys.u().to_f())
     }
 
     #[func]
-    fn future_pos_no_vel(&self, step: f64) -> Variant {
+    fn future_pos_no_vel(&self, step: Fpt) -> Variant {
         impl_physics_v3_getter!(self, |phys: &Inner| myvec_to_gd(
-            phys.future_pos_no_vel(&MyFloatType::from_f64(step), phys.x())
+            phys.future_pos_no_vel(&MyFloatType::from_f(step), phys.x())
                 .inner()
         ))
     }
