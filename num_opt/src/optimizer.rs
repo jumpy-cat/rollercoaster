@@ -157,7 +157,7 @@ pub fn optimize_v2<T: MyFloat>(
             let mut sublist = vec![];
             // for each control point, compute the gradient of the cost function with respect to its derivatives.
             for np in nudged {
-                log::debug!("trail for point {i}");
+                log::debug!("trial for point {i}");
                 controls[i] = np;
                 let params = hermite::Spline::<T>::new(&controls);
                 let new_cost = cost_v2(initial.clone(), &params);

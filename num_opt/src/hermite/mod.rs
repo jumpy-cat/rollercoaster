@@ -28,6 +28,9 @@ where
     x: [T; 8], // x(t) = x[0] * t^7 + x[1] * t^6 + ... + x[7] * t^0
     y: [T; 8], // y(t) = y[0] * t^7 + y[1] * t^6 + ... + y[7] * t^0
     z: [T; 8], // z(t) = z[0] * t^7 + z[1] * t^6 + ... + z[7] * t^0
+    //d1_x: [T; 7],
+    //d1_y: [T; 7],
+    //d1_z: [T; 7],
 }
 
 // Stores polynomial coefficients for x(t), y(t), z(t), each up to t7.
@@ -44,7 +47,10 @@ where
         let x = array::from_fn(|i| x[i].clone());
         let y = array::from_fn(|i| y[i].clone());
         let z = array::from_fn(|i| z[i].clone());
-        Self { x, y, z }
+        //let d1_x = array::from_fn(|i| x[i].clone() * Self::D1[i].0);
+        //let d1_y = array::from_fn(|i| y[i].clone() * Self::D1[i].0);
+        //let d1_z = array::from_fn(|i| z[i].clone() * Self::D1[i].0);
+        Self { x, y, z,}// d1_x, d1_y, d1_z }
     }
 
     // coefficents and power
@@ -102,6 +108,7 @@ macro_rules! curve_params_getter {
     ($name:ident, $c:expr, $v:ident) => {
         /// Evaluates the polynomial defined by the coefficients in `$c` at `u`,
         /// using the $v coordinate
+        #[inline(always)]
         pub fn $name(&self, u: &T) -> T {
             $c.iter()
                 .zip(&self.$v)
@@ -115,6 +122,7 @@ impl<T> CurveParams<T>
 where
     T: MyFloat,
 {
+    #[inline(always)]
     pub fn curve_normal_at(&self, u: &T) -> MyVector3<T> {
         assert!(*u >= 0.0 && *u <= 1.0);
         // midpoint approximation
@@ -126,18 +134,43 @@ where
         (t1 - t2).normalize()
     }
 
+    #[inline(always)]
     pub fn curve_kappa_at(&self, u: &T) -> T {
         self.d1(u).cross(&self.d2(u)).magnitude() / self.d1(u).magnitude().pow(3)
     }
+    
+    #[inline(always)]
     pub fn d0(&self, u: &T) -> MyVector3<T> {
         MyVector3::new(self.x_d0(u), self.y_d0(u), self.z_d0(u))
     }
+
+    #[inline(always)]
     pub fn d1(&self, u: &T) -> MyVector3<T> {
         MyVector3::new(self.x_d1(u), self.y_d1(u), self.z_d1(u))
     }
+
+    #[inline(always)]
     pub fn d2(&self, u: &T) -> MyVector3<T> {
         MyVector3::new(self.x_d2(u), self.y_d2(u), self.z_d2(u))
     }
+
+    /*pub fn x_d1(&self, u: &T) -> T {
+        self.d1_x.iter()
+            .enumerate().map(|(i, coeff)| coeff.clone() * u.clone().pow(6 - i as i32))
+            .fold(T::zero(), |acc, x| acc + x)
+    }
+
+    pub fn y_d1(&self, u: &T) -> T {
+        self.d1_y.iter()
+            .enumerate().map(|(i, coeff)| coeff.clone() * u.clone().pow(6 - i as i32))
+            .fold(T::zero(), |acc, x| acc + x)
+    }
+
+    pub fn z_d1(&self, u: &T) -> T {
+        self.d1_z.iter()
+            .enumerate().map(|(i, coeff)| coeff.clone() * u.clone().pow(6 - i as i32))
+            .fold(T::zero(), |acc, x| acc + x)
+    }*/
 
     // getters for position and derivatives
     curve_params_getter!(x_d0, Self::D0, x);

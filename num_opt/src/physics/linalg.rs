@@ -18,8 +18,6 @@ pub fn scaler_projection<T: MyFloat>(a: MyVector3<T>, b: MyVector3<T>) -> T {
 
 pub struct Silence;
 
-/// 3D Vector with higher
-///
 #[derive(Clone)]
 pub struct MyVector3<T: MyFloat> {
     pub x: T,

@@ -21,10 +21,10 @@ fn main() {
     let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 1.0);
     phys.set_v(&MyVector3::new(0.0, 0.01 * 0.05 * 256.0, 0.0));
 
-    //let c = optimizer::optimize_v2(&phys, &curve, &mut points, 0.01);
-    //log::info!("Cost: {:?}", c);
+    let c = optimizer::optimize_v2(&phys, &curve, &mut points, 0.01);
+    log::info!("Cost: {:?}", c);
 
-    //return;
+    return;
 
     let st = Instant::now();
     let mut i = 0;

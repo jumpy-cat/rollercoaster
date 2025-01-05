@@ -67,66 +67,82 @@ pub trait MyFloat:
 }
 
 impl MyFloat for f64 {
+    #[inline(always)]
     fn precision() -> u32 {
         0
     }
 
+    #[inline(always)]
     fn from_f64(f: f64) -> Self {
         f
     }
 
+    #[inline(always)]
     fn from_f64_fraction(n: f64, d: f64) -> Self {
         n / d
     }
-
+    
+    #[inline(always)]
     fn to_f64(&self) -> f64 {
         *self
     }
-
+    
+    #[inline(always)]
     fn floor(&self) -> Self {
         f64::floor(*self)
     }
-
+    
+    #[inline(always)]
     fn sqrt(&self) -> Self {
         f64::sqrt(*self)
     }
-
+    
+    #[inline(always)]
     fn clamp(&self, min: f64, max: f64) -> Self {
         f64::clamp(*self, min, max)
     }
-
+    
+    #[inline(always)]
     fn sin(&self) -> Self {
         f64::sin(*self)
     }
-
+    
+    #[inline(always)]
     fn cos(&self) -> Self {
         f64::cos(*self)
     }
-
+    
+    #[inline(always)]
     fn acos(&self) -> Self {
         f64::acos(*self)
     }
-
+    
+    #[inline(always)]
     fn is_nan(&self) -> bool {
         f64::is_nan(*self)
     }
-
+    
+    #[inline(always)]
     fn max(&self, other: &Self) -> Self {
         f64::max(*self, *other)
     }
-
+    
+    #[inline(always)]
     fn min(&self, other: &Self) -> Self {
         f64::min(*self, *other)
     }
-
+    
+    #[inline(always)]
     fn abs(&self) -> Self {
         f64::abs(*self)
     }
-
+    
+    #[inline(always)]
     fn one() -> Self {
         1.0
     }
-
+    
+    #[inline(always)]
     fn zero() -> Self {
         0.0
     }
