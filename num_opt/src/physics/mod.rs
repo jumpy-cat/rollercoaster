@@ -190,25 +190,17 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             }
         }
 
-        // split the search space
-
         let res = solver::find_minimum_golden_section(
             &self.u,
             &(max_u.clone()),
             |u| self.hl_normal_errs_at_u(u, curve, step).0,
             tol(),
         );
-        //println!("Res: {:#?}", res);
         let new_u = match res {
             Ok((u, v)) => {
-                if v > tol() * 1e2 {
-                    //log::debug!("Imprecise with {v}");
-                }
                 u
             }
             Err((u, v, b)) => {
-                //log::debug!("Imprecise with {v} {:?}", b);
-                //log::debug!("Req u: {u} cmp max {max_u}");
                 u
             }
         };
@@ -226,22 +218,12 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             Some(pos) => pos,
             None => {
                 if self.v.speed() < self.g.magnitude() * step.clone() {
-                    //warn!("Stuck due to gravity!");
                     return None;
                 } else {
-                    /*log::error!(
-                        "No possible positions du:{:?}, {:#?} v: {:?} g-imp: {}",
-                        new_u - self.u.clone(),
-                        self.possible_positions(&curve, &step, &self.u),
-                        self.v.speed(),
-                        self.g.magnitude() * step.clone()
-                    );*/
                     panic!()
                 }
             }
         };
-        //println!("Target: {:#?}", tgt);
-        //let err = if
         let tgt_hl_dir = actual_hl_dir(&new_u, &tgt);
         let ret = (
             new_u.clone(),
@@ -250,7 +232,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             max_u,
             self.v().inner().z.to_f64(),
         );
-        //println!("Ret: {:#?}", ret);
 
         Some(ret)
     }
@@ -317,32 +298,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
         let jitter_detected = new_v.inner().angle(&self.v.inner()) > T::from_f64(10.0 * PI / 180.0);
         add_info!(self, jitter_detected);
-        /*if jitter_detected {
-            let mut min_z = vec![];
-            let mut max_z = vec![];
-            let mut tgt_z = vec![];
-            for u in (0..=1000)
-                .map(|i| self.u.to_f64() + 0.001 * i as f64 * (max_u.to_f64() - self.u.to_f64()))
-            {
-                let pp = self.possible_positions(curve, &step, &T::from_f64(u));
-                let tgt = self.next_hl_normal(&T::from_f64(u), curve, &self.v);
-                tgt_z.push((u, tgt.z.to_f64()));
-                let get_z = |pp: &ComPos<T>| {
-                    (curve.curve_at(&T::from_f64(u)).unwrap() - pp.inner())
-                        .z
-                        .to_f64()
-                        / self.o.to_f64()
-                };
-
-                if pp.len() == 2 {
-                    let z0 = get_z(&pp[0]);
-                    let z1 = get_z(&pp[1]);
-                    min_z.push((u, z0.min(z1)));
-                    max_z.push((u, z0.max(z1)));
-                }
-            }
-            plot::plot2_and_2_and_2("Z", &tgt_z, &min_z, &max_z);
-        }*/
 
         let new_w = self.hl_normal.cross(&tgt_norm).normalize() * self.hl_normal.angle(&tgt_norm);
         let change_in_angular_energy =
@@ -382,20 +337,25 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             self.rot_energy(self.w.magnitude()).to_f64()
         );
 
-        // correct for angular energy
-        let kinetic_energy_correction = -change_in_angular_energy;
-        let corr_k = self.kinetic_energy() + kinetic_energy_correction;
-        let corr_v = self.v.inner().normalize()
-            * (corr_k * T::from_f64(2.0) / self.m.clone())
-                .max(&T::zero())
-                .sqrt();
-        self.v = ComVel::new(&corr_v);
+        self.v = self.correct_for_angular_energy(
+            change_in_angular_energy, &self.v);
 
         self.additional_info.update(&self.u);
 
         self.cost += accel.magnitude_squared().to_f64() * step.to_f64();
 
         Some(())
+    }
+
+
+    fn correct_for_angular_energy(&self, change_in_angular_energy: T, vel_to_correct: &ComVel<T>) -> ComVel<T> {
+        let kinetic_energy_correction = -change_in_angular_energy;
+        let corr_k = vel_to_correct.speed() * 0.5 * self.m.clone() + kinetic_energy_correction;
+        let corr_v = vel_to_correct.inner().normalize()
+            * (corr_k * T::from_f64(2.0) / self.m.clone())
+                .max(&T::zero())
+                .sqrt();
+        ComVel::new(&corr_v)
     }
 
     fn updated_v(&self, step: &T, target_pos: &ComPos<T>) -> ComVel<T> {

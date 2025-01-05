@@ -1,5 +1,10 @@
+use core::f64;
 use std::{
-    collections::VecDeque, num::NonZero, sync::{mpsc, Mutex}, thread::{self, JoinHandle}, time::Instant
+    collections::VecDeque,
+    num::NonZero,
+    sync::{mpsc, Mutex},
+    thread::{self, JoinHandle},
+    time::Instant,
 };
 
 use godot::prelude::*;
@@ -7,7 +12,9 @@ use log::info;
 use num_opt::{
     hermite,
     my_float::{MyFloat, MyFloatType},
-    optimizer, physics, point,
+    optimizer,
+    physics::{self, PhysicsStateV3},
+    point,
 };
 use num_traits::cast::AsPrimitive;
 
@@ -78,7 +85,7 @@ impl Optimizer {
             start_time: None,
         })
     }
-    
+
     fn worker(
         inbox: mpsc::Receiver<ToWorker>,
         outbox: mpsc::Sender<FromWorker>,
@@ -137,13 +144,17 @@ impl Optimizer {
                             if let Some(lr) = lr {
                                 if let Some(com_offset_mag) = com_offset_mag {
                                     let prev_cost = optimizer::optimize_v2(
-                                        &physics::PhysicsStateV3::new(mass, gravity, &curve, com_offset_mag)
-                                        /*&physics::legacy::PhysicsState::new(
+                                        &physics::PhysicsStateV3::new(
                                             mass,
                                             gravity,
-                                            mu,
+                                            &curve,
                                             com_offset_mag,
-                                        )*/,
+                                        ), /*&physics::legacy::PhysicsState::new(
+                                               mass,
+                                               gravity,
+                                               mu,
+                                               com_offset_mag,
+                                           )*/
                                         &curve,
                                         &mut points,
                                         lr,
@@ -316,6 +327,17 @@ impl Optimizer {
     #[func]
     fn cost(&self) -> f64 {
         self.most_recent_cost
+    }
+
+    #[func]
+    fn calc_cost_inst(&self, mass: f64, gravity: f64, mu: f64, com_offset_mag: f64) -> f64 {
+        // TODO: friction
+        optimizer::cost_v2(
+            PhysicsStateV3::new(mass, gravity, &self.curve, com_offset_mag),
+            &self.curve,
+            0.05,
+        )
+        .unwrap_or(f64::NAN)
     }
 
     /// Get the iterations per second from the most recent optimizer start

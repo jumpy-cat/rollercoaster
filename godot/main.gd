@@ -174,9 +174,10 @@ func _process(_delta: float) -> void:
 		label.text = physics.description()
 	var ips = optimizer.iters_per_second()
 	if ips == null:
-		optimizer_speed_label.text = "-- iter/s"
+		optimizer_speed_label.text = "-- iter/s\nInst Cost: %.3f" % inst_cost
 	else:
-		optimizer_speed_label.text = "%.1f iter/s" % optimizer.iters_per_second()
+		optimizer_speed_label.text = "%.1f iter/s\nInst Cost: %.3f"\
+			% [optimizer.iters_per_second(), inst_cost]
 
 
 ## Input is an array of Vector3
@@ -254,6 +255,15 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		curve = optimizer.get_curve()
 
 		physics = CoasterPhysicsV3.create(params_manager.mass, params_manager.gravity, curve, COM_OFFSET)
+	if event.is_action_pressed("get_inst_cost"):
+		inst_cost = optimizer.calc_cost_inst(
+			params_manager.mass,
+			params_manager.gravity,
+			params_manager.friction,
+			params_manager.com_offset_mag
+		)
+
+var inst_cost = NAN
 
 
 func _on_check_button_toggled(toggled_on: bool) -> void:
@@ -284,7 +294,7 @@ func _on_save_button_pressed() -> void:
 func _on_save_dialogue_file_selected(path: String) -> void:
 	var p: Array[Vector3] = [];
 	for cp in control_points:
-		p.push_back(cp.posi)
+		p.push_back(cp.position)
 	
 	var saver = Saver.to_path(path, p)
 	if saver.success():
