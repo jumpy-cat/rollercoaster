@@ -89,6 +89,7 @@ impl Optimizer {
         inbox: mpsc::Receiver<ToWorker>,
         outbox: mpsc::Sender<FromWorker>,
     ) -> anyhow::Result<()> {
+        info!("Worker says hi");
         let mut active = false;
         let mut points = vec![];
         let mut curve: hermite::Spline<MyFloatType> = Default::default();

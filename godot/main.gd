@@ -1,8 +1,5 @@
 extends Node3D
 
-#const __ = preload("res://components/PointEditComponent.tscn")
-#const ___ = preload("res://components/ParamsManager.tscn")
-
 # Used to show control points
 @export var control_point_scene: PackedScene
 @export var point_edit_component: PointEditComponent

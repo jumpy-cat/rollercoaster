@@ -1,11 +1,9 @@
 use std::time::Instant;
 
-use log::{error, info};
 use num_opt::{
     hermite::{self, Spline}, optimizer::{self, cost_v2}, physics::{
         self,
-        linalg::{ComPos, MyVector3},
-        solver,
+        linalg::MyVector3,
     }
 };
 use testbed::points;
@@ -48,8 +46,6 @@ fn does_changing_tol_affect_cost() {
 
 fn main() {
     env_logger::init();
-    //does_changing_step_size_affect_cost();
-    //does_changing_tol_affect_cost();
 
     let mut points = points();
     hermite::set_derivatives_using_catmull_rom(&mut points);
