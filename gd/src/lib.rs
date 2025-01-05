@@ -1,11 +1,15 @@
-#![feature(let_chains)]
-
 use godot::prelude::*;
 
-/// this adds all the godot exports
 mod gd;
+mod logger;
+mod persist;
 
 struct MyExtension;
 
 #[gdextension]
-unsafe impl ExtensionLibrary for MyExtension {}
+unsafe impl ExtensionLibrary for MyExtension {
+    fn on_level_init(_level: InitLevel) {
+        logger::init();
+        log::info!("Hi");
+    }
+}

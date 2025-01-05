@@ -2,59 +2,189 @@ extends Node3D
 
 # Used to show control points
 @export var control_point_scene: PackedScene
-
-# Anim Vectors
-@onready var hl_normal_mi: MeshInstance3D = $HLNormal
+@export var point_edit_component: PointEditComponent
+@export var params_manager: ParamsManager
+@export var save_file_dialog: FileDialog
+@export var ke_chart: Chart
 
 # Relevant child nodes
 @onready var camera: Camera3D = $PanOrbitCamera;
 @onready var basic_lines: MeshInstance3D = $BasicLines;
 
-@onready var optimizer: Optimizer = $Optimizer;
 @onready var anim: Node3D = $Anim;
 @onready var label: Label = $VBoxContainer/MainStats;
 @onready var optimizer_speed_label: Label = $VBoxContainer/OptimizerSpdLabel
 @onready var optimizer_checkbox: CheckButton = $VBoxContainer/CheckButton
-@onready var load_file_dialog: FileDialog = $LoadDialogue
-@onready var save_file_dialog: FileDialog = $SaveDialogue
 
-# Point editing
-@onready var x_edit: FloatEdit = $VBoxContainer/XEdit
-@onready var y_edit: FloatEdit = $VBoxContainer/YEdit
-@onready var z_edit: FloatEdit = $VBoxContainer/ZEdit
-var selected_index;
-var selected_point;
-
+var optimizer: Optimizer;
 var camera_follow_anim: bool = false
 var manual_physics = false
 var optimize: bool = false
+
+var selected_index;
+var selected_point;
 var control_points: Array[ControlPoint]
 
 var curve: CoasterCurve
 var physics: CoasterPhysicsV3
 
-# default parameter values
-var learning_rate: float = 1.0
-var mass: float = 1.00
-var gravity: float = -0.01
-var friction: float = 0.05
-var anim_step_size: float = 0.05
-var com_offset_mag: float = 1.0
+var f1: Function
 
-# parameter editing
-@onready var lr_edit: FloatEdit = $VBoxContainer/LREdit
-@onready var mass_edit: FloatEdit = $VBoxContainer/MassEdit
-@onready var gravity_edit: FloatEdit = $VBoxContainer/GravityEdit
-@onready var friction_edit: FloatEdit = $VBoxContainer/FrictionEdit
-@onready var anim_step_edit: FloatEdit = $VBoxContainer/AnimStepEdit
+
+## This function is called when the node is added to the scene.
+## Initializes control points, positions the camera, and prepares the optimizer.
+func _ready() -> void:
+	point_edit_component.request_points();
+
+	# prepare the optimizer
+	optimizer = Optimizer.create();
+	params_manager.apply_to_optimizer(optimizer)
+	
+	var conf = DebugDraw2D.get_config()
+	conf.set_text_default_size(30)
+	DebugDraw2D.set_config(conf)
+
+	# Let's create our @x values
+	var x: Array = [0,0]
+	
+	# And our y values. It can be an n-size array of arrays.
+	# NOTE: `x.size() == y.size()` or `x.size() == y[n].size()`
+	var y: Array = ["Translation", "Rotation"]
+	
+	# Let's customize the chart properties, which specify how the chart
+	# should look, plus some additional elements like labels, the scale, etc...
+	var cp: ChartProperties = ChartProperties.new()
+	cp.colors.frame = Color("#161a1d")
+	cp.colors.background = Color.TRANSPARENT
+	cp.colors.grid = Color("#283442")
+	cp.colors.ticks = Color("#283442")
+	cp.colors.text = Color.WHITE_SMOKE
+	cp.show_tick_labels = false
+	cp.draw_bounding_box = false
+	cp.title = "Kinetic Energy"
+	cp.draw_grid_box = false
+	cp.show_legend = true
+	cp.interactive = true # false by default, it allows the chart to create a tooltip to show point values
+	# and intercept clicks on the plot
+	
+	var gradient: Gradient = Gradient.new()
+	gradient.set_color(0, Color.BLUE)
+	gradient.set_color(1, Color.DEEP_PINK)
+	
+	# Let's add values to our functions
+	f1 = Function.new(
+		x, y, "Language", # This will create a function with x and y values taken by the Arrays 
+						# we have created previously. This function will also be named "Pressure"
+						# as it contains 'pressure' values.
+						# If set, the name of a function will be used both in the Legend
+						# (if enabled thourgh ChartProperties) and on the Tooltip (if enabled).
+		{
+			gradient = gradient,
+			type = Function.Type.PIE
+		}
+	)
+	
+	# Now let's plot our data
+	ke_chart.plot([f1], cp)
+
+
+var hist_pos = []
+var last_pos = Vector3.ZERO
+
+const COM_OFFSET = 1;
+
+
+func _process(_delta: float) -> void:
+	optimizer.update()
+	DebugDraw2D.set_text("FPS", Engine.get_frames_per_second())
+	
+	# update physics simulation
+	if curve != null:
+		anim.visible = true
+		"""&& physics.found_exact_solution()"""
+		var physics_did_step = ((!manual_physics) # && physics.found_exact_solution())
+			|| Input.is_action_just_pressed("step_physics"))
+		if physics_did_step:
+			physics.step(curve, params_manager.anim_step_size)
+		var anim_pos = physics.pos()
+		var anim_vel = physics.vel()
+		var anim_up = physics.hl_normal()
+
+		if camera_follow_anim:
+			camera.op = anim_pos
+		
+		for i in range(len(hist_pos) - 1):
+			DebugDraw3D.draw_line(
+				hist_pos[i],
+				hist_pos[i + 1],
+				Color.PURPLE
+			)
+		const HIST_LINE_UPDATE_DIST = 0.1
+		if (anim_pos - last_pos).length() > HIST_LINE_UPDATE_DIST:
+			hist_pos.push_back(anim_pos)
+			last_pos = anim_pos
+
+		const MULT = 1000;
+
+		DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_vel, Color.BLUE)
+		#DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_up, Color.GREEN)
+		var cp = curve.pos_at(physics.u());
+		var r = 1 / curve.kappa_at(physics.u()) + COM_OFFSET
+		var cpag = cp + MULT * physics.vel().length() ** 2 / r * curve.normal_at(physics.u())
+		DebugDraw3D.draw_line(cp, cpag, Color.RED)
+		DebugDraw3D.draw_line(cpag, cpag + MULT * Vector3(0, 0.01, 0), Color.ORCHID)
+		DebugDraw3D.draw_line(cp, cpag + MULT * Vector3(0, 0.01, 0), Color.WHITE)
+
+		DebugDraw3D.draw_line(cp, cp + MULT * curve.normal_at(physics.u()), Color.YELLOW)
+
+		if !physics.jitter_detected():
+			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.4, Color.YELLOW)
+		else:
+			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.6, Color.RED)
+		DebugDraw3D.draw_sphere(physics.null_tgt_pos(), 0.2, Color.PURPLE)
+		DebugDraw3D.draw_sphere(physics.tgt_pos(), 0.2, Color.PINK)
+
+		f1.set_point(0, physics.t_kinetic_energy(), 0)
+		f1.set_point(1, physics.r_kinetic_energy(), 0)
+		ke_chart.queue_redraw()
+
+		if anim_pos != null:
+			if anim_pos != anim_pos + anim_vel:
+				anim.look_at_from_position(anim_pos, anim_pos + anim_vel, anim_up)
+		else:
+			anim.visible = false
+
+	# generate mesh for curves between control points
+	var curve_points = optimizer.as_segment_points();
+	if len(curve_points) > 1:
+		var m = basic_lines.mesh;
+		m.clear_surfaces();
+		m.surface_begin(Mesh.PRIMITIVE_LINES);
+
+		Utils.cylinder_line(m, optimizer.as_segment_points(), 0.2)
+				
+		m.surface_end();
+
+	if physics == null:
+		label.text = "physics not initialized"
+	else:
+		label.text = physics.description()
+	var ips = optimizer.iters_per_second()
+	if ips == null:
+		optimizer_speed_label.text = "-- iter/s\nInst Cost: %.3f" % inst_cost
+	else:
+		optimizer_speed_label.text = "%.1f iter/s\nInst Cost: %.3f"\
+			% [optimizer.iters_per_second(), inst_cost]
+
 
 ## Input is an array of Vector3
-func set_points(points: Variant) -> void:
+func set_points(points: Array[Vector3]) -> void:
 	# remove old control points
 	for cp in control_points:
 		cp.queue_free()
 	control_points = []
-	# create list of position vectors, calculate center
+
+	# create list of position vectors, calculate center, and create control points
 	var avg_pos = Vector3.ZERO
 	for i in range(len(points)):
 		var p = points[i]
@@ -92,147 +222,10 @@ func set_points(points: Variant) -> void:
 	optimizer.set_points(positions)
 
 
-## This function is called when the node is added to the scene.
-## Initializes control points, positions the camera, and prepares the optimizer.
-func _ready() -> void:
-	load_file_dialog.use_native_dialog = true
-	load_file_dialog.popup()
-
-	# prepare the optimizer
-	optimizer.set_mass(mass)
-	optimizer.set_gravity(gravity)
-	optimizer.set_mu(friction)
-	optimizer.set_lr(learning_rate)
-	optimizer.set_com_offset_mag(com_offset_mag)
-
-	# ui setup
-	x_edit.theme.set_color("font_color", "Label", Color.RED)
-	x_edit.theme.set_color("font_color", "LineEdit", Color.RED)
-	y_edit.theme.set_color("font_color", "Label", Color.GREEN)
-	y_edit.theme.set_color("font_color", "LineEdit", Color.GREEN)
-	z_edit.theme.set_color("font_color", "Label", Color.SKY_BLUE)
-	z_edit.theme.set_color("font_color", "LineEdit", Color.SKY_BLUE)
-
-	# more ui setup
-	lr_edit.set_value(learning_rate)
-	mass_edit.set_value(mass)
-	gravity_edit.set_value(gravity)
-	friction_edit.set_value(friction)
-	anim_step_edit.set_value(anim_step_size)
-	var conf = DebugDraw2D.get_config()
-	conf.set_text_default_size(30)
-	DebugDraw2D.set_config(conf)
-
-
-var anim_prev_pos = null
-
-
-func _process(_delta: float) -> void:
-	DebugDraw2D.set_text("FPS", Engine.get_frames_per_second())
-
-	# handle key input
-	if Input.is_action_just_pressed("reset_curve"):
-		var positions: Array[Vector3] = []
-		for cp in control_points:
-			positions.push_back(cp.position)
-		optimizer.set_points(positions)
-	if Input.is_action_just_pressed("toggle_follow_anim"):
-		camera_follow_anim = !camera_follow_anim
-	if Input.is_action_just_pressed("run_simulation"):
-		push_warning("hi2")
-		curve = optimizer.get_curve()
-		push_warning("hi3")
-
-		physics = CoasterPhysicsV3.create(mass, gravity, curve, 1.0)	
-		push_warning("hi4")	
-	
-	# update physics simulation
-	if curve != null:
-		anim.visible = true
-		var physics_did_step = (!manual_physics || Input.is_action_just_pressed("step_physics"))
-		if physics_did_step:
-			physics.step(curve, anim_step_size)
-		#var anim_pos = physics.pos(curve)
-		var anim_pos = physics.pos()
-		#var anim_vel = physics.velocity()
-		var anim_vel = physics.vel()
-		var anim_up = physics.hl_normal()
-
-		if camera_follow_anim:
-			camera.op = anim_pos
-
-		const MULT = 1;
-
-		var tgt_pos = physics.target_pos(curve)
-		DebugDraw3D.draw_line(anim_pos, tgt_pos, Color.ORANGE)
-		DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * 10 * physics.ag(), Color.RED)
-		DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_vel, Color.BLUE)
-
-		var big_step = MULT * anim_step_size * 1
-		
-		if physics.found_exact_solution_():
-			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.5, Color.GREEN)
-		else:
-			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.5, Color.RED)
-		if anim_prev_pos != null:
-			DebugDraw3D.draw_sphere(
-				anim_pos
-					+ (physics.future_pos_no_vel(big_step) - anim_pos),
-				big_step * physics.vel().length(), Color.GREEN
-			)
-		#DebugDraw3D.draw_line(anim_pos, anim_pos + (anim_pos - tgt_pos), Color.PURPLE)
-
-		var tgt_positions = physics.next_target_positions(curve)
-		if physics_did_step:
-			for p in tgt_positions:
-				if not p.is_finite():
-					#print(tgt_positions)
-					break
-		for i in range(len(tgt_positions) - 1):
-			DebugDraw3D.draw_line(tgt_positions[i], tgt_positions[i + 1], Color.PINK)
-		
-		"""var p_tgt_positions = physics.prev_target_positions(curve)
-		for i in range(len(p_tgt_positions) - 1):
-			DebugDraw3D.draw_line(p_tgt_positions[i], p_tgt_positions[i + 1], Color.PURPLE)"""
-
-		#var anim_up = Vector3.UP
-		if anim_pos != null:
-			anim_prev_pos = anim_pos
-			if anim_pos != anim_pos + anim_vel:
-				anim.look_at_from_position(anim_pos, anim_pos + anim_vel, anim_up)
-			#anim.position = anim_pos
-			#anim. = Quaternion(anim_up, Vector3.UP).get_euler()
-		else:
-			#pass
-			anim.visible = false
-		
-
-	# generate mesh for curves between control points
-	var curve_points = optimizer.as_segment_points();
-	if len(curve_points) > 1:
-		var m = basic_lines.mesh;
-		m.clear_surfaces();
-		m.surface_begin(Mesh.PRIMITIVE_LINES);
-
-		Utils.cylinder_line(m, optimizer.as_segment_points(), 0.2)
-				
-		m.surface_end();
-
-	if physics == null:
-		label.text = "physics not initialized"
-	else:
-		label.text = physics.description()
-	var ips = optimizer.iters_per_second()
-	if ips == null:
-		optimizer_speed_label.text = "-- iter/s"
-	else:
-		optimizer_speed_label.text = "%.1f iter/s" % optimizer.iters_per_second()
-
-
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton\
-		and event.button_index == MOUSE_BUTTON_LEFT\
-		and event.is_pressed()\
+	if event is InputEventMouseButton \
+		and event.button_index == MOUSE_BUTTON_LEFT \
+		and event.is_pressed() \
 	:
 		selected_index = null
 		selected_point = null
@@ -247,28 +240,27 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			optimizer.enable_optimizer()
 		else:
 			optimizer.disable_optimizer()
-	optimizer_checkbox.button_pressed = optimize
+		optimizer_checkbox.button_pressed = optimize
+	if event.is_action_pressed("reset_curve"):
+		var positions: Array[Vector3] = []
+		for cp in control_points:
+			positions.push_back(cp.position)
+		optimizer.set_points(positions)
+	if event.is_action_pressed("toggle_follow_anim"):
+		camera_follow_anim = !camera_follow_anim
+	if event.is_action_pressed("run_simulation"):
+		curve = optimizer.get_curve()
 
+		physics = CoasterPhysicsV3.create(params_manager.mass, params_manager.gravity, curve, COM_OFFSET)
+	if event.is_action_pressed("get_inst_cost"):
+		inst_cost = optimizer.calc_cost_inst(
+			params_manager.mass,
+			params_manager.gravity,
+			params_manager.friction,
+			params_manager.com_offset_mag
+		)
 
-func _on_lr_edit_value_changed(value: float) -> void:
-	print(value)
-	learning_rate = value
-	optimizer.set_lr(learning_rate)
-
-
-func _on_mass_edit_value_changed(value: float) -> void:
-	mass = value
-	optimizer.set_mass(mass)
-
-
-func _on_gravity_edit_value_changed(value: float) -> void:
-	gravity = value
-	optimizer.set_gravity(gravity)
-
-
-func _on_friction_edit_value_changed(value: float) -> void:
-	friction = value
-	optimizer.set_mu(friction)
+var inst_cost = NAN
 
 
 func _on_check_button_toggled(toggled_on: bool) -> void:
@@ -281,38 +273,15 @@ func _on_check_button_toggled(toggled_on: bool) -> void:
 func _on_control_point_clicked(index: int) -> void:
 	selected_index = index
 	selected_point = optimizer.get_point(index)
-	x_edit.set_value(selected_point.get_x())
-	y_edit.set_value(selected_point.get_y())
-	z_edit.set_value(selected_point.get_z())
+	point_edit_component.set_point_pos(selected_point)
 
 	# update selected point
 	for i in range(control_points.size()):
 		control_points[i].selected = (i == index)
 
 
-func _on_x_edit_value_changed(value: float) -> void:
-	if selected_point:
-		selected_point.set_x(value)
-		control_points[selected_index].position.x = value
-		optimizer.set_point(selected_index, selected_point)
-
-
-func _on_y_edit_value_changed(value: float) -> void:
-	if selected_point:
-		selected_point.set_y(value)
-		control_points[selected_index].position.y = value
-		optimizer.set_point(selected_index, selected_point)
-
-
-func _on_z_edit_value_changed(value: float) -> void:
-	if selected_point:
-		selected_point.set_z(value)
-		control_points[selected_index].position.z = value
-		optimizer.set_point(selected_index, selected_point)
-
-
-func _on_load_button_pressed() -> void:
-	load_file_dialog.popup()
+func _on_check_box_toggled(toggled_on: bool) -> void:
+	manual_physics = toggled_on
 
 
 func _on_save_button_pressed() -> void:
@@ -320,74 +289,43 @@ func _on_save_button_pressed() -> void:
 
 
 func _on_save_dialogue_file_selected(path: String) -> void:
-	print(path)
-
-	var file = FileAccess.open(path, FileAccess.WRITE)
-	print(FileAccess.get_open_error())
+	var p: Array[Vector3] = [];
+	for cp in control_points:
+		p.push_back(cp.position)
+	
+	var saver = Saver.to_path(path, p)
+	if saver.success():
+		return
 
 	var diag = AcceptDialog.new()
 	diag.content_scale_factor = 2
 	diag.dialog_text = "Failed to write file"
-
-	if file == null:
-		add_child(diag)
-		diag.popup_centered_ratio()
-		return
-	
-	file.store_string(
-		JSON.stringify(
-			control_points\
-				.map(func(cp): return [cp.position.x, cp.position.y, cp.position.z]),
-			"\t"
-		)
-	)
-	print(file.get_error())
-	file.close()
-	print(file.get_error())
+	add_child(diag)
+	diag.popup_centered_ratio()
 
 
-func _on_load_dialogue_file_selected(path: String) -> void:
-	var file = FileAccess.open(path, FileAccess.READ)
+func _on_point_edit_component_points_loaded(pts: Array) -> void:
+	set_points(pts)
 
+
+func _on_point_edit_component_pos_changed(pos: Vector3) -> void:
+	if selected_point:
+		selected_point.set_x(pos.x)
+		selected_point.set_y(pos.y)
+		selected_point.set_z(pos.z)
+		control_points[selected_index].position = pos
+		optimizer.set_point(selected_index, selected_point)
+
+
+func _on_point_edit_component_points_failed_to_load() -> void:
 	var diag = AcceptDialog.new()
 	diag.content_scale_factor = 2
+
 	diag.dialog_text = "Failed to open file"
 
-	if file == null:
-		add_child(diag)
-		diag.popup()
-		return
-
-	var json = JSON.parse_string(file.get_as_text())
-	if json is not Array:
-		add_child(diag)
-		diag.popup_centered_ratio()
-
-		return
-	
-	for item in json:
-		if item is not Array\
-			or len(item) != 3\
-			or item[0] is not float\
-			or item[1] is not float\
-			or item[2] is not float\
-		:
-			add_child(diag)
-			diag.popup_centered_ratio()
-			return
-
-	var pts = json.map(func(i): return Vector3(i[0], i[1], i[2]))
-	set_points(pts)
-	file.close()
+	add_child(diag)
+	diag.popup_centered_ratio()
 
 
-func _on_save_dialogue_confirmed() -> void:
-	print("confirmed")
-
-
-func _on_anim_step_edit_value_changed(value: float) -> void:
-	anim_step_size = value
-
-
-func _on_check_box_toggled(toggled_on: bool) -> void:
-	manual_physics = toggled_on
+func _on_params_manager_params_changed() -> void:
+	params_manager.apply_to_optimizer(optimizer)

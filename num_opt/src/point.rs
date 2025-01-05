@@ -1,8 +1,6 @@
 //! Point in 3D space with 3 derivatives
 
-use std::ops::{AddAssign, SubAssign};
-
-use num_traits::{AsPrimitive, Float};
+use crate::my_float::MyFloat;
 
 /// We use nudge to explore the effect of small changes to each derivative while
 /// keeping the position(x,y,z) fixed
@@ -10,9 +8,9 @@ use num_traits::{AsPrimitive, Float};
 /// macro ensures consistency of code
 macro_rules! nudge {
     ($to_nudge:expr, $amount:expr, $out:expr, $s:expr) => {
-        $to_nudge += $amount;
+        $to_nudge = $to_nudge + $amount.clone();
         $out.push($s.clone());
-        $to_nudge -= $amount;
+        $to_nudge = $to_nudge - $amount.clone();
     };
 }
 
@@ -35,12 +33,12 @@ macro_rules! nudge {
 /// point if an adjustment value is provided.
 macro_rules! adjust {
     ($target:expr, $i:expr, $v:expr, $lr:expr) => {
-        $target -= $v[$i].unwrap_or_default() * $lr;
+        $target = $target.clone() - $v[$i].clone().unwrap_or(T::zero()) * $lr.clone();
     };
 }
 
 /// A point in 3D space with 1st, 2nd, and 3rd derivatives also specified
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Point<T> {
     pub x: T,
     pub y: T,
@@ -58,14 +56,22 @@ pub struct Point<T> {
 
 impl<T> Point<T>
 where
-    T: Default + Copy + AsPrimitive<f32> + AddAssign + SubAssign + Float,
+    T: MyFloat,
 {
     pub fn new(x: T, y: T, z: T) -> Self {
         Self {
             x,
             y,
             z,
-            ..Default::default()
+            xp: T::zero(),
+            yp: T::zero(),
+            zp: T::zero(),
+            xpp: T::zero(),
+            ypp: T::zero(),
+            zpp: T::zero(),
+            xppp: T::zero(),
+            yppp: T::zero(),
+            zppp: T::zero(),
         }
     }
 

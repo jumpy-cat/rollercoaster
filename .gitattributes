@@ -1,3 +1,2 @@
-/godot/addons/** linquist-vendored
-/godot/examples_dd3d/** linquist-vendored
-
+godot/addons/** linguist-vendored
+godot/examples_dd3d/** linguist-vendored

@@ -1,7 +1,8 @@
 [workspace]
 
-members = [ "gd",
-    "num_opt", "testbed",
+members = [
+     "gd",
+    "num_opt", "testbed", "py"
 ]
 
 [profile.dev]
@@ -9,3 +10,9 @@ opt-level = 3
 
 [profile.dev.package."*"]
 opt-level = 3
+
+[profile.release]
+debug = 1
+codegen-units = 1
+lto = "thin"
+#lto = "fat"

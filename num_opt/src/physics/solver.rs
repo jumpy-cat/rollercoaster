@@ -1,8 +1,38 @@
+//! Numeric solvers for roots and minima
+
 use crate::my_float::MyFloat;
 
-pub fn find_root_bisection<T: MyFloat>(a: T, b: T, f: impl Fn(&T) -> T, epsilon: f64) -> Option<T> {
-    let mut a = a;
-    let mut b = b;
+use super::{linalg::MyVector3, plot, tol};
+
+pub enum DualResult<T> {
+    Root(T),
+    Minimum((T, T)),
+    Boundary((T, T, HitBoundary)),
+}
+
+pub fn find_root_or_minimum<T: MyFloat>(
+    a: &T,
+    b: &T,
+    f: impl Fn(&T) -> T,
+    epsilon: f64,
+) -> DualResult<T> {
+    match find_root_bisection::<T>(a, b, |u| f(u), epsilon) {
+        Some(v) => DualResult::Root(v.clone()),
+        None => match find_minimum_golden_section(a, b, |u| f(u).pow(2), epsilon) {
+            Ok(inner) => DualResult::Minimum(inner),
+            Err(inner) => DualResult::Boundary(inner),
+        },
+    }
+}
+
+pub fn find_root_bisection<T: MyFloat>(
+    a: &T,
+    b: &T,
+    f: impl Fn(&T) -> T,
+    epsilon: f64,
+) -> Option<T> {
+    let mut a = a.clone();
+    let mut b = b.clone();
     if a > b {
         std::mem::swap(&mut a, &mut b);
     }
@@ -31,7 +61,7 @@ pub fn find_root_bisection<T: MyFloat>(a: T, b: T, f: impl Fn(&T) -> T, epsilon:
 #[test]
 fn test_find_minimum_golden_section() {
     let f = |x: &f64| (x - 0.5) * (x - 0.5) + 1.0;
-    let r = find_minimum_golden_section(0.0, 1.0, f, 1e-6);
+    let r = find_minimum_golden_section(&0.0, &1.0, f, 1e-6);
     assert!(r.is_ok());
     assert!((r.unwrap().0 - 0.5).abs() < 1e-6);
     assert!((r.unwrap().1 - 1.0).abs() < 1e-6);
@@ -40,7 +70,7 @@ fn test_find_minimum_golden_section() {
 #[test]
 fn test_find_minimum_golden_section_none() {
     let f = |x: &f64| (x - 0.5) * (x - 0.5) + 1.0;
-    let r = find_minimum_golden_section(1.0, 2.0, f, 1e-6);
+    let r = find_minimum_golden_section(&1.0, &2.0, f, 1e-6);
     assert!(r.is_err());
     assert!((r.err().unwrap().0 - 1.0).abs() < 1e-6);
 }
@@ -54,9 +84,9 @@ pub enum HitBoundary {
 /// Uses the golden section search algorithm to find the minimum of a function
 ///
 pub fn find_minimum_golden_section<T: MyFloat>(
-    a_: T,
-    b_: T,
-    mut f: impl FnMut(&T) -> T,
+    a_: &T,
+    b_: &T,
+    f: impl Fn(&T) -> T,
     epsilon: f64,
 ) -> Result<(T, T), (T, T, HitBoundary)> {
     let r = T::from_f64((3.0 - 5.0_f64.sqrt()) / 2.0);
@@ -80,6 +110,9 @@ pub fn find_minimum_golden_section<T: MyFloat>(
             d = c;
             c = a.clone() + r.clone() * (b.clone() - a.clone());
         } else {
+            /*if fc == fd {
+                log::warn!("Golden section encountered equality: {c} {d} {fc}");
+            }*/
             // minimum is between c and b
             a = c;
             c = d;
@@ -94,9 +127,42 @@ pub fn find_minimum_golden_section<T: MyFloat>(
     } else {
         // minimum is a boundary
         if potential > a_.clone() + T::from_f64(epsilon) {
-            Err((b_.clone(), f(&b_), HitBoundary::Upper))
+            Err((b_.clone(), f(b_), HitBoundary::Upper))
         } else {
-            Err((a_.clone(), f(&a_), HitBoundary::Lower))
+            Err((a_.clone(), f(a_), HitBoundary::Lower))
         }
     }
+}
+
+pub fn check_vec_continuity<T: MyFloat>(a: &T, b: &T, f: impl Fn(&T) -> MyVector3<T>) -> bool {
+    let mut x = a.clone();
+    let mut x_step = 0.001;
+    let mut p = f(&x);
+    let mut zs = vec![];
+    let mut ys = vec![];
+    let mut disc = false;
+    while x < *b {
+        if !disc && x_step > tol() {
+            disc = true;
+            x_step = 0.001;
+        }
+        let next_p = f(&(x.clone() + T::from_f64(x_step)));
+        zs.push((x.to_f64(), next_p.z.to_f64()));
+        ys.push((x.to_f64(), next_p.y.to_f64()));
+        let d = (next_p.clone() - p.clone()).magnitude();
+        if !disc {
+            if d > 0.01 {
+                x_step /= 2.0;
+                continue;
+            } else if d < 0.001 {
+                x_step *= 2.0;
+            }
+        }
+        x += T::from_f64(x_step);
+        p = next_p;
+    }
+    plot::plot2("zs", &zs);
+    plot::plot2("ys", &ys);
+
+    !disc
 }
