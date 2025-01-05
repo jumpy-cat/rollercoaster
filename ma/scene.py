@@ -22,11 +22,17 @@ class SquareToCircle(Scene):
 
 class Interp(Scene):
     def construct(self):
-        p1 = Dot(point=(-2, -1, 0))
-        p2 = Dot(point=(3,2, 0))
+
+        p = (-2, 1)
+        q = (3,2)
+
+        p_dot = Dot(point=(*p, 0))
+        pp
+        q_dot = Dot(point=(q, 0))
+
         circle = Circle()
         circle.set_fill(PINK, opacity=0.5)
-        eq = MathTex('r(u)=Au^7+Bu^6+Cu^5+Du^4+Eu^3+Fu^2+Gu+H')
+        eq = MathTex(r'\vec{r}(u)=Au^7+Bu^6+Cu^5+Du^4+Eu^3+Fu^2+Gu+H')
         mat = Matrix([
                 [0,0,0,0,0,0,0,1],
                 [0,0,0,0,0,0,1,0],
@@ -64,17 +70,39 @@ class Interp(Scene):
         ])
         matinv.scale(0.5)
         matinv.next_to(param_mat,LEFT)
-        
-        self.play(Create(p1))
-        self.play(Create(p2))
+
+        mat_equat = MathTex(r'MX=Y')
+        mat_equat2 = MathTex(r'M^{-1}MX=M^{-1}Y')
+        mat_equat3 = MathTex(r'IX=M^{-1}Y')
+        mat_equat4 = MathTex(r'X=M^{-1}Y')
+        mat_equat5 = MathTex(r'M^{-1}Y=X')
+
+        mat_equat.next_to(eq, DOWN)
+        mat_equat2.next_to(mat_equat, DOWN)
+        mat_equat3.next_to(mat_equat2, DOWN)
+        mat_equat4.next_to(mat_equat3, DOWN)
+        mat_equat5.next_to(mat_equat3, DOWN)
+
+        self.play(Create(p_dot))
+        self.play(Create(q_dot))
         self.play(Create(eq))
+
+        self.next_section()
         self.play(Create(mat), Create(param_mat), Create(equals), Create(input_mat))
+
+        self.wait()
+        self.play(Create(mat_equat))
+        self.play(Create(mat_equat2))
+        self.play(Create(mat_equat3))
+        self.play(Create(mat_equat4))
 
         self.wait()
         self.play(
             Transform(mat, matinv),
             input_mat.animate.next_to(matinv),
-            param_mat.animate.next_to(equals)
+            param_mat.animate.next_to(equals),
+            Transform(mat_equat4, mat_equat5)
         )
         
         self.wait()
+
