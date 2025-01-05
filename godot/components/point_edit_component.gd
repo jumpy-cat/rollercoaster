@@ -38,6 +38,7 @@ func set_point_pos(p: CoasterPoint) -> void:
 	x_edit.set_value(p.get_x())
 	y_edit.set_value(p.get_y())
 	z_edit.set_value(p.get_x())
+	point_pos = Vector3(p.get_x(), p.get_y(), p.get_z())
 
 
 func _on_load_button_pressed() -> void:

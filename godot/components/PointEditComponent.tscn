@@ -66,5 +66,8 @@ access = 2
 filters = PackedStringArray("*.json")
 use_native_dialog = true
 
+[connection signal="value_changed" from="VBoxContainer/XEdit" to="." method="_on_x_edit_value_changed"]
+[connection signal="value_changed" from="VBoxContainer/YEdit" to="." method="_on_y_edit_value_changed"]
+[connection signal="value_changed" from="VBoxContainer/ZEdit" to="." method="_on_z_edit_value_changed"]
 [connection signal="pressed" from="VBoxContainer/LoadButton" to="." method="_on_load_button_pressed"]
 [connection signal="file_selected" from="LoadDialogue" to="." method="_on_load_dialogue_file_selected"]
