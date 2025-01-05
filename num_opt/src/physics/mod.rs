@@ -127,10 +127,13 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let actual_hl_dir = (curve.curve_at(&u).unwrap() - pos.inner()).normalize();
 
         let fut_vel = self.updated_v(step, pos);
-        // let fut_w =
+        let fut_w = self.new_ang_vel(step, &actual_hl_dir);
 
         //let fut_vel_corr = self.correct_for_angular_energy(, &fut_vel);
-        let fut_vel_corr = fut_vel;
+
+        let change_in_angular_energy =
+            self.rot_energy(fut_w.magnitude()) - self.rot_energy(self.w.magnitude());
+        let fut_vel_corr = self.correct_for_angular_energy(change_in_angular_energy, &fut_vel);
 
         let ideal_hl_dir_p = self.next_hl_normal(u, &curve, &fut_vel_corr);
 
@@ -288,9 +291,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let jitter_detected = new_v.inner().angle(&self.v.inner()) > T::from_f64(10.0 * PI / 180.0);
         add_info!(self, jitter_detected);
 
-        let rot_impulse =
-            self.hl_normal.cross(&tgt_norm).normalize() * self.hl_normal.angle(&tgt_norm);
-        let new_w = rot_impulse.clone() / step.clone();
+        let new_w = self.new_ang_vel(step, &tgt_norm);
         
         let change_in_angular_energy =
             self.rot_energy(new_w.magnitude()) - self.rot_energy(self.w.magnitude());
@@ -304,13 +305,13 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         (self.x, self.v, self.w) = (new_x, new_v, new_w);
 
         //self.hl_normal = tgt_norm.clone();
-        self.hl_normal = MyQuaternion::from_scaled_axis(rot_impulse)
+        self.hl_normal = MyQuaternion::from_scaled_axis(self.w.clone() * step.clone())
             .rotate_vector(&self.hl_normal);
 
-        log::debug!(
+        /*log::debug!(
             "Angle: {}",
             self.hl_normal.angle(&tgt_norm).to_f64() * 180.0 / PI
-        );
+        );*/
 
         let move_to_tgt_err = (tgt_pos - self.x.clone()).magnitude();
         add_info!(self, move_to_tgt_err);
@@ -343,6 +344,12 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.cost += accel.magnitude_squared().to_f64() * step.to_f64();
 
         Some(())
+    }
+
+    fn new_ang_vel(&self, step: &T, tgt_norm: &MyVector3<T>) -> MyVector3<T> {
+        let rot_impulse =
+            self.hl_normal.cross(&tgt_norm).normalize() * self.hl_normal.angle(&tgt_norm);
+        rot_impulse.clone() / step.clone()
     }
 
     fn correct_for_angular_energy(

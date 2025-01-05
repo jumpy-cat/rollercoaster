@@ -37,7 +37,7 @@ func request_points() -> void:
 func set_point_pos(p: CoasterPoint) -> void:
 	x_edit.set_value(p.get_x())
 	y_edit.set_value(p.get_y())
-	z_edit.set_value(p.get_x())
+	z_edit.set_value(p.get_z())
 	point_pos = Vector3(p.get_x(), p.get_y(), p.get_z())
 
 
