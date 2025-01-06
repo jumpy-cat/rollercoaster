@@ -13,7 +13,7 @@ use crate::{
 };
 
 mod geo;
-mod info;
+pub mod info;
 pub mod linalg;
 pub mod solver;
 
@@ -28,7 +28,7 @@ pub fn set_tol(tol: Fpt) {
 
 /// tolerance for du from dt calculations
 #[inline(always)]
-fn tol() -> Fpt {
+pub fn tol() -> Fpt {
     1e-10
     //*TOL.read().unwrap()
 }

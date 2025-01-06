@@ -541,6 +541,7 @@ dependencies = [
  "num",
  "num-traits",
  "num_opt",
+ "persist",
  "rand",
  "serde",
  "serde_json",
@@ -1088,6 +1089,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "persist"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "pkg-config"
 version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1523,6 +1532,7 @@ dependencies = [
  "env_logger",
  "log",
  "num_opt",
+ "persist",
  "plotters",
  "rand",
 ]

@@ -23,7 +23,8 @@ var optimize: bool = false
 
 var selected_index;
 var selected_point;
-var control_points: Array[ControlPoint]
+var control_points: Array[ControlPoint]  # Nodes in the scene tree
+var coaster_points: Array[CoasterPoint]  # Data structure used in optimization
 
 var curve: CoasterCurve
 var physics: CoasterPhysicsV3
@@ -31,19 +32,7 @@ var physics: CoasterPhysicsV3
 var f1: Function
 
 
-## This function is called when the node is added to the scene.
-## Initializes control points, positions the camera, and prepares the optimizer.
-func _ready() -> void:
-	point_edit_component.request_points();
-
-	# prepare the optimizer
-	optimizer = Optimizer.create();
-	params_manager.apply_to_optimizer(optimizer)
-	
-	var conf = DebugDraw2D.get_config()
-	conf.set_text_default_size(30)
-	DebugDraw2D.set_config(conf)
-
+func setup_chart() -> void:
 	# Let's create our @x values
 	var x: Array = [0,0]
 	
@@ -88,6 +77,54 @@ func _ready() -> void:
 	ke_chart.plot([f1], cp)
 
 
+func debug_draw(anim_pos, anim_vel) -> void:
+	for i in range(len(hist_pos) - 1):
+		DebugDraw3D.draw_line(
+			hist_pos[i],
+			hist_pos[i + 1],
+			Color.PURPLE
+		)
+	const HIST_LINE_UPDATE_DIST = 0.1
+	if (anim_pos - last_pos).length() > HIST_LINE_UPDATE_DIST:
+		hist_pos.push_back(anim_pos)
+		last_pos = anim_pos
+
+	const MULT = 1000;
+
+	DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_vel, Color.BLUE)
+	var cp = curve.pos_at(physics.u());
+	var r = 1 / curve.kappa_at(physics.u()) + COM_OFFSET
+	var cpag = cp + MULT * physics.vel().length() ** 2 / r * curve.normal_at(physics.u())
+	DebugDraw3D.draw_line(cp, cpag, Color.RED)
+	DebugDraw3D.draw_line(cpag, cpag + MULT * Vector3(0, 0.01, 0), Color.ORCHID)
+	DebugDraw3D.draw_line(cp, cpag + MULT * Vector3(0, 0.01, 0), Color.WHITE)
+
+	DebugDraw3D.draw_line(cp, cp + MULT * curve.normal_at(physics.u()), Color.YELLOW)
+
+	if !physics.jitter_detected():
+		DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.4, Color.YELLOW)
+	else:
+		DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.6, Color.RED)
+	DebugDraw3D.draw_sphere(physics.null_tgt_pos(), 0.2, Color.PURPLE)
+	DebugDraw3D.draw_sphere(physics.tgt_pos(), 0.2, Color.PINK)
+
+
+## This function is called when the node is added to the scene.
+## Initializes control points, positions the camera, and prepares the optimizer.
+func _ready() -> void:
+	point_edit_component.request_points();
+
+	# prepare the optimizer
+	optimizer = Optimizer.create();
+	params_manager.apply_to_optimizer(optimizer)
+	
+	var conf = DebugDraw2D.get_config()
+	conf.set_text_default_size(30)
+	DebugDraw2D.set_config(conf)
+
+	setup_chart()
+
+
 var hist_pos = []
 var last_pos = Vector3.ZERO
 
@@ -113,36 +150,7 @@ func _process(_delta: float) -> void:
 		if camera_follow_anim:
 			camera.op = anim_pos
 		
-		for i in range(len(hist_pos) - 1):
-			DebugDraw3D.draw_line(
-				hist_pos[i],
-				hist_pos[i + 1],
-				Color.PURPLE
-			)
-		const HIST_LINE_UPDATE_DIST = 0.1
-		if (anim_pos - last_pos).length() > HIST_LINE_UPDATE_DIST:
-			hist_pos.push_back(anim_pos)
-			last_pos = anim_pos
-
-		const MULT = 1000;
-
-		DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_vel, Color.BLUE)
-		#DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_up, Color.GREEN)
-		var cp = curve.pos_at(physics.u());
-		var r = 1 / curve.kappa_at(physics.u()) + COM_OFFSET
-		var cpag = cp + MULT * physics.vel().length() ** 2 / r * curve.normal_at(physics.u())
-		DebugDraw3D.draw_line(cp, cpag, Color.RED)
-		DebugDraw3D.draw_line(cpag, cpag + MULT * Vector3(0, 0.01, 0), Color.ORCHID)
-		DebugDraw3D.draw_line(cp, cpag + MULT * Vector3(0, 0.01, 0), Color.WHITE)
-
-		DebugDraw3D.draw_line(cp, cp + MULT * curve.normal_at(physics.u()), Color.YELLOW)
-
-		if !physics.jitter_detected():
-			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.4, Color.YELLOW)
-		else:
-			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.6, Color.RED)
-		DebugDraw3D.draw_sphere(physics.null_tgt_pos(), 0.2, Color.PURPLE)
-		DebugDraw3D.draw_sphere(physics.tgt_pos(), 0.2, Color.PINK)
+		debug_draw(anim_pos, anim_vel)
 
 		f1.set_point(0, physics.t_kinetic_energy(), 0)
 		f1.set_point(1, physics.r_kinetic_energy(), 0)
@@ -178,7 +186,7 @@ func _process(_delta: float) -> void:
 
 
 ## Input is an array of Vector3
-func set_points(points: Array[Vector3]) -> void:
+func set_points(points: Array[CoasterPoint]) -> void:
 	# remove old control points
 	for cp in control_points:
 		cp.queue_free()
@@ -188,7 +196,7 @@ func set_points(points: Array[Vector3]) -> void:
 	var avg_pos = Vector3.ZERO
 	for i in range(len(points)):
 		var p = points[i]
-		var v = Vector3(p[0], p[1], p[2])
+		var v = Vector3(p.get_x(), p.get_y(), p.get_z())
 		avg_pos += v
 		var control_point: ControlPoint = control_point_scene.instantiate();
 		control_point.initialize(v, i)
@@ -213,13 +221,10 @@ func set_points(points: Array[Vector3]) -> void:
 	# add points to scene
 	for cp in control_points:
 		add_child(cp)
-
-	var positions: Array[Vector3] = []
-	for cp in control_points:
-		positions.push_back(cp.position)
 	
 	# update optimizer
-	optimizer.set_points(positions)
+	coaster_points = points
+	optimizer.set_points(coaster_points, false)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -242,10 +247,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			optimizer.disable_optimizer()
 		optimizer_checkbox.button_pressed = optimize
 	if event.is_action_pressed("reset_curve"):
-		var positions: Array[Vector3] = []
-		for cp in control_points:
-			positions.push_back(cp.position)
-		optimizer.set_points(positions)
+		optimizer.set_points(coaster_points, true)
 	if event.is_action_pressed("toggle_follow_anim"):
 		camera_follow_anim = !camera_follow_anim
 	if event.is_action_pressed("run_simulation"):
@@ -291,11 +293,7 @@ func _on_save_button_pressed() -> void:
 
 
 func _on_save_dialogue_file_selected(path: String) -> void:
-	var p: Array[Vector3] = [];
-	for cp in control_points:
-		p.push_back(cp.position)
-	
-	var saver = Saver.to_path(path, p)
+	var saver = Saver.to_path(path, coaster_points)
 	if saver.success():
 		return
 

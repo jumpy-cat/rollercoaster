@@ -3,7 +3,7 @@
 members = [
      "gd",
     "num_opt", "testbed", "py"
-]
+, "persist"]
 
 [profile.dev]
 opt-level = 3

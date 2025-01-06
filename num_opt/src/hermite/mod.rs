@@ -131,12 +131,20 @@ where
         let u2 = u.clone() - T::from_f(DELTA);
         let t1 = self.d1(&u1).normalize();
         let t2 = self.d1(&u2).normalize();
-        (t1 - t2).normalize()
+        let diff = (t1 - t2);
+        if diff.magnitude() == 0.0 {
+            return MyVector3::new(T::zero(), T::one(), T::zero());
+        }
+        diff.normalize()
     }
 
     #[inline(always)]
     pub fn curve_kappa_at(&self, u: &T) -> T {
-        self.d1(u).cross(&self.d2(u)).magnitude() / self.d1(u).magnitude().pow(3)
+        let d1_mag = self.d1(u).magnitude();
+        if d1_mag == 0.0 {
+            return T::zero();
+        }
+        self.d1(u).cross(&self.d2(u)).magnitude() / d1_mag.pow(3)
     }
     
     #[inline(always)]
@@ -325,6 +333,7 @@ pub fn catmull_rom_recursive<T: MyFloat>(values: &Vec<T>, coeff: Fpt, depth: u32
 pub fn set_derivatives_using_catmull_rom<T: MyFloat>(points: &mut Vec<point::Point<T>>) {
     const SCALE: Fpt = 0.5;
 
+    let can_adjust: Vec<_> = points.iter().map(|p|p.optimizer_can_adjust_pos).collect();
     let x_pos = points.iter().map(|p| p.x.clone()).collect();
     let y_pos = points.iter().map(|p| p.y.clone()).collect();
     let z_pos = points.iter().map(|p| p.z.clone()).collect();
@@ -347,6 +356,7 @@ pub fn set_derivatives_using_catmull_rom<T: MyFloat>(points: &mut Vec<point::Poi
             xppp: x_derives[2][i].clone(),
             yppp: y_derives[2][i].clone(),
             zppp: z_derives[2][i].clone(),
+            optimizer_can_adjust_pos: can_adjust[i],
         });
     }
 }

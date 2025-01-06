@@ -5,7 +5,7 @@ use rand::Rng;
 use crate::{
     hermite,
     my_float::{Fpt, MyFloat},
-    physics::{self},
+    physics::{self, info::use_sigfigs, tol, TOL},
     point,
 };
 
@@ -166,13 +166,17 @@ pub fn optimize_v3<T: MyFloat>(
         };
 
         loop {
+            if adjust_amt.abs() < tol() {
+                log::warn!("Optimizer failed to find better parameter value");
+                break;
+            }
             if should_adjust(i, j, adjust_amt) {
                 let v = points[i].get_at_i(j);
                 points[i].set_at_i(j, v.clone() + T::from_f(adjust_amt));
                 break;
             } else if adjust_amt < 0.0 {
-                adjust_amt *= -0.5;
-                log::debug!("HALF");
+                adjust_amt *= -0.1;
+                log::debug!("New adjust mag: {}", use_sigfigs(&adjust_amt));
             } else {
                 adjust_amt *= -1.0;
             }

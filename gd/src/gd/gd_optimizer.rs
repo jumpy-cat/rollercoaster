@@ -233,24 +233,32 @@ impl Optimizer {
     /// No derivative information is given, so derivatives
     /// are initialized with recursive catmull rom
     #[func]
-    fn set_points(&mut self, points: Array<Vector3>) {
+    fn set_points(&mut self, points: Array<Gd<CoasterPoint>>, reset: bool) {
         log::info!("set_points: {}", points);
         self.segment_points_cache = None;
         self.points = points
             .iter_shared()
             .map(|p| {
+                let p = p.bind();
                 point::Point::new(
-                    MyFloatType::from_f(p.x as Fpt),
-                    MyFloatType::from_f(p.y as Fpt),
-                    MyFloatType::from_f(p.z as Fpt),
+                    MyFloatType::from_f(p.get_x() as Fpt),
+                    MyFloatType::from_f(p.get_y() as Fpt),
+                    MyFloatType::from_f(p.get_z() as Fpt),
                 )
             })
             .collect();
-        hermite::set_derivatives_using_catmull_rom(&mut self.points);
+        if reset {
+            hermite::set_derivatives_using_catmull_rom(&mut self.points);
+        }
         self.curve = hermite::Spline::new(&self.points);
+        let deriv_mode = if reset {
+            Derivatives::Keep
+        } else {
+            Derivatives::Keep
+        };
         let _ = self
             .to_worker
-            .send(ToWorker::SetPoints(self.points.clone(), Derivatives::Keep))
+            .send(ToWorker::SetPoints(self.points.clone(), deriv_mode))
             .map_err(|e| log::error!("{:#?}", e));
     }
 

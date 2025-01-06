@@ -52,6 +52,7 @@ pub struct Point<T> {
     pub xppp: T,
     pub yppp: T,
     pub zppp: T,
+    pub optimizer_can_adjust_pos: bool
 }
 
 impl<T> Point<T>
@@ -72,6 +73,7 @@ where
             xppp: T::zero(),
             yppp: T::zero(),
             zppp: T::zero(),
+            optimizer_can_adjust_pos: false,
         }
     }
 
@@ -184,6 +186,7 @@ where
             xppp: Default::default(),
             yppp: Default::default(),
             zppp: Default::default(),
+            optimizer_can_adjust_pos: false,
         }
     }
 }

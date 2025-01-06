@@ -1,5 +1,9 @@
 use num_opt::my_float::Fpt;
 
+pub fn points_from_file() -> Vec<num_opt::point::Point<Fpt>> {
+    let pts: persist::Data = serde_json()
+}
+
 pub fn points() -> Vec<num_opt::point::Point<Fpt>> {
     let points = [
         [30, 24, 1],
