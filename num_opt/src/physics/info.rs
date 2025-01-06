@@ -55,14 +55,10 @@ impl<T: MyFloat> Default for PhysicsAdditionalInfo<T> {
 impl<T: MyFloat> PhysicsAdditionalInfo<T> {
     pub fn description(&self) -> String {
         format!(
-            "du: {:.4?}\ndt: {:.4?}\nse: {:.4?}\nnse: {:.12?}\nmove_to_tgt_err: {:.4?}\nhl_normal_shift_err: {:.4}\nprev_move_to_tgt_err: {:.4}\nprev_hl_normal_shift_err: {:.4}\ntgt_pos_spd_err: {:.4}\nE: {:.4} ({:.4}P + {:.4}K + {:.4}R)",  
+            "du: {:.4?}\ndt: {:.4?}\nhl_normal_shift_err: {:.4}\nprev_hl_normal_shift_err: {:.4}\ntgt_pos_spd_err: {:.4}\nE: {:.4} ({:.4}P + {:.4}K + {:.4}R)",  
             use_sigfigs(&self.delta_u_),
             &self.delta_t_,
-            use_sigfigs(&self.sol_err),
-            use_sigfigs(&self.null_sol_err),
-            use_sigfigs(&self.move_to_tgt_err),
             use_sigfigs(&self.hl_normal_shift_err),
-            use_sigfigs(&self.prev_move_to_tgt_err),
             use_sigfigs(&self.prev_hl_normal_shift_err),
             use_sigfigs(&self.tgt_pos_spd_err),
             use_sigfigs(&(self.potential_energy + self.kinetic_energy + self.rot_energy)),

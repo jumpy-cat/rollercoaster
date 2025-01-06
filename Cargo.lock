@@ -1038,6 +1038,7 @@ dependencies = [
  "nalgebra",
  "ndarray",
  "num-traits",
+ "persist",
  "plotters",
  "rand",
  "rayon",
@@ -1535,6 +1536,7 @@ dependencies = [
  "persist",
  "plotters",
  "rand",
+ "serde_json",
 ]
 
 [[package]]

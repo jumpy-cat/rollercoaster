@@ -6,7 +6,7 @@ use num_opt::{
         linalg::MyVector3,
     }
 };
-use testbed::points;
+use testbed::{points, points_from_file};
 
 #[allow(dead_code)]
 fn does_changing_step_size_affect_cost() {
@@ -47,8 +47,8 @@ fn does_changing_tol_affect_cost() {
 fn main() {
     env_logger::init();
 
-    let mut points = points();
-    hermite::set_derivatives_using_catmull_rom(&mut points);
+    let mut points = points_from_file();
+    //hermite::set_derivatives_using_catmull_rom(&mut points);
     let mut curve: hermite::Spline<Fpt> = num_opt::hermite::Spline::new(&points);
 
     let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 1.0);

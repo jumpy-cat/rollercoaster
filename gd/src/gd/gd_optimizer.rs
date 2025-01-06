@@ -234,21 +234,18 @@ impl Optimizer {
     /// are initialized with recursive catmull rom
     #[func]
     fn set_points(&mut self, points: Array<Gd<CoasterPoint>>, reset: bool) {
-        log::info!("set_points: {}", points);
         self.segment_points_cache = None;
         self.points = points
             .iter_shared()
             .map(|p| {
-                let p = p.bind();
-                point::Point::new(
-                    MyFloatType::from_f(p.get_x() as Fpt),
-                    MyFloatType::from_f(p.get_y() as Fpt),
-                    MyFloatType::from_f(p.get_z() as Fpt),
-                )
+                let p = p.bind().inner().clone();
+                p.into()
             })
             .collect();
+        log::trace!("set_points: {:?} and {} more", self.points.get(0), self.points.len() - 1);
         if reset {
             hermite::set_derivatives_using_catmull_rom(&mut self.points);
+            log::debug!("points set to catmull rom");
         }
         self.curve = hermite::Spline::new(&self.points);
         let deriv_mode = if reset {
@@ -260,6 +257,15 @@ impl Optimizer {
             .to_worker
             .send(ToWorker::SetPoints(self.points.clone(), deriv_mode))
             .map_err(|e| log::error!("{:#?}", e));
+    }
+
+    #[func]
+    fn get_points(&self) -> Array<Gd<CoasterPoint>> {
+        log::trace!("get_points: {:?} and {} more", self.points.get(0), self.points.len() - 1);
+        self.points
+            .iter()
+            .map(|p| Gd::from_object(CoasterPoint::new(p.clone())))
+            .collect()
     }
 
     /// Get a point by index

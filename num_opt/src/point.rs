@@ -55,6 +55,27 @@ pub struct Point<T> {
     pub optimizer_can_adjust_pos: bool
 }
 
+impl From<persist::PersistPoint> for Point<f64> {
+    fn from(p: persist::PersistPoint) -> Self {
+        let d = p.deriv.unwrap_or_default();
+        Self {
+            x: p.pos[0],
+            y: p.pos[1],
+            z: p.pos[2],
+            xp: d[0][0],
+            yp: d[0][1],
+            zp: d[0][2],
+            xpp: d[1][0],
+            ypp: d[1][1],
+            zpp: d[1][2],
+            xppp: d[2][0],
+            yppp: d[2][1],
+            zppp: d[2][2],
+            optimizer_can_adjust_pos: p.optimizer_can_adjust_pos,
+        }
+    }
+}
+
 impl<T> Point<T>
 where
     T: MyFloat,

@@ -126,6 +126,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         pos: &ComPos<T>,
     ) -> T {
         let actual_hl_dir = (curve.curve_at(&u).unwrap() - pos.inner()).normalize();
+        assert!(!actual_hl_dir.has_nan(), "AHD {:#?}", actual_hl_dir);
 
         let fut_vel = self.updated_v(step, pos);
         let fut_w = self.new_ang_vel(step, &actual_hl_dir);
@@ -148,7 +149,9 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         .normalize();
 
         let tgt_hl_dir = ideal_hl_dir_p;
-        (actual_hl_dir - tgt_hl_dir).magnitude_squared()
+        let r = (actual_hl_dir.clone() - tgt_hl_dir.clone()).magnitude_squared();
+        assert!(!r.is_nan(), "{:#?} {:#?}", actual_hl_dir, tgt_hl_dir);
+        r
     }
 
     fn hl_normal_errs_at_u(&self, u: &T, curve: &hermite::Spline<T>, step: &T) -> (T, T) {
@@ -346,10 +349,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
         self.additional_info.update(&self.u);
 
-        /*log::info!(
-            "G force: {}",
-            (accel.clone() - self.g.clone()).magnitude().to_f() / self.g.magnitude().to_f()
-        );*/
         self.cost += accel.magnitude_squared().to_f() * step.to_f();
 
         self.additional_info

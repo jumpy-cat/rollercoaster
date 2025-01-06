@@ -187,6 +187,8 @@ func _process(_delta: float) -> void:
 
 ## Input is an array of Vector3
 func set_points(points: Array[CoasterPoint]) -> void:
+	print("set_points: ")
+	print(points[0].get_xp())
 	# remove old control points
 	for cp in control_points:
 		cp.queue_free()
@@ -224,6 +226,8 @@ func set_points(points: Array[CoasterPoint]) -> void:
 	
 	# update optimizer
 	coaster_points = points
+	print("#### set points from set_points()")
+	print(points[0].get_xp())
 	optimizer.set_points(coaster_points, false)
 
 
@@ -247,7 +251,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			optimizer.disable_optimizer()
 		optimizer_checkbox.button_pressed = optimize
 	if event.is_action_pressed("reset_curve"):
+		print("#### reset_curve")
 		optimizer.set_points(coaster_points, true)
+		print("#### after optimizer.set_points(true)")
+		var p = optimizer.get_points()
+		print("#### after optimizer.get_points")
+		set_points(p)
 	if event.is_action_pressed("toggle_follow_anim"):
 		camera_follow_anim = !camera_follow_anim
 	if event.is_action_pressed("run_simulation"):
