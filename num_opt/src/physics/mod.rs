@@ -101,9 +101,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             u: T::zero(), //0.0,
             // center of mass
             x: ComPos::new(&(hl_pos.clone() - hl_normal.clone() * T::from_f(o))), //o,
-            v: ComVel::new(&(hl_forward * 
-                g.magnitude() * T::from_f(0.05 * 256.0)
-            )),
+            v: ComVel::new(&(hl_forward * g.magnitude() * T::from_f(0.05 * 256.0))),
 
             // heart line
             hl_normal,
@@ -126,7 +124,12 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         pos: &ComPos<T>,
     ) -> T {
         let actual_hl_dir = (curve.curve_at(&u).unwrap() - pos.inner()).normalize();
-        assert!(!actual_hl_dir.has_nan(), "AHD {:#?}", actual_hl_dir);
+        assert!(
+            !actual_hl_dir.has_nan(),
+            "AHD {:#?} {u} {:#?}",
+            actual_hl_dir,
+            pos
+        );
 
         let fut_vel = self.updated_v(step, pos);
         let fut_w = self.new_ang_vel(step, &actual_hl_dir);
@@ -157,6 +160,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     fn hl_normal_errs_at_u(&self, u: &T, curve: &hermite::Spline<T>, step: &T) -> (T, T) {
         let positions = self.possible_positions(&curve, &step, &u);
         if let Some([p1, p2]) = positions {
+            assert!(!p1.inner().has_nan());
+            assert!(!p2.inner().has_nan());
             let errs = [
                 self.hl_normal_err_at_u_manual_pos(u, step, curve, &p1),
                 self.hl_normal_err_at_u_manual_pos(u, step, curve, &p2),
@@ -325,22 +330,6 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.hl_normal = MyQuaternion::from_scaled_axis(self.w.clone() * step.clone())
             .rotate_vector(&self.hl_normal);
 
-        let move_to_tgt_err = (tgt_pos - self.x.clone()).magnitude();
-        add_info!(self, move_to_tgt_err);
-        let hl_normal_shift_err = tgt_norm.angle(&self.hl_normal);
-        add_info!(self, hl_normal_shift_err);
-
-        add_info!(
-            self,
-            prev_move_to_tgt_err,
-            self.additional_info.move_to_tgt_err.clone()
-        );
-        add_info!(
-            self,
-            prev_hl_normal_shift_err,
-            self.additional_info.hl_normal_shift_err.clone()
-        );
-
         add_info!(self, potential_energy, self.potential_energy().to_f());
         add_info!(self, kinetic_energy, self.kinetic_energy().to_f());
         add_info!(self, rot_energy, self.rot_energy(self.w.magnitude()).to_f());
@@ -422,11 +411,20 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             r: self.v.speed() * delta_t.clone(),
         };
 
-        let circle_plane = geo::Plane::from_origin_normal_and_u(
-            curve.curve_at(u).unwrap(),
-            curve.curve_direction_at(u).unwrap(),
-            curve.curve_normal_at(u).unwrap(),
+        let curve_dir = curve.curve_direction_at(u).unwrap();
+        let curve_norm = curve.curve_normal_at(u).unwrap();
+        assert!(!curve_dir.has_nan());
+        assert!(curve_dir.magnitude() > 0.5);
+        assert!(
+            (curve_dir.angle(&curve_norm) - PI / 2.0).abs() < 0.1,
+            "curve_dir {:#?} curve_norm {:#?} angle {}",
+            curve_dir,
+            curve_norm,
+            curve_dir.angle(&curve_norm)
         );
+
+        let circle_plane =
+            geo::Plane::from_origin_normal_and_u(curve.curve_at(u).unwrap(), curve_dir, curve_norm);
 
         let circle = geo::Circle {
             r: self.o.clone(),
@@ -437,7 +435,11 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let intersections =
             geo::sphere_circle_intersections(&future_sphere, &circle, &circle_plane);
 
-        intersections.map(|[p1, p2]| [ComPos::new(&p1), ComPos::new(&p2)])
+        intersections.map(|[p1, p2]| {
+            assert!(!p1.has_nan());
+            assert!(!p2.has_nan());
+            [ComPos::new(&p1), ComPos::new(&p2)]
+        })
     }
 
     #[allow(dead_code)]

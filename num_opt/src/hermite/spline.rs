@@ -91,7 +91,12 @@ where
     }
 
     pub fn curve_direction_at(&self, u: &T) -> Option<MyVector3<T>> {
-        if u > &self.max_u() {
+        let (i, rem) = self.u_to_i_rem(u);
+        if i >= self.params.len() {
+            return None;
+        }
+        Some(self.params[i].curve_direction_at(&rem))
+        /*if u > &self.max_u() {
             return None;
         }
         let mut out = self.curve_1st_derivative_at(u).unwrap();
@@ -105,7 +110,7 @@ where
             out = self.curve_4th_derivative_at(u).unwrap();
         }
         assert!(out.magnitude() != 0.0);
-        Some(out.normalize())
+        Some(out.normalize())*/
     }
 
     /// Find the 1st derivative ("velocity") of the spline at `u`

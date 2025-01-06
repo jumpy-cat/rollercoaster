@@ -172,6 +172,16 @@ func _process(_delta: float) -> void:
 		Utils.cylinder_line(m, optimizer.as_segment_points(), 0.2)
 				
 		m.surface_end();
+	
+	if optimize:
+		if optimizer.points_changed():
+			optimizer.reset_points_changed()
+			var p = optimizer.get_points()
+			set_points(p, false)
+			print("#### NEW set points from optimizer")
+			print(p[0].get_xp())
+		else:
+			print("#### optimizer poitns not changed")
 
 	if physics == null:
 		label.text = "physics not initialized"
@@ -186,7 +196,7 @@ func _process(_delta: float) -> void:
 
 
 ## Input is an array of Vector3
-func set_points(points: Array[CoasterPoint]) -> void:
+func set_points(points: Array[CoasterPoint], update_optimizer=true) -> void:
 	print("set_points: ")
 	print(points[0].get_xp())
 	# remove old control points
@@ -228,7 +238,8 @@ func set_points(points: Array[CoasterPoint]) -> void:
 	coaster_points = points
 	print("#### set points from set_points()")
 	print(points[0].get_xp())
-	optimizer.set_points(coaster_points, false)
+	if update_optimizer:
+		optimizer.set_points(coaster_points, false)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -251,11 +262,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			optimizer.disable_optimizer()
 		optimizer_checkbox.button_pressed = optimize
 	if event.is_action_pressed("reset_curve"):
-		print("#### reset_curve")
 		optimizer.set_points(coaster_points, true)
-		print("#### after optimizer.set_points(true)")
 		var p = optimizer.get_points()
-		print("#### after optimizer.get_points")
 		set_points(p)
 	if event.is_action_pressed("toggle_follow_anim"):
 		camera_follow_anim = !camera_follow_anim
@@ -278,8 +286,10 @@ var inst_cost = NAN
 
 func _on_check_button_toggled(toggled_on: bool) -> void:
 	if toggled_on:
+		optimize = true
 		optimizer.enable_optimizer()
 	else:
+		optimize = false
 		optimizer.disable_optimizer()
 
 

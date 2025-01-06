@@ -1,7 +1,7 @@
 use num_opt::{my_float::Fpt, point::Point};
 
 pub fn points_from_file() -> Vec<num_opt::point::Point<Fpt>> {
-    let pts: persist::Data = serde_json::from_str(include_str!("../../godot/hi5.json")).unwrap();
+    let pts: persist::Data = serde_json::from_str(include_str!("../../hi2.json")).unwrap();
     pts.points.into_iter().map(|p| p.into()).collect()
 }
 

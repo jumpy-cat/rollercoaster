@@ -56,6 +56,7 @@ pub struct Optimizer {
     most_recent_cost: Fpt,
     num_iters: u64,
     start_time: Option<std::time::Instant>,
+    points_changed: bool,
 }
 
 #[godot_api]
@@ -82,6 +83,7 @@ impl Optimizer {
             most_recent_cost: 0.0,
             num_iters: 0,
             start_time: None,
+            points_changed: false,
         })
     }
 
@@ -143,7 +145,8 @@ impl Optimizer {
                         if let Some(mu) = mu {
                             if let Some(lr) = lr {
                                 if let Some(com_offset_mag) = com_offset_mag {
-                                    let prev_cost = optimizer::optimize_v3(
+                                    // USE v3
+                                    let prev_cost = optimizer::optimize_v2(
                                         &physics::PhysicsStateV3::new(
                                             mass,
                                             gravity,
@@ -179,6 +182,7 @@ impl Optimizer {
                 while let Ok(msg) = recv.try_recv() {
                     match msg {
                         FromWorker::NewPoints((points, cost)) => {
+                            self.points_changed = true;
                             log::debug!("new points!");
                             self.segment_points_cache = None;
                             self.points = points;
@@ -361,5 +365,15 @@ impl Optimizer {
         } else {
             Variant::nil()
         }
+    }
+
+    #[func]
+    fn points_changed(&self) -> bool {
+        self.points_changed
+    }
+
+    #[func]
+    fn reset_points_changed(&mut self) {
+        self.points_changed = false;
     }
 }

@@ -1,1 +1,31 @@
-{"positions": [[30, 24, 1], [21, 6, 1], [21, 7, 1]]}
+{
+    "points": [
+      {
+        "pos": [
+          30.0,
+          24.0,
+          1.0
+        ],
+        "deriv": null,
+        "optimizer_can_adjust_pos": false
+      },
+      {
+        "pos": [
+          21.0,
+          6.0,
+          1.0
+        ],
+        "deriv": null,
+        "optimizer_can_adjust_pos": false
+      },
+      {
+        "pos": [
+          21.0,
+          7.0,
+          1.0
+        ],
+        "deriv": null,
+        "optimizer_can_adjust_pos": false
+      }
+    ]
+  }
