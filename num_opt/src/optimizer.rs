@@ -70,12 +70,12 @@ pub fn optimize_v2<T: MyFloat>(
     points: &mut [point::Point<T>],
     lr: Fpt,
 ) -> Option<Fpt> {
-    const NUDGE_DIST: Fpt = 0.001; // small step size for derivative approximation
+    const NUDGE_DIST: Fpt = 0.0001; // small step size for derivative approximation
     if let Some(curr) = cost_v2(initial.clone(), curve, 0.05) {
         //let mut deriv: Vec<Vec<Option<T>>> = vec![];
         let controls = points.to_vec();
 
-        const SKIP_CHANCE: f64 = 0.9;
+        const SKIP_CHANCE: f64 = 0.0;
 
         let c = |i: usize| {
             
@@ -135,6 +135,50 @@ pub fn optimize_v2<T: MyFloat>(
         }
         Some(curr)
         // function concludes by returning the current cost, which helps track progress over multiple optimization iterations.
+    } else {
+        None
+    }
+}
+
+pub fn optimize_v3<T: MyFloat>(
+    initial: &physics::PhysicsStateV3<T>,
+    curve: &hermite::Spline<T>,
+    points: &mut [point::Point<T>],
+    lr: Fpt,
+) -> Option<Fpt> {
+    if let Some(base) = cost_v2(initial.clone(), curve, 0.05) {
+        // choose a point
+        let i = rand::thread_rng().gen_range(1..points.len());
+        // choose a parameter
+        let j = rand::thread_rng().gen_range(3..=11);
+        //let v = points[i].get_at_i(j);
+
+        let mut adjust_amt = 0.1;
+
+        let mut should_adjust = |i: usize, j: usize, amt: Fpt| {
+            let v = points[i].get_at_i(j);
+            points[i].set_at_i(j, v.clone() + T::from_f(amt));
+            let new_curve = hermite::Spline::new(points);
+            let new_cost = cost_v2(initial.clone(), &new_curve, 0.05);
+            // undo change
+            points[i].set_at_i(j, v);
+            new_cost.is_some_and(|new_cost| new_cost < base)
+        };
+
+        loop {
+            if should_adjust(i, j, adjust_amt) {
+                let v = points[i].get_at_i(j);
+                points[i].set_at_i(j, v.clone() + T::from_f(adjust_amt));
+                break;
+            } else if adjust_amt < 0.0 {
+                adjust_amt *= -0.5;
+                log::debug!("HALF");
+            } else {
+                adjust_amt *= -1.0;
+            }
+        }
+        
+        Some(base)
     } else {
         None
     }

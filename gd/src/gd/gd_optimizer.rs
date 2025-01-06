@@ -143,22 +143,18 @@ impl Optimizer {
                         if let Some(mu) = mu {
                             if let Some(lr) = lr {
                                 if let Some(com_offset_mag) = com_offset_mag {
-                                    let prev_cost = optimizer::optimize_v2(
+                                    let prev_cost = optimizer::optimize_v3(
                                         &physics::PhysicsStateV3::new(
                                             mass,
                                             gravity,
                                             &curve,
                                             com_offset_mag,
-                                        ), /*&physics::legacy::PhysicsState::new(
-                                               mass,
-                                               gravity,
-                                               mu,
-                                               com_offset_mag,
-                                           )*/
+                                        ),
                                         &curve,
                                         &mut points,
                                         lr,
                                     );
+                                    log::debug!("Cost: {:?}", prev_cost);
                                     curve = hermite::Spline::new(&points);
                                     if prev_cost.is_some() {
                                         outbox.send(FromWorker::NewPoints((
@@ -331,13 +327,16 @@ impl Optimizer {
 
     #[func]
     fn calc_cost_inst(&self, mass: Fpt, gravity: Fpt, mu: Fpt, com_offset_mag: Fpt) -> Fpt {
+        log::info!("calc_cost_inst: {} {} {} {}", mass, gravity, mu, com_offset_mag);
         // TODO: friction
-        optimizer::cost_v2(
+        let r = optimizer::cost_v2(
             PhysicsStateV3::new(mass, gravity, &self.curve, com_offset_mag),
             &self.curve,
             0.05,
         )
-        .unwrap_or(MyFloatType::NAN)
+        .unwrap_or(MyFloatType::NAN);
+        log::info!("Got {r}");
+        r
     }
 
     /// Get the iterations per second from the most recent optimizer start

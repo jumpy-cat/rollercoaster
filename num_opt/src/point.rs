@@ -75,6 +75,43 @@ where
         }
     }
 
+    pub fn set_at_i(&mut self, i: usize, value: T) {
+        match i {
+            0 => self.x = value,
+            1 => self.y = value,
+            2 => self.z = value,
+            3 => self.xp = value,
+            4 => self.yp = value,
+            5 => self.zp = value,
+            6 => self.xpp = value,
+            7 => self.ypp = value,
+            8 => self.zpp = value,
+            9 => self.xppp = value,
+            10 => self.yppp = value,
+            11 => self.zppp = value,
+            _ => panic!("Invalid index to `set_at_i`, expected (0..=11), got {}", i),
+
+        }
+    }
+
+    pub fn get_at_i(&self, i: usize) -> T {
+        match i {
+            0 => self.x.clone(),
+            1 => self.y.clone(),
+            2 => self.z.clone(),
+            3 => self.xp.clone(),
+            4 => self.yp.clone(),
+            5 => self.zp.clone(),
+            6 => self.xpp.clone(),
+            7 => self.ypp.clone(),
+            8 => self.zpp.clone(),
+            9 => self.xppp.clone(),
+            10 => self.yppp.clone(),
+            11 => self.zppp.clone(),
+            _ => panic!("Invalid index to `get_at_i`, expected (0..=11), got {}", i),
+        }
+    }
+
     /// Descends derivatives specified in `v`  
     /// Used by the optimizer to adjust the parameters of each point
     /// Format is xp, xpp, xppp, yp, ypp, ypp, ...

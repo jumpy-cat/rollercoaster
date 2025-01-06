@@ -1,11 +1,16 @@
 //! Physics solver and cost function
 
-use std::{ f64::consts::PI, sync::RwLock};
+use std::{f64::consts::PI, sync::RwLock};
 
 use info::{use_sigfigs, PhysicsAdditionalInfo};
 use linalg::{vector_projection, ComPos, ComVel, MyQuaternion, MyVector3};
+use log::warn;
 
-use crate::{hermite, my_float::{Fpt, MyFloat}, plot};
+use crate::{
+    hermite,
+    my_float::{Fpt, MyFloat},
+    plot,
+};
 
 mod geo;
 mod info;
@@ -83,7 +88,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let hl_forward = curve.curve_direction_at(&T::zero()).unwrap();
         assert!(hl_forward.magnitude() > 0.0);
         let hl_normal =
-            (-g_dir.clone() - vector_projection(-g_dir.clone(), hl_forward)).normalize();
+            (-g_dir.clone() - vector_projection(-g_dir.clone(), hl_forward.clone())).normalize();
         Self {
             i: 0,
             // constants
@@ -96,10 +101,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             u: T::zero(), //0.0,
             // center of mass
             x: ComPos::new(&(hl_pos.clone() - hl_normal.clone() * T::from_f(o))), //o,
-            v: ComVel::new(&MyVector3::new_f(
-                0.0,
-                g.magnitude().to_f() * 0.05 * 256.0,
-                0.0,
+            v: ComVel::new(&(hl_forward * 
+                g.magnitude() * T::from_f(0.05 * 256.0)
             )),
 
             // heart line
@@ -140,8 +143,9 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             .normalize();
 
         //let ideal_hl_dir_p = self.next_hl_normal(u, &curve, &fut_vel_corr);
-        let ideal_hl_dir_p =
-            (self.next_hl_normal(u, &curve, &fut_vel_corr) + least_resistance * T::from_f(10.0)).normalize();
+        let ideal_hl_dir_p = (self.next_hl_normal(u, &curve, &fut_vel_corr)
+            + least_resistance * T::from_f(10.0))
+        .normalize();
 
         let tgt_hl_dir = ideal_hl_dir_p;
         (actual_hl_dir - tgt_hl_dir).magnitude_squared()
@@ -274,7 +278,12 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.i += 1;
         let r = self.determine_future_u_pos_norm_maxu_err(step, curve);
         if r.is_none() {
+            if self.u > curve.max_u() - 0.2 {
+                // close enough to end
+                return None;
+            }
             // gravity stuck
+            warn!("Cost Nan due to gravity stuck, u: {}", self.u);
             self.cost = Fpt::NAN;
             return None;
         }
@@ -292,7 +301,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let new_v = self.updated_v(&step, &tgt_pos);
         let new_x = self.x.clone() + new_v.to_displacement(step.clone());
 
-        let jitter_detected = new_v.inner().angle(&self.v.inner()) > T::from_f(10.0 * PI as Fpt / 180.0);
+        let jitter_detected =
+            new_v.inner().angle(&self.v.inner()) > T::from_f(40.0 * PI as Fpt / 180.0);
         add_info!(self, jitter_detected);
 
         let new_w = self.new_ang_vel(step, &tgt_norm);
@@ -330,22 +340,21 @@ impl<T: MyFloat> PhysicsStateV3<T> {
 
         add_info!(self, potential_energy, self.potential_energy().to_f());
         add_info!(self, kinetic_energy, self.kinetic_energy().to_f());
-        add_info!(
-            self,
-            rot_energy,
-            self.rot_energy(self.w.magnitude()).to_f()
-        );
+        add_info!(self, rot_energy, self.rot_energy(self.w.magnitude()).to_f());
 
         self.v = self.correct_for_angular_energy(change_in_angular_energy, &self.v);
 
         self.additional_info.update(&self.u);
 
+        /*log::info!(
+            "G force: {}",
+            (accel.clone() - self.g.clone()).magnitude().to_f() / self.g.magnitude().to_f()
+        );*/
         self.cost += accel.magnitude_squared().to_f() * step.to_f();
 
-        self.additional_info.ang_energies.push((
-            self.u.to_f(),
-            self.rot_energy(self.w.magnitude()).to_f(),
-        ));
+        self.additional_info
+            .ang_energies
+            .push((self.u.to_f(), self.rot_energy(self.w.magnitude()).to_f()));
 
         Some(())
     }

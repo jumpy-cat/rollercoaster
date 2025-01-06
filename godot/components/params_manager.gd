@@ -5,7 +5,7 @@ class_name ParamsManager extends Control
 signal params_changed();
 
 # default parameter values
-var learning_rate: float = 1.0
+var learning_rate: float = 0.0001
 var mass: float = 1.00
 var gravity: float = -0.01
 var friction: float = 0.05

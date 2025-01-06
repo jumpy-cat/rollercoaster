@@ -58,7 +58,7 @@ fn main() {
 
     let st = Instant::now();
     loop {
-        let c = optimizer::optimize_v2(&phys, &curve, &mut points, 0.001);
+        let c = optimizer::optimize_v3(&phys, &curve, &mut points, 0.001);
         log::info!("Cost: {:?} T: {}ms", c, st.elapsed().as_millis());
         curve = Spline::new(&points);
         log::info!("New Cost: {:?}", cost_v2(phys.clone(), &curve, 0.05));
