@@ -5,7 +5,7 @@ use rand::Rng;
 use crate::{
     hermite,
     my_float::{Fpt, MyFloat},
-    physics::{self, info::use_sigfigs, tol, TOL},
+    physics::{self, info::use_sigfigs, tol},
     point,
 };
 

@@ -71,6 +71,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
     /// Initialize the physics state: `m` mass, `g` Gravity vector,
     /// `curve.curve_at(0.0)`: Starting position of the curve at `u=0`
     pub fn new(m: Fpt, g_: Fpt, curve: &hermite::Spline<T>, o: Fpt, mu: Fpt) -> Self {
+        log::info!("Physics initalized with mu: {}", mu);
         assert!(curve.max_u() > 0.0);
         let g = MyVector3::new_f(0.0, g_, 0.0);
         let g_dir = if g_ == 0.0 {
@@ -312,10 +313,11 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.u = new_u;
 
         let accel = (new_v.inner() - self.v.inner()) / step.clone();
+        let normal_force = (accel.clone() - self.g.clone()) * self.m.clone();
+        let distance = (new_x.inner() - self.x.inner()).magnitude();
         // new values
         (self.x, self.v, self.w) = (new_x, new_v, new_w);
 
-        //self.hl_normal = tgt_norm.clone();
         self.hl_normal = MyQuaternion::from_scaled_axis(self.w.clone() * step.clone())
             .rotate_vector(&self.hl_normal);
 
@@ -323,7 +325,10 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         add_info!(self, kinetic_energy, self.kinetic_energy().to_f());
         add_info!(self, rot_energy, self.rot_energy(self.w.magnitude()).to_f());
 
-        self.v = self.correct_v_to_reduce_energy_by(change_in_angular_energy, &self.v);
+        // velocity correction
+        let loss_to_friction = normal_force.magnitude() * self.mu.clone() * distance;
+        self.v = self
+            .correct_v_to_reduce_energy_by(change_in_angular_energy + loss_to_friction, &self.v);
 
         self.additional_info.update(&self.u);
 

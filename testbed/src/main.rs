@@ -8,7 +8,7 @@ use num_opt::{
 };
 use testbed::{points, points_from_file};
 
-const MU: Fpt = 0.1;
+const MU: Fpt = 0.05;
 
 #[allow(dead_code)]
 fn does_changing_step_size_affect_cost() {
@@ -27,7 +27,7 @@ fn does_changing_step_size_affect_cost() {
 }
 
 
-#[allow(dead_code)]
+/*#[allow(dead_code)]
 fn does_changing_tol_affect_cost() {
     log::info!("Does changing tol affect cost?");
     let tols = [1e0, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10];
@@ -43,7 +43,7 @@ fn does_changing_tol_affect_cost() {
         let c = optimizer::cost_v2(phys.clone(), &curve, 0.05);
         log::info!("Cost: {:?}, Tol: {}, Rt: {}ms", c, tol, s.elapsed().as_millis());
     }
-}
+}*/
 
 
 fn main() {

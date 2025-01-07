@@ -152,6 +152,7 @@ impl Optimizer {
                                             gravity,
                                             &curve,
                                             com_offset_mag,
+                                            mu
                                         ),
                                         &curve,
                                         &mut points,
@@ -208,6 +209,7 @@ impl Optimizer {
     /// Sets the value of gravity (acceleration, should be negative)
     #[func]
     fn set_gravity(&mut self, gravity: Fpt) {
+        assert!(gravity < 0.0);
         info!("set_gravity: {}", gravity);
         self.to_worker.send(ToWorker::SetGravity(gravity)).unwrap();
     }
@@ -348,7 +350,7 @@ impl Optimizer {
         log::info!("calc_cost_inst: {} {} {} {}", mass, gravity, mu, com_offset_mag);
         // TODO: friction
         let r = optimizer::cost_v2(
-            PhysicsStateV3::new(mass, gravity, &self.curve, com_offset_mag),
+            PhysicsStateV3::new(mass, gravity, &self.curve, com_offset_mag, mu),
             &self.curve,
             0.05,
         )

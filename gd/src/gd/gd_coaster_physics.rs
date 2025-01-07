@@ -30,13 +30,14 @@ macro_rules! impl_physics_v3_getter {
 impl CoasterPhysicsV3 {
     /// Initialize with mass and gravity
     #[func]
-    fn create(mass: Fpt, gravity: Fpt, curve: Gd<CoasterCurve>, o: Fpt) -> Gd<Self> {
+    fn create(mass: Fpt, gravity: Fpt, curve: Gd<CoasterCurve>, o: Fpt, mu: Fpt) -> Gd<Self> {
         Gd::from_object(Self {
             inner: Some(physics::PhysicsStateV3::new(
                 mass,
                 gravity,
                 &curve.bind().inner,
                 o,
+                mu,
             )),
         })
     }
