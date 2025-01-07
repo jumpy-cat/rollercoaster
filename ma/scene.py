@@ -131,3 +131,29 @@ class Interp(Scene):
         
         self.wait()
 
+class Optim(Scene):
+    def func(self, t):
+        return -t**3 - 2*t**2
+    
+    def construct(self):
+        #function graph
+        graph = FunctionGraph(self.func, x_range=[-2.2, 0.8])
+        graph.scale(1.5)
+        graph.shift(LEFT)
+        graph.shift(LEFT)
+        graph.shift(UP)
+        self.play(Create(graph))
+        dot = Dot().move_to(graph.point_from_proportion(0))  # create a point at the top of the graph
+
+
+        def update_dot(mob, alpha):
+            mob.move_to(graph.point_from_proportion(alpha))
+
+        
+        self.play(Create(dot))
+        #self.play(UpdateFromAlphaFunc(dot, update_dot))   
+        self.play(MoveAlongPath(dot, graph), rate_func=linear)
+             
+
+
+
