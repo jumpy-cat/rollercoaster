@@ -31,6 +31,11 @@ var physics: CoasterPhysicsV3
 
 var f1: Function
 
+var inst_cost_hist_curve_pos = []
+var inst_cost_hist_curve_delta_cost = []
+
+const HIST_LINE_UPDATE_DIST = 0.1
+
 
 func setup_chart() -> void:
 	# Let's create our @x values
@@ -78,13 +83,6 @@ func setup_chart() -> void:
 
 
 func debug_draw(anim_pos, anim_vel) -> void:
-	for i in range(len(hist_pos) - 1):
-		DebugDraw3D.draw_line(
-			hist_pos[i],
-			hist_pos[i + 1],
-			Color.PURPLE
-		)
-	const HIST_LINE_UPDATE_DIST = 0.1
 	if (anim_pos - last_pos).length() > HIST_LINE_UPDATE_DIST:
 		hist_pos.push_back(anim_pos)
 		last_pos = anim_pos
@@ -134,11 +132,23 @@ const COM_OFFSET = 1;
 func _process(_delta: float) -> void:
 	optimizer.update()
 	DebugDraw2D.set_text("FPS", Engine.get_frames_per_second())
+
+	for i in range(len(hist_pos) - 1):
+		DebugDraw3D.draw_line(
+			hist_pos[i],
+			hist_pos[i + 1],
+			Color.WHITE
+		)
+	for i in range(len(inst_cost_hist_curve_pos) - 1):
+		DebugDraw3D.draw_line(
+			inst_cost_hist_curve_pos[i],
+			inst_cost_hist_curve_pos[i + 1],
+			Color.PURPLE
+		)
 	
 	# update physics simulation
 	if curve != null:
 		anim.visible = true
-		"""&& physics.found_exact_solution()"""
 		var physics_did_step = ((!manual_physics) # && physics.found_exact_solution())
 			|| Input.is_action_just_pressed("step_physics"))
 		if physics_did_step:
@@ -178,10 +188,6 @@ func _process(_delta: float) -> void:
 			optimizer.reset_points_changed()
 			var p = optimizer.get_points()
 			set_points(p, false)
-			print("#### NEW set points from optimizer")
-			print(p[0].get_xp())
-		else:
-			print("#### optimizer poitns not changed")
 
 	if physics == null:
 		label.text = "physics not initialized"
@@ -278,8 +284,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			params_manager.mass,
 			params_manager.gravity,
 			params_manager.friction,
-			params_manager.com_offset_mag
+			params_manager.com_offset_mag,
+			HIST_LINE_UPDATE_DIST
 		)
+		inst_cost_hist_curve_pos = optimizer.get_inst_cost_path_pos()
+		print(inst_cost_hist_curve_pos)
+		inst_cost_hist_curve_delta_cost = optimizer.get_inst_cost_path_delta_cost()
 
 var inst_cost = NAN
 

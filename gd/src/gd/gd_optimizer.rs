@@ -57,6 +57,8 @@ pub struct Optimizer {
     num_iters: u64,
     start_time: Option<std::time::Instant>,
     points_changed: bool,
+    inst_cost_path_pos: Vec<Vector3>,
+    inst_cost_path_delta_cost: Vec<Fpt>,
 }
 
 #[godot_api]
@@ -84,6 +86,8 @@ impl Optimizer {
             num_iters: 0,
             start_time: None,
             points_changed: false,
+            inst_cost_path_pos: vec![],
+            inst_cost_path_delta_cost: vec![],
         })
     }
 
@@ -152,7 +156,7 @@ impl Optimizer {
                                             gravity,
                                             &curve,
                                             com_offset_mag,
-                                            mu
+                                            mu,
                                         ),
                                         &curve,
                                         &mut points,
@@ -248,7 +252,11 @@ impl Optimizer {
                 p.into()
             })
             .collect();
-        log::trace!("set_points: {:?} and {} more", self.points.get(0), self.points.len() - 1);
+        log::trace!(
+            "set_points: {:?} and {} more",
+            self.points.get(0),
+            self.points.len() - 1
+        );
         if reset {
             hermite::set_derivatives_using_catmull_rom(&mut self.points);
             log::debug!("points set to catmull rom");
@@ -267,7 +275,11 @@ impl Optimizer {
 
     #[func]
     fn get_points(&self) -> Array<Gd<CoasterPoint>> {
-        log::trace!("get_points: {:?} and {} more", self.points.get(0), self.points.len() - 1);
+        log::trace!(
+            "get_points: {:?} and {} more",
+            self.points.get(0),
+            self.points.len() - 1
+        );
         self.points
             .iter()
             .map(|p| Gd::from_object(CoasterPoint::new(p.clone())))
@@ -346,17 +358,44 @@ impl Optimizer {
     }
 
     #[func]
-    fn calc_cost_inst(&self, mass: Fpt, gravity: Fpt, mu: Fpt, com_offset_mag: Fpt) -> Fpt {
-        log::info!("calc_cost_inst: {} {} {} {}", mass, gravity, mu, com_offset_mag);
+    fn calc_cost_inst(
+        &mut self,
+        mass: Fpt,
+        gravity: Fpt,
+        mu: Fpt,
+        com_offset_mag: Fpt,
+        hist_update_dist: Fpt,
+    ) -> Fpt {
+        log::info!(
+            "calc_cost_inst: {} {} {} {}",
+            mass,
+            gravity,
+            mu,
+            com_offset_mag
+        );
         // TODO: friction
-        let r = optimizer::cost_v2(
+        let r = optimizer::cost_v2_with_history(
             PhysicsStateV3::new(mass, gravity, &self.curve, com_offset_mag, mu),
             &self.curve,
             0.05,
-        )
-        .unwrap_or(MyFloatType::NAN);
-        log::info!("Got {r}");
-        r
+            Some(hist_update_dist),
+        );
+        self.inst_cost_path_pos =
+            r.1.iter()
+                .map(|x| Vector3::new(x.x as f32, x.y as f32, x.z as f32))
+                .collect();
+        self.inst_cost_path_delta_cost = r.1.iter().map(|x| x.delta_cost).collect();
+        r.0.unwrap_or(Fpt::NAN)
+    }
+
+    #[func]
+    fn get_inst_cost_path_pos(&self) -> Array<Vector3> {
+        self.inst_cost_path_pos.iter().cloned().collect()
+    }
+
+    #[func]
+    fn get_inst_cost_path_delta_cost(&self) -> Array<Fpt> {
+        self.inst_cost_path_delta_cost.iter().cloned().collect()
     }
 
     /// Get the iterations per second from the most recent optimizer start

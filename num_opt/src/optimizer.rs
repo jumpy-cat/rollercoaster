@@ -5,13 +5,20 @@ use rand::Rng;
 use crate::{
     hermite,
     my_float::{Fpt, MyFloat},
-    physics::{self, info::use_sigfigs, tol},
+    physics::{self, info::use_sigfigs, linalg::MyVector3, tol},
     point,
 };
 
+pub struct CostHistoryPoint {
+    pub delta_cost: Fpt,
+    pub x: Fpt,
+    pub y: Fpt,
+    pub z: Fpt,
+}
+
 /// Given initial state and curve, calculates the total cost of the curve
 ///
-/// This requires a physics simulation be run, with the paramer `inital` being
+/// This requires a physics simulation be run, with the paramer `initial` being
 /// the starting physical state of the object, including properties like
 /// position, velocity, and other parameters.
 ///
@@ -24,18 +31,6 @@ use crate::{
 /// `let mut phys = initial;` copies the initial physical state into a mutable
 /// variable phys, which evolves as the simulation progresses
 ///
-/// `while let Some((dx, dy, dz)) = curve.curve_1st_derivative_at(phys.u())`
-/// calculates the first derivatives of the spline `(dx,dy,dz)` at the current
-/// position `u` (a parameterized value along the spline). If derivatives are
-/// valid, the loop goes on, if not, it exits.
-///
-/// `phys.step(dx, dy, dz, physics::StepBehavior::Distance);` updates the
-/// physics state based on the curve's derivatives and the current state,
-/// modifying the object's internal parameters
-///
-/// `StepBehavior::Distance` specifies that the simulation is stepping forward
-/// based on distance travelled.
-///
 /// `phys.cost()` computes the total cost of the curve, if cost is `Nan`, it
 /// returns `None` to indicate an invalid calculation
 pub fn cost_v2<T: MyFloat>(
@@ -43,15 +38,43 @@ pub fn cost_v2<T: MyFloat>(
     curve: &hermite::Spline<T>,
     step: Fpt,
 ) -> Option<Fpt> {
+    cost_v2_with_history(initial, curve, step, None).0
+}
+
+pub fn cost_v2_with_history<T: MyFloat>(
+    initial: physics::PhysicsStateV3<T>,
+    curve: &hermite::Spline<T>,
+    step: Fpt,
+    min_dist_between_points: Option<Fpt>,
+) -> (Option<Fpt>, Vec<CostHistoryPoint>) {
     let mut phys = initial;
-    while phys.step(
-        &T::from_f(step), curve).is_some() {
-        
+    let mut hist = vec![];
+    let mut ppos: Option<MyVector3<T>> = None;
+    let mut pcost = 0.0;
+    while phys.step(&T::from_f(step), curve).is_some() {
+        if let Some(min_dist) = min_dist_between_points {
+            let cp = phys.x().clone().inner();
+            if ppos
+                .clone()
+                .is_none_or(|p| (cp.clone() - p).magnitude() < min_dist)
+            {
+                // add to history
+                let ccost = phys.cost().to_f();
+                hist.push(CostHistoryPoint {
+                    x: cp.x.to_f(),
+                    y: cp.y.to_f(),
+                    z: cp.z.to_f(),
+                    delta_cost: ccost - pcost,
+                });
+                pcost = ccost;
+                ppos = Some(cp);
+            }
+        }
     }
     if phys.cost().is_nan() {
-        None
+        (None, hist)
     } else {
-        Some(phys.cost().to_f())
+        (Some(phys.cost().to_f()), hist)
     }
 }
 
@@ -78,7 +101,6 @@ pub fn optimize_v2<T: MyFloat>(
         const SKIP_CHANCE: f64 = 0.0;
 
         let c = |i: usize| {
-            
             let mut controls = controls.clone();
             let orig = controls[i].clone();
             // Generate all possible variations of the derivatives for this
@@ -105,7 +127,10 @@ pub fn optimize_v2<T: MyFloat>(
 
         use rayon::prelude::*;
 
-        let mut deriv = (1..controls.len()).into_par_iter().map(c).collect::<Vec<_>>();
+        let mut deriv = (1..controls.len())
+            .into_par_iter()
+            .map(c)
+            .collect::<Vec<_>>();
         //let mut deriv = (1..controls.len()).into_iter().map(c).collect::<Vec<_>>();
         //(1..controls.len()).for_each(c);
         // get the largest gradient magnitude across all control points. if gradient value is too large, normalize all
@@ -181,7 +206,7 @@ pub fn optimize_v3<T: MyFloat>(
                 adjust_amt *= -1.0;
             }
         }
-        
+
         Some(base)
     } else {
         None
