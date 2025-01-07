@@ -6,6 +6,7 @@ class_name ControlPoint
 var index: int
 var selected: bool = false
 var hovered: bool = false
+var shown_deriv = null
 
 signal clicked(index)
 
@@ -41,10 +42,12 @@ func _ready() -> void:
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(_delta: float) -> void:
 	if selected or hovered:
-		scale = Vector3(2.0, 2.0, 2.0)
+		scale = Vector3(1.5, 1.5, 1.5)
 	else:
 		scale = Vector3.ONE
 	axes.visible = selected 
+	if shown_deriv != null:
+		DebugDraw3D.draw_line(position, position + shown_deriv, Color.WHITE)
 
 
 func initialize(pos: Vector3, index_: int) -> void:

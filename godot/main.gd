@@ -181,10 +181,9 @@ func _process(_delta: float) -> void:
 	if len(curve_points) > 1:
 		var m = basic_lines.mesh;
 		m.clear_surfaces();
-		#m.surface_begin(Mesh.PRIMITIVE_LINES);
 		m.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 
-		Utils.cylinder_line(m, optimizer.as_segment_points(), 0.2)
+		Utils.cylinder_line(m, optimizer.as_segment_points(), 0.02)
 				
 		m.surface_end();
 	
@@ -262,6 +261,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		selected_point = null
 		for cp in control_points:
 			cp.selected = false
+			cp.shown_deriv = null
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -298,6 +298,14 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		var max_delta = inst_cost_hist_curve_delta_cost.max()
 		inst_cost_hist_curve_delta_cost = inst_cost_hist_curve_delta_cost\
 			.map(func(x): return x / max_delta)
+	if event.is_action_pressed("edit_pos"):
+		point_edit_component.set_editing(0)
+	if event.is_action_pressed("edit_d1"):
+		point_edit_component.set_editing(1)
+	if event.is_action_pressed("edit_d2"):
+		point_edit_component.set_editing(2)
+	if event.is_action_pressed("edit_d3"):
+		point_edit_component.set_editing(3)
 
 
 func _on_check_button_toggled(toggled_on: bool) -> void:
@@ -312,7 +320,9 @@ func _on_check_button_toggled(toggled_on: bool) -> void:
 func _on_control_point_clicked(index: int) -> void:
 	selected_index = index
 	selected_point = optimizer.get_point(index)
-	point_edit_component.set_point_pos(selected_point)
+	point_edit_component.set_point(selected_point)
+	control_points[index].shown_deriv = \
+		new_shown_deriv(selected_point, point_edit_component.editing)
 
 	# update selected point
 	for i in range(control_points.size()):
@@ -343,18 +353,6 @@ func _on_point_edit_component_points_loaded(pts: Array) -> void:
 	set_points(pts)
 
 
-func _on_point_edit_component_pos_changed(pos: Vector3) -> void:
-	if selected_point:
-		selected_point.set_x(pos.x)
-		selected_point.set_y(pos.y)
-		selected_point.set_z(pos.z)
-		control_points[selected_index].position = pos
-		coaster_points[selected_index].set_x(pos.x)
-		coaster_points[selected_index].set_y(pos.y)
-		coaster_points[selected_index].set_z(pos.z)
-		optimizer.set_point(selected_index, selected_point)
-
-
 func _on_point_edit_component_points_failed_to_load() -> void:
 	var diag = AcceptDialog.new()
 	diag.content_scale_factor = 2
@@ -367,3 +365,63 @@ func _on_point_edit_component_points_failed_to_load() -> void:
 
 func _on_params_manager_params_changed() -> void:
 	params_manager.apply_to_optimizer(optimizer)
+
+
+func new_shown_deriv(sp: CoasterPoint, i: int):
+	match i:
+		0: return null
+		1: return Vector3(
+			sp.get_xp(), sp.get_yp(), sp.get_zp()
+		)
+		2: return Vector3(
+			sp.get_xpp(), sp.get_ypp(), sp.get_zpp()
+		)
+		3: return Vector3(
+			sp.get_xppp(), sp.get_yppp(), sp.get_zppp()
+		)
+		_: push_error("Unknown deriv: " + str(i))
+
+
+func _on_point_edit_component_should_show(deriv: int) -> void:
+	if selected_point:
+		point_edit_component.set_point(selected_point)
+		control_points[selected_index].shown_deriv = new_shown_deriv(selected_point, deriv)
+
+
+func _on_point_edit_component_pos_changed(pos: Vector3) -> void:
+	if selected_point:
+		selected_point.set_x(pos.x)
+		selected_point.set_y(pos.y)
+		selected_point.set_z(pos.z)
+		control_points[selected_index].position = pos
+		coaster_points[selected_index].set_x(pos.x)
+		coaster_points[selected_index].set_y(pos.y)
+		coaster_points[selected_index].set_z(pos.z)
+		optimizer.set_point(selected_index, selected_point)
+
+
+func _on_point_edit_component_d_1_changed(pos: Vector3) -> void:
+	if selected_point:
+		selected_point.set_xp(pos.x)
+		selected_point.set_yp(pos.y)
+		selected_point.set_zp(pos.z)
+		control_points[selected_index].shown_deriv = pos
+		optimizer.set_point(selected_index, selected_point)
+
+
+func _on_point_edit_component_d_2_changed(pos: Vector3) -> void:
+	if selected_point:
+		selected_point.set_xpp(pos.x)
+		selected_point.set_ypp(pos.y)
+		selected_point.set_zpp(pos.z)
+		control_points[selected_index].shown_deriv = pos
+		optimizer.set_point(selected_index, selected_point)
+
+
+func _on_point_edit_component_d_3_changed(pos: Vector3) -> void:
+	if selected_point:
+		selected_point.set_xppp(pos.x)
+		selected_point.set_yppp(pos.y)
+		selected_point.set_zppp(pos.z)
+		control_points[selected_index].shown_deriv = pos
+		optimizer.set_point(selected_index, selected_point)

@@ -35,6 +35,18 @@ layout_mode = 0
 offset_right = 40.0
 offset_bottom = 40.0
 
+[node name="OptionButton" type="OptionButton" parent="VBoxContainer"]
+layout_mode = 2
+selected = 0
+item_count = 4
+popup/item_0/text = "pos"
+popup/item_1/text = "d1"
+popup/item_1/id = 1
+popup/item_2/text = "d2"
+popup/item_2/id = 2
+popup/item_3/text = "d3"
+popup/item_3/id = 3
+
 [node name="XEdit" parent="VBoxContainer" instance=ExtResource("1_c3hxt")]
 layout_mode = 2
 theme = SubResource("Theme_cu08d")
@@ -66,6 +78,7 @@ access = 2
 filters = PackedStringArray("*.json")
 use_native_dialog = true
 
+[connection signal="item_selected" from="VBoxContainer/OptionButton" to="." method="_on_option_button_item_selected"]
 [connection signal="value_changed" from="VBoxContainer/XEdit" to="." method="_on_x_edit_value_changed"]
 [connection signal="value_changed" from="VBoxContainer/YEdit" to="." method="_on_y_edit_value_changed"]
 [connection signal="value_changed" from="VBoxContainer/ZEdit" to="." method="_on_z_edit_value_changed"]

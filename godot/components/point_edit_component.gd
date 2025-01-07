@@ -11,8 +11,14 @@ class_name PointEditComponent
 signal points_loaded(pts: Array)
 signal points_failed_to_load();
 signal pos_changed(pos: Vector3)
+signal d1_changed(pos: Vector3)
+signal d2_changed(pos: Vector3)
+signal d3_changed(pos: Vector3)
 
-var point_pos: Vector3
+signal should_show(deriv: int)
+
+var editing = 0
+var edited_pos: Vector3
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
@@ -34,30 +40,56 @@ func request_points() -> void:
 	load_file_dialog.popup()
 
 
-func set_point_pos(p: CoasterPoint) -> void:
-	x_edit.set_value(p.get_x())
-	y_edit.set_value(p.get_y())
-	z_edit.set_value(p.get_z())
-	point_pos = Vector3(p.get_x(), p.get_y(), p.get_z())
+func set_point(p: CoasterPoint) -> void:
+	match editing:
+		0:
+			x_edit.set_value(p.get_x())
+			y_edit.set_value(p.get_y())
+			z_edit.set_value(p.get_z())
+		1: 
+			x_edit.set_value(p.get_xp())
+			y_edit.set_value(p.get_yp())
+			z_edit.set_value(p.get_zp())
+		2: 
+			x_edit.set_value(p.get_xpp())
+			y_edit.set_value(p.get_ypp())
+			z_edit.set_value(p.get_zpp())
+		3: 
+			x_edit.set_value(p.get_xppp())
+			y_edit.set_value(p.get_yppp())
+			z_edit.set_value(p.get_zppp())
+		_:
+			push_error("Unknown editing mode: " + str(editing))
+			
+	edited_pos = Vector3(x_edit.value, y_edit.value, z_edit.value)
 
 
 func _on_load_button_pressed() -> void:
 	load_file_dialog.popup()
 
 
+func emit_pos(pos: Vector3) -> void:
+	match editing:
+		0: pos_changed.emit(pos)
+		1: d1_changed.emit(pos)
+		2: d2_changed.emit(pos)
+		3: d3_changed.emit(pos)
+		_: push_error("Unknown editing mode: " + str(editing))
+
+
 func _on_x_edit_value_changed(value: float) -> void:
-	point_pos.x = value
-	pos_changed.emit(point_pos)
+	edited_pos.x = value
+	emit_pos(edited_pos)
 
 
 func _on_y_edit_value_changed(value: float) -> void:
-	point_pos.y = value
-	pos_changed.emit(point_pos)
+	edited_pos.y = value
+	emit_pos(edited_pos)
 
 
 func _on_z_edit_value_changed(value: float) -> void:
-	point_pos.z = value
-	pos_changed.emit(point_pos)
+	edited_pos.z = value
+	emit_pos(edited_pos)
 
 
 func _on_load_dialogue_file_selected(path: String) -> void:
@@ -72,3 +104,15 @@ func _on_load_dialogue_file_selected(path: String) -> void:
 
 func _on_save_dialogue_confirmed() -> void:
 	print("confirmed")
+
+
+func set_editing(i: int) -> void:
+	assert(i >= 0 and i <= 3)
+	$VBoxContainer/OptionButton.select(i)
+	_on_option_button_item_selected(i)
+
+
+func _on_option_button_item_selected(index: int) -> void:
+	print("index: " + str(index))
+	editing = index
+	should_show.emit(index)
