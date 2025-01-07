@@ -8,6 +8,8 @@ use num_opt::{
 };
 use testbed::{points, points_from_file};
 
+const MU: Fpt = 0.1;
+
 #[allow(dead_code)]
 fn does_changing_step_size_affect_cost() {
     log::info!("Does changing step size affect cost?");
@@ -15,7 +17,7 @@ fn does_changing_step_size_affect_cost() {
     let mut points = points();
     hermite::set_derivatives_using_catmull_rom(&mut points);
     let curve: hermite::Spline<Fpt> = num_opt::hermite::Spline::new(&points);
-    let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 1.0);
+    let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 1.0, MU);
     phys.set_v(&MyVector3::new(0.0, 0.01 * 0.05 * 256.0, 0.0));
 
     for step in step_sizes {
@@ -32,7 +34,7 @@ fn does_changing_tol_affect_cost() {
     let mut points = points();
     hermite::set_derivatives_using_catmull_rom(&mut points);
     let curve: hermite::Spline<Fpt> = num_opt::hermite::Spline::new(&points);
-    let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 1.0);
+    let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 1.0, MU);
     phys.set_v(&MyVector3::new(0.0, 0.01 * 0.05 * 256.0, 0.0));
 
     for tol in tols {
@@ -51,7 +53,7 @@ fn main() {
     //hermite::set_derivatives_using_catmull_rom(&mut points);
     let mut curve: hermite::Spline<Fpt> = num_opt::hermite::Spline::new(&points);
 
-    let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 1.0);
+    let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 1.0, MU);
     phys.set_v(&MyVector3::new(0.0, 0.01 * 0.05 * 256.0, 0.0));
 
     let ic = cost_v2(phys.clone(), &curve, 0.05);

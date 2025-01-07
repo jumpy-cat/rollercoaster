@@ -1,6 +1,6 @@
 //! Physics solver and cost function
 
-use std::{f64::consts::PI, sync::RwLock};
+use std::f64::consts::PI;
 
 use info::{use_sigfigs, PhysicsAdditionalInfo};
 use linalg::{vector_projection, ComPos, ComVel, MyQuaternion, MyVector3};
@@ -20,17 +20,10 @@ pub mod solver;
 #[cfg(test)]
 mod geo_test;
 
-pub static TOL: RwLock<Fpt> = RwLock::new(1e-10);
-
-pub fn set_tol(tol: Fpt) {
-    *TOL.write().unwrap() = tol;
-}
-
 /// tolerance for du from dt calculations
 #[inline(always)]
 pub fn tol() -> Fpt {
     1e-10
-    //*TOL.read().unwrap()
 }
 
 /// Physics solver v3  
@@ -49,6 +42,7 @@ pub struct PhysicsStateV3<T: MyFloat> {
     g: MyVector3<T>,
     o: T,
     rot_inertia: T,
+    mu: T,
 
     i: u64,
     prev_u: T,
@@ -76,7 +70,7 @@ macro_rules! add_info {
 impl<T: MyFloat> PhysicsStateV3<T> {
     /// Initialize the physics state: `m` mass, `g` Gravity vector,
     /// `curve.curve_at(0.0)`: Starting position of the curve at `u=0`
-    pub fn new(m: Fpt, g_: Fpt, curve: &hermite::Spline<T>, o: Fpt) -> Self {
+    pub fn new(m: Fpt, g_: Fpt, curve: &hermite::Spline<T>, o: Fpt, mu: Fpt) -> Self {
         assert!(curve.max_u() > 0.0);
         let g = MyVector3::new_f(0.0, g_, 0.0);
         let g_dir = if g_ == 0.0 {
@@ -96,6 +90,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             rot_inertia: T::from_f(0.1),
             g: g.clone(),
             o: T::from_f(o),
+            mu: T::from_f(mu),
             // simulation state
             prev_u: T::zero(),
             u: T::zero(), //0.0,
@@ -132,14 +127,8 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         );
 
         let fut_vel = self.updated_v(step, pos);
-        let fut_w = self.new_ang_vel(step, &actual_hl_dir);
 
-        //let fut_vel_corr = self.correct_for_angular_energy(, &fut_vel);
-
-        let change_in_angular_energy =
-            self.rot_energy(fut_w.magnitude()) - self.rot_energy(self.w.magnitude());
         let fut_vel_corr = fut_vel;
-        //let fut_vel_corr = self.correct_for_angular_energy(change_in_angular_energy, &fut_vel);
 
         let least_resistance = self
             .hl_normal
@@ -334,7 +323,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         add_info!(self, kinetic_energy, self.kinetic_energy().to_f());
         add_info!(self, rot_energy, self.rot_energy(self.w.magnitude()).to_f());
 
-        self.v = self.correct_for_angular_energy(change_in_angular_energy, &self.v);
+        self.v = self.correct_v_to_reduce_energy_by(change_in_angular_energy, &self.v);
 
         self.additional_info.update(&self.u);
 
@@ -353,7 +342,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         rot_impulse.clone() / step.clone()
     }
 
-    fn correct_for_angular_energy(
+    fn correct_v_to_reduce_energy_by(
         &self,
         change_in_angular_energy: T,
         vel_to_correct: &ComVel<T>,
