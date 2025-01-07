@@ -34,7 +34,12 @@ var f1: Function
 var inst_cost_hist_curve_pos = []
 var inst_cost_hist_curve_delta_cost = []
 
-const HIST_LINE_UPDATE_DIST = 0.1
+const HIST_LINE_UPDATE_DIST = 0.5
+var inst_cost = NAN
+var hist_pos = []
+var last_pos = Vector3.ZERO
+
+const COM_OFFSET = 1;
 
 
 func setup_chart() -> void:
@@ -120,13 +125,9 @@ func _ready() -> void:
 	conf.set_text_default_size(30)
 	DebugDraw2D.set_config(conf)
 
+	DebugDraw3D.scoped_config()
+
 	setup_chart()
-
-
-var hist_pos = []
-var last_pos = Vector3.ZERO
-
-const COM_OFFSET = 1;
 
 
 func _process(_delta: float) -> void:
@@ -139,12 +140,15 @@ func _process(_delta: float) -> void:
 			hist_pos[i + 1],
 			Color.WHITE
 		)
-	for i in range(len(inst_cost_hist_curve_pos) - 1):
-		DebugDraw3D.draw_line(
-			inst_cost_hist_curve_pos[i],
-			inst_cost_hist_curve_pos[i + 1],
-			Color.PURPLE
-		)
+	
+	if true:
+		var _s = DebugDraw3D.new_scoped_config().set_thickness(0.1)
+		for i in range(len(inst_cost_hist_curve_pos) - 1):
+			DebugDraw3D.draw_line(
+				inst_cost_hist_curve_pos[i],
+				inst_cost_hist_curve_pos[i + 1],
+				lerp(Color.DARK_BLUE, Color.YELLOW, inst_cost_hist_curve_delta_cost[i])
+			)
 	
 	# update physics simulation
 	if curve != null:
@@ -177,7 +181,8 @@ func _process(_delta: float) -> void:
 	if len(curve_points) > 1:
 		var m = basic_lines.mesh;
 		m.clear_surfaces();
-		m.surface_begin(Mesh.PRIMITIVE_LINES);
+		#m.surface_begin(Mesh.PRIMITIVE_LINES);
+		m.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 
 		Utils.cylinder_line(m, optimizer.as_segment_points(), 0.2)
 				
@@ -290,8 +295,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		inst_cost_hist_curve_pos = optimizer.get_inst_cost_path_pos()
 		print(inst_cost_hist_curve_pos)
 		inst_cost_hist_curve_delta_cost = optimizer.get_inst_cost_path_delta_cost()
-
-var inst_cost = NAN
+		var max_delta = inst_cost_hist_curve_delta_cost.max()
+		inst_cost_hist_curve_delta_cost = inst_cost_hist_curve_delta_cost\
+			.map(func(x): return x / max_delta)
 
 
 func _on_check_button_toggled(toggled_on: bool) -> void:
@@ -343,6 +349,9 @@ func _on_point_edit_component_pos_changed(pos: Vector3) -> void:
 		selected_point.set_y(pos.y)
 		selected_point.set_z(pos.z)
 		control_points[selected_index].position = pos
+		coaster_points[selected_index].set_x(pos.x)
+		coaster_points[selected_index].set_y(pos.y)
+		coaster_points[selected_index].set_z(pos.z)
 		optimizer.set_point(selected_index, selected_point)
 
 

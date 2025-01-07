@@ -56,7 +56,7 @@ pub fn cost_v2_with_history<T: MyFloat>(
             let cp = phys.x().clone().inner();
             if ppos
                 .clone()
-                .is_none_or(|p| (cp.clone() - p).magnitude() < min_dist)
+                .is_none_or(|p| (cp.clone() - p).magnitude() > min_dist)
             {
                 // add to history
                 let ccost = phys.cost().to_f();
