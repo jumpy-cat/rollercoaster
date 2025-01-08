@@ -296,7 +296,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		curve = optimizer.get_curve()
 		hist_pos = []
 
-		physics = CoasterPhysicsV3.create(params_manager.mass, params_manager.gravity, curve, COM_OFFSET, params_manager.friction)
+		physics = CoasterPhysicsV3.create(params_manager.mass, params_manager.gravity, curve, params_manager.com_offset_mag, params_manager.friction)
 	if event.is_action_pressed("get_inst_cost"):
 		print("get_inst_cost")
 		inst_cost = optimizer.calc_cost_inst(

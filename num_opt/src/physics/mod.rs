@@ -150,14 +150,15 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             .normalize();
 
         //let ideal_hl_dir_p = self.next_hl_normal(u, &curve, &fut_vel_corr);
-        let ideal_hl_dir_p = (self.next_hl_normal(u, &curve, &fut_vel_corr)
-            + least_resistance * T::from_f(10.0))
-        .normalize();
+        let ideal_hl_dir_p = self.next_hl_normal(u, &curve, &fut_vel_corr);
 
-        let tgt_hl_dir = ideal_hl_dir_p;
+        let tgt_hl_dir = (ideal_hl_dir_p + least_resistance * T::from_f(10.0))
+        .normalize();
+        let alt_tgt_hl_dir = -tgt_hl_dir.clone();
         let r = (actual_hl_dir.clone() - tgt_hl_dir.clone()).magnitude_squared();
+        let alt_r = (actual_hl_dir.clone() - alt_tgt_hl_dir.clone()).magnitude_squared();
         assert!(!r.is_nan(), "{:#?} {:#?}", actual_hl_dir, tgt_hl_dir);
-        r
+        r//.min(&alt_r)
     }
 
     fn hl_normal_errs_at_u(&self, u: &T, curve: &hermite::Spline<T>, step: &T) -> (T, T) {
