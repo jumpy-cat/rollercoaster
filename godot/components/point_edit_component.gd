@@ -61,12 +61,15 @@ func _on_z_edit_value_changed(value: float) -> void:
 
 
 func _on_load_dialogue_file_selected(path: String) -> void:
+	print("Loading points...")
 	var loader = Loader.from_path(path)
 	if not loader.success():
+		print("Loading failed")
 		points_failed_to_load.emit()
 		return
 	
 	var pts = loader.get_points();
+	print(pts)
 	points_loaded.emit(pts)
 
 

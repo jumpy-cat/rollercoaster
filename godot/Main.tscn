@@ -94,7 +94,6 @@ use_native_dialog = true
 [connection signal="toggled" from="VBoxContainer/CheckButton" to="." method="_on_check_button_toggled"]
 [connection signal="toggled" from="VBoxContainer/CheckBox" to="." method="_on_check_box_toggled"]
 [connection signal="pressed" from="VBoxContainer/SaveButton" to="." method="_on_save_button_pressed"]
-[connection signal="params_changed" from="VBoxContainer/ParamsManager" to="." method="_on_params_manager_params_changed"]
 [connection signal="points_failed_to_load" from="VBoxContainer/PointEditComponent" to="." method="_on_point_edit_component_points_failed_to_load"]
 [connection signal="points_loaded" from="VBoxContainer/PointEditComponent" to="." method="_on_point_edit_component_points_loaded"]
 [connection signal="pos_changed" from="VBoxContainer/PointEditComponent" to="." method="_on_point_edit_component_pos_changed"]

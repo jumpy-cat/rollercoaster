@@ -306,7 +306,7 @@ func _on_save_dialogue_file_selected(path: String) -> void:
 	diag.popup_centered_ratio()
 
 
-func _on_point_edit_component_points_loaded(pts: Array) -> void:
+func _on_point_edit_component_oints_loaded(pts: Array) -> void:
 	set_points(pts)
 
 
