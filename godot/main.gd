@@ -373,10 +373,6 @@ func _on_save_dialogue_file_selected(path: String) -> void:
 	save_coaster_to_path(path)
 
 
-func _on_save_dialogue_file_selected(path: String) -> void:
-	save_coaster_to_path(path)
-
-
 func _on_point_edit_component_points_loaded(pts: Array) -> void:
 	set_points(pts)
 

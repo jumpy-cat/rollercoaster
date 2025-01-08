@@ -44,13 +44,56 @@ fn does_changing_tol_affect_cost() {
     }
 }*/
 
+fn desmos_list(name: &str, values: &[f64]) -> String {
+    let mut out = String::new();
+    out.push_str(&format!("{name} = ["));
+    for (i, v) in values.iter().enumerate() {
+        if i == values.len() - 1 {
+            out.push_str(&format!("{v}"));
+        } else {
+            out.push_str(&format!("{v},"));
+        }
+    }
+    out.push_str(&format!("]"));
+    out
+}
+
 fn main() {
     env_logger::init();
 
     let mut points = points_from_file();
     //hermite::set_derivatives_using_catmull_rom(&mut points);
     let mut curve: hermite::Spline<Fpt> = num_opt::hermite::Spline::new(&points);
+
+    /*let x_lists: Vec<_> = (0..=7)
+        .map(|i| curve.iter().map(|s| s.x[i]).collect::<Vec<_>>())
+        .collect();
+    let y_lists: Vec<_> = (0..=7)
+        .map(|i| curve.iter().map(|s| s.y[i]).collect::<Vec<_>>())
+        .collect();
+    let z_lists: Vec<_> = (0..=7)
+        .map(|i| curve.iter().map(|s| s.z[i]).collect::<Vec<_>>())
+        .collect();
+
+    let list_names = ["A_", "B_", "C_", "D_", "E_", "F_", "G_", "H_"];
+    for i in 0..=7 {
+        println!("{}", desmos_list(&format!("{}{}", list_names[i], "x"), &x_lists[i]));
+    }
+    for i in 0..=7 {
+        println!("{}", desmos_list(&format!("{}{}", list_names[i], "y"), &y_lists[i]));
+    }
+    for i in 0..=7 {
+        println!("{}", desmos_list(&format!("{}{}", list_names[i], "z"), &z_lists[i]));
+    }
+
+    print!("(A_x t^7+B_x t^6+C_x t^5+D_x t^4+E_x t^3+F_x t^2+G_x t+H_x, ");
+    print!("A_y t^7+B_y t^6+C_y t^5+D_y t^4+E_y t^3+F_y t^2+G_y t+H_y, ");
+    print!("A_z t^7+B_z t^6+C_z t^5+D_z t^4+E_z t^3+F_z t^2+G_z t+H_z)\n");
+
+    return;*/
+
     for s in curve.iter() {
+        //s.x
 
         let x = format!(
             "{}t^7+{}t^6+{}t^5+{}t^4+{}t^3+{}t^2+{}t+{}",
