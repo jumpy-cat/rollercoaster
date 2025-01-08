@@ -1,10 +1,10 @@
 use std::time::Instant;
 
 use num_opt::{
-    hermite::{self, Spline}, my_float::Fpt, optimizer::{self, cost_v2}, physics::{
-        self,
-        linalg::MyVector3,
-    }
+    hermite::{self, Spline},
+    my_float::Fpt,
+    optimizer::{self, cost_v2},
+    physics::{self, linalg::MyVector3},
 };
 use testbed::{points, points_from_file};
 
@@ -26,7 +26,6 @@ fn does_changing_step_size_affect_cost() {
     }
 }
 
-
 /*#[allow(dead_code)]
 fn does_changing_tol_affect_cost() {
     log::info!("Does changing tol affect cost?");
@@ -45,13 +44,30 @@ fn does_changing_tol_affect_cost() {
     }
 }*/
 
-
 fn main() {
     env_logger::init();
 
     let mut points = points_from_file();
     //hermite::set_derivatives_using_catmull_rom(&mut points);
     let mut curve: hermite::Spline<Fpt> = num_opt::hermite::Spline::new(&points);
+    for s in curve.iter() {
+
+        let x = format!(
+            "{}t^7+{}t^6+{}t^5+{}t^4+{}t^3+{}t^2+{}t+{}",
+            s.x[0], s.x[1], s.x[2], s.x[3], s.x[4], s.x[5], s.x[6], s.x[7]
+        );
+        let y = format!(
+            "{}t^7+{}t^6+{}t^5+{}t^4+{}t^3+{}t^2+{}t+{}",
+            s.y[0], s.y[1], s.y[2], s.y[3], s.y[4], s.y[5], s.y[6], s.y[7]
+        );
+        let z = format!(
+            "{}t^7+{}t^6+{}t^5+{}t^4+{}t^3+{}t^2+{}t+{}",
+            s.z[0], s.z[1], s.z[2], s.z[3], s.z[4], s.z[5], s.z[6], s.z[7]
+        );
+        println!("({x}, {y}, {z})");
+    }
+
+    return;
 
     let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 1.0, MU);
     phys.set_v(&MyVector3::new(0.0, 0.01 * 0.05 * 256.0, 0.0));
@@ -76,7 +92,6 @@ fn main() {
 
         let step = 0.05;
 
-
         while phys.step(&step, &curve).is_some() {
             i += 1;
         }
@@ -85,13 +100,12 @@ fn main() {
     // elapsed ms
     println!(
         "Time: {}ms ({}/s)",
-        st.elapsed().as_millis(), 
+        st.elapsed().as_millis(),
         i as f64 / st.elapsed().as_secs_f64()
     );
 
     return;
 
-    
     //let max_time = 75.0;
 
     //let file_suffix = std::time::SystemTime::now().duration_since(UNIX_EPOCH);

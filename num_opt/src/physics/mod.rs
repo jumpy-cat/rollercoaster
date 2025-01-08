@@ -27,14 +27,15 @@ pub fn tol() -> Fpt {
 }
 
 pub fn g_force_is_safe(up_gs: Fpt, side_gs: Fpt) -> bool {
+    let abs_side = side_gs.abs();
     if up_gs < -2.0 || up_gs > 6.0 {
         false
     } else if up_gs < -1.0 {
-        side_gs < 3.0 * (up_gs + 2.0)
+        abs_side < 3.0 * (up_gs + 2.0)
     } else if up_gs < 4.0 {
-        side_gs < -0.2 * (up_gs + 1.0) + 3.0
+        abs_side < -0.2 * (up_gs + 1.0) + 3.0
     } else {
-        side_gs < -(up_gs - 4.0) + 2.0
+        abs_side < -(up_gs - 4.0) + 2.0
     }
 }
 

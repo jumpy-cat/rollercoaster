@@ -48,7 +48,7 @@ value = -0.01
 [node name="FrictionEdit" parent="VBoxContainer" instance=ExtResource("1_8n0mo")]
 layout_mode = 2
 _name = "μ"
-value = 0.05
+value = 0.002
 
 [node name="ComOffsetEdit" parent="VBoxContainer" instance=ExtResource("1_8n0mo")]
 layout_mode = 2
