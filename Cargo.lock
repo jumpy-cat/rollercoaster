@@ -541,6 +541,7 @@ dependencies = [
  "num",
  "num-traits",
  "num_opt",
+ "persist",
  "rand",
  "serde",
  "serde_json",
@@ -1037,6 +1038,7 @@ dependencies = [
  "nalgebra",
  "ndarray",
  "num-traits",
+ "persist",
  "plotters",
  "rand",
  "rayon",
@@ -1085,6 +1087,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5cf07ef4804cfa9aea3b04a7bbdd5a40031dbb6b4f2cbaf2b011666c80c5b4f2"
 dependencies = [
  "rustc_version",
+]
+
+[[package]]
+name = "persist"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1523,8 +1533,10 @@ dependencies = [
  "env_logger",
  "log",
  "num_opt",
+ "persist",
  "plotters",
  "rand",
+ "serde_json",
 ]
 
 [[package]]

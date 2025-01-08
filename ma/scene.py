@@ -55,7 +55,9 @@ class Interp(Scene):
         self.play(Create(p_d2_a), Create(q_d2_a))
         self.play(Create(p_d3_a), Create(q_d3_a))
 
-        return
+
+
+        #return
 
         circle = Circle()
         circle.set_fill(PINK, opacity=0.5)

@@ -56,6 +56,10 @@ pub struct Optimizer {
     most_recent_cost: Fpt,
     num_iters: u64,
     start_time: Option<std::time::Instant>,
+    points_changed: bool,
+    inst_cost_path_pos: Vec<Vector3>,
+    inst_cost_path_delta_cost: Vec<Fpt>,
+    inst_cost_path_g_safe: Vec<bool>,
 }
 
 #[godot_api]
@@ -82,6 +86,10 @@ impl Optimizer {
             most_recent_cost: 0.0,
             num_iters: 0,
             start_time: None,
+            points_changed: false,
+            inst_cost_path_pos: vec![],
+            inst_cost_path_delta_cost: vec![],
+            inst_cost_path_g_safe: vec![],
         })
     }
 
@@ -143,12 +151,14 @@ impl Optimizer {
                         if let Some(mu) = mu {
                             if let Some(lr) = lr {
                                 if let Some(com_offset_mag) = com_offset_mag {
-                                    let prev_cost = optimizer::optimize_v3(
+                                    // USE v3
+                                    let prev_cost = optimizer::optimize_v2(
                                         &physics::PhysicsStateV3::new(
                                             mass,
                                             gravity,
                                             &curve,
                                             com_offset_mag,
+                                            mu,
                                         ),
                                         &curve,
                                         &mut points,
@@ -179,6 +189,7 @@ impl Optimizer {
                 while let Ok(msg) = recv.try_recv() {
                     match msg {
                         FromWorker::NewPoints((points, cost)) => {
+                            self.points_changed = true;
                             log::debug!("new points!");
                             self.segment_points_cache = None;
                             self.points = points;
@@ -204,6 +215,7 @@ impl Optimizer {
     /// Sets the value of gravity (acceleration, should be negative)
     #[func]
     fn set_gravity(&mut self, gravity: Fpt) {
+        assert!(gravity < 0.0);
         info!("set_gravity: {}", gravity);
         self.to_worker.send(ToWorker::SetGravity(gravity)).unwrap();
     }
@@ -233,25 +245,47 @@ impl Optimizer {
     /// No derivative information is given, so derivatives
     /// are initialized with recursive catmull rom
     #[func]
-    fn set_points(&mut self, points: Array<Vector3>) {
-        log::info!("set_points: {}", points);
+    fn set_points(&mut self, points: Array<Gd<CoasterPoint>>, reset: bool) {
         self.segment_points_cache = None;
         self.points = points
             .iter_shared()
             .map(|p| {
-                point::Point::new(
-                    MyFloatType::from_f(p.x as Fpt),
-                    MyFloatType::from_f(p.y as Fpt),
-                    MyFloatType::from_f(p.z as Fpt),
-                )
+                let p = p.bind().inner().clone();
+                p.into()
             })
             .collect();
-        hermite::set_derivatives_using_catmull_rom(&mut self.points);
+        log::trace!(
+            "set_points: {:?} and {} more",
+            self.points.get(0),
+            self.points.len() - 1
+        );
+        if reset {
+            hermite::set_derivatives_using_catmull_rom(&mut self.points);
+            log::debug!("points set to catmull rom");
+        }
         self.curve = hermite::Spline::new(&self.points);
+        let deriv_mode = if reset {
+            Derivatives::Keep
+        } else {
+            Derivatives::Keep
+        };
         let _ = self
             .to_worker
-            .send(ToWorker::SetPoints(self.points.clone(), Derivatives::Keep))
+            .send(ToWorker::SetPoints(self.points.clone(), deriv_mode))
             .map_err(|e| log::error!("{:#?}", e));
+    }
+
+    #[func]
+    fn get_points(&self) -> Array<Gd<CoasterPoint>> {
+        log::trace!(
+            "get_points: {:?} and {} more",
+            self.points.get(0),
+            self.points.len() - 1
+        );
+        self.points
+            .iter()
+            .map(|p| Gd::from_object(CoasterPoint::new(p.clone())))
+            .collect()
     }
 
     /// Get a point by index
@@ -326,17 +360,50 @@ impl Optimizer {
     }
 
     #[func]
-    fn calc_cost_inst(&self, mass: Fpt, gravity: Fpt, mu: Fpt, com_offset_mag: Fpt) -> Fpt {
-        log::info!("calc_cost_inst: {} {} {} {}", mass, gravity, mu, com_offset_mag);
+    fn calc_cost_inst(
+        &mut self,
+        mass: Fpt,
+        gravity: Fpt,
+        mu: Fpt,
+        com_offset_mag: Fpt,
+        hist_update_dist: Fpt,
+    ) -> Fpt {
+        log::info!(
+            "calc_cost_inst: {} {} {} {}",
+            mass,
+            gravity,
+            mu,
+            com_offset_mag
+        );
         // TODO: friction
-        let r = optimizer::cost_v2(
-            PhysicsStateV3::new(mass, gravity, &self.curve, com_offset_mag),
+        let r = optimizer::cost_v2_with_history(
+            PhysicsStateV3::new(mass, gravity, &self.curve, com_offset_mag, mu),
             &self.curve,
             0.05,
-        )
-        .unwrap_or(MyFloatType::NAN);
-        log::info!("Got {r}");
-        r
+            Some(hist_update_dist),
+        );
+        self.inst_cost_path_pos =
+            r.1.iter()
+                .map(|x| Vector3::new(x.x as f32, x.y as f32, x.z as f32))
+                .collect();
+        self.inst_cost_path_delta_cost = r.1.iter().map(|x| x.delta_cost).collect();
+        self.inst_cost_path_g_safe = r.1.iter().map(|x| x.safe).collect();
+        r.0.unwrap_or(Fpt::NAN)
+    }
+
+    #[func]
+    fn get_inst_cost_path_pos(&self) -> Array<Vector3> {
+        self.inst_cost_path_pos.iter().cloned().collect()
+    }
+
+    #[func]
+    fn get_inst_cost_path_delta_cost(&self) -> Array<Fpt> {
+        self.inst_cost_path_delta_cost.iter().cloned().collect()
+    }
+
+    #[func]
+    fn get_inst_cost_path_g_safe(&self) -> Array<bool> {
+        self.inst_cost_path_g_safe.iter().cloned().collect()
     }
 
     /// Get the iterations per second from the most recent optimizer start
@@ -347,5 +414,15 @@ impl Optimizer {
         } else {
             Variant::nil()
         }
+    }
+
+    #[func]
+    fn points_changed(&self) -> bool {
+        self.points_changed
+    }
+
+    #[func]
+    fn reset_points_changed(&mut self) {
+        self.points_changed = false;
     }
 }

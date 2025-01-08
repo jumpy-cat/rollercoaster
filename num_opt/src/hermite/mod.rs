@@ -28,9 +28,9 @@ where
     x: [T; 8], // x(t) = x[0] * t^7 + x[1] * t^6 + ... + x[7] * t^0
     y: [T; 8], // y(t) = y[0] * t^7 + y[1] * t^6 + ... + y[7] * t^0
     z: [T; 8], // z(t) = z[0] * t^7 + z[1] * t^6 + ... + z[7] * t^0
-    //d1_x: [T; 7],
-    //d1_y: [T; 7],
-    //d1_z: [T; 7],
+               //d1_x: [T; 7],
+               //d1_y: [T; 7],
+               //d1_z: [T; 7],
 }
 
 // Stores polynomial coefficients for x(t), y(t), z(t), each up to t7.
@@ -50,7 +50,7 @@ where
         //let d1_x = array::from_fn(|i| x[i].clone() * Self::D1[i].0);
         //let d1_y = array::from_fn(|i| y[i].clone() * Self::D1[i].0);
         //let d1_z = array::from_fn(|i| z[i].clone() * Self::D1[i].0);
-        Self { x, y, z,}// d1_x, d1_y, d1_z }
+        Self { x, y, z } // d1_x, d1_y, d1_z }
     }
 
     // coefficents and power
@@ -131,14 +131,39 @@ where
         let u2 = u.clone() - T::from_f(DELTA);
         let t1 = self.d1(&u1).normalize();
         let t2 = self.d1(&u2).normalize();
-        (t1 - t2).normalize()
+        let diff = t1 - t2;
+        if diff.magnitude() == 0.0 {
+            return MyVector3::new(T::zero(), T::one(), T::zero())
+                .make_ortho_to(&self.curve_direction_at(u))
+                .normalize();
+        }
+        diff.normalize()
+    }
+
+    pub fn curve_direction_at(&self, u: &T) -> MyVector3<T> {
+        let mut out = self.d1(u);
+        if out.magnitude() == 0.0 {
+            out = self.d2(u);
+        }
+        if out.magnitude() == 0.0 {
+            out = self.d3(u);
+        }
+        if out.magnitude() == 0.0 {
+            out = self.d4(u);
+        }
+        assert!(out.magnitude() != 0.0);
+        out.normalize()
     }
 
     #[inline(always)]
     pub fn curve_kappa_at(&self, u: &T) -> T {
-        self.d1(u).cross(&self.d2(u)).magnitude() / self.d1(u).magnitude().pow(3)
+        let d1_mag = self.d1(u).magnitude();
+        if d1_mag == 0.0 {
+            return T::zero();
+        }
+        self.d1(u).cross(&self.d2(u)).magnitude() / d1_mag.pow(3)
     }
-    
+
     #[inline(always)]
     pub fn d0(&self, u: &T) -> MyVector3<T> {
         MyVector3::new(self.x_d0(u), self.y_d0(u), self.z_d0(u))
@@ -154,23 +179,15 @@ where
         MyVector3::new(self.x_d2(u), self.y_d2(u), self.z_d2(u))
     }
 
-    /*pub fn x_d1(&self, u: &T) -> T {
-        self.d1_x.iter()
-            .enumerate().map(|(i, coeff)| coeff.clone() * u.clone().pow(6 - i as i32))
-            .fold(T::zero(), |acc, x| acc + x)
+    #[inline(always)]
+    pub fn d3(&self, u: &T) -> MyVector3<T> {
+        MyVector3::new(self.x_d3(u), self.y_d3(u), self.z_d3(u))
     }
 
-    pub fn y_d1(&self, u: &T) -> T {
-        self.d1_y.iter()
-            .enumerate().map(|(i, coeff)| coeff.clone() * u.clone().pow(6 - i as i32))
-            .fold(T::zero(), |acc, x| acc + x)
+    #[inline(always)]
+    pub fn d4(&self, u: &T) -> MyVector3<T> {
+        MyVector3::new(self.x_d4(u), self.y_d4(u), self.z_d4(u))
     }
-
-    pub fn z_d1(&self, u: &T) -> T {
-        self.d1_z.iter()
-            .enumerate().map(|(i, coeff)| coeff.clone() * u.clone().pow(6 - i as i32))
-            .fold(T::zero(), |acc, x| acc + x)
-    }*/
 
     // getters for position and derivatives
     curve_params_getter!(x_d0, Self::D0, x);
@@ -263,7 +280,7 @@ where
     CurveParams::new(&x_params, &y_params, &z_params)
 }
 
-/// Samples a hermite curve, splitting it into `segments` segments
+/// Samples a hermite curve, splitting it into `segments` segments  
 /// The segments are __not__ equal in length
 pub fn curve_points<T>(params: &CurveParams<T>, segments: NonZeroU32) -> Vec<(Fpt, Fpt, Fpt)>
 where
@@ -325,6 +342,7 @@ pub fn catmull_rom_recursive<T: MyFloat>(values: &Vec<T>, coeff: Fpt, depth: u32
 pub fn set_derivatives_using_catmull_rom<T: MyFloat>(points: &mut Vec<point::Point<T>>) {
     const SCALE: Fpt = 0.5;
 
+    let can_adjust: Vec<_> = points.iter().map(|p| p.optimizer_can_adjust_pos).collect();
     let x_pos = points.iter().map(|p| p.x.clone()).collect();
     let y_pos = points.iter().map(|p| p.y.clone()).collect();
     let z_pos = points.iter().map(|p| p.z.clone()).collect();
@@ -347,6 +365,7 @@ pub fn set_derivatives_using_catmull_rom<T: MyFloat>(points: &mut Vec<point::Poi
             xppp: x_derives[2][i].clone(),
             yppp: y_derives[2][i].clone(),
             zppp: z_derives[2][i].clone(),
+            optimizer_can_adjust_pos: can_adjust[i],
         });
     }
 }

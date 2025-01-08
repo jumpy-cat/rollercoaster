@@ -4,6 +4,7 @@ use crate::my_float::MyFloat;
 
 use super::linalg::{scaler_projection, MyVector3};
 
+#[derive(Debug)]
 pub struct Plane<T: MyFloat> {
     normal: MyVector3<T>,
     u_basis: MyVector3<T>,
@@ -56,7 +57,10 @@ pub struct Circle<T: MyFloat> {
 }
 
 pub fn circle_circle_intersections<T: MyFloat>(c1: &Circle<T>, c2: &Circle<T>) -> Option<[(T, T); 2]> {
+    assert!(!c1.v.is_nan() && !c1.u.is_nan());
+    assert!(!c2.v.is_nan() && !c2.u.is_nan());
     let d = ((c1.u.clone() - c2.u.clone()).pow(2) + (c1.v.clone() - c2.v.clone()).pow(2)).sqrt();
+    assert!(!d.is_nan());
 
     if d > c1.r.clone() + c2.r.clone() || d < (c1.r.clone() - c2.r.clone()).abs() {
         return None; // No intersection
@@ -77,7 +81,9 @@ pub fn circle_circle_intersections<T: MyFloat>(c1: &Circle<T>, c2: &Circle<T>) -
     let y0 = c1.v.clone() + a.clone() * (c2.v.clone() - c1.v.clone()) / d.clone();
 
     let rx = -(c2.v.clone() - c1.v.clone()) * (h.clone() / d.clone());
-    let ry = (c2.u.clone() - c1.u.clone()) * (h / d);
+    let ry = (c2.u.clone() - c1.u.clone()) * (h / d.clone());
+
+    assert!(!rx.is_nan() && !ry.is_nan(), "{:?}", d);
 
     Some([
         (x0.clone() + rx.clone(), y0.clone() + ry.clone()),
@@ -94,6 +100,7 @@ pub fn sphere_circle_intersections<T: MyFloat>(
 ) -> Option<[MyVector3<T>; 2]> {
     // Project sphere center onto plane
     let (u, v) = circle_plane.project(sphere.p.clone());
+    assert!(u.is_nan() == false && v.is_nan() == false, "Encountered NaN in sphere projection of\n {:#?} onto \n{:#?}", sphere.p, circle_plane);
     let dist_to_plane = circle_plane.distance_to(&sphere.p);
     let radius_squared = sphere.r.clone().pow(2) - dist_to_plane.clone().pow(2);
 
@@ -123,6 +130,7 @@ pub fn sphere_circle_intersections<T: MyFloat>(
     let intersections = circle_circle_intersections(&proj_circle, circle);
 
     intersections.map(|[p1, p2]| {
+        assert!(!p1.0.is_nan() && !p1.1.is_nan() && !p2.0.is_nan() && !p2.1.is_nan());
         [
             circle_plane.unproject(p1.0, p1.1),
             circle_plane.unproject(p2.0, p2.1),

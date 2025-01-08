@@ -23,27 +23,27 @@ var optimize: bool = false
 
 var selected_index;
 var selected_point;
-var control_points: Array[ControlPoint]
+var control_points: Array[ControlPoint]  # Nodes in the scene tree
+var coaster_points: Array[CoasterPoint]  # Data structure used in optimization
 
 var curve: CoasterCurve
 var physics: CoasterPhysicsV3
 
 var f1: Function
 
+var inst_cost_hist_curve_pos = []
+var inst_cost_hist_curve_delta_cost = []
+var inst_cost_hist_curve_g_safe = []
 
-## This function is called when the node is added to the scene.
-## Initializes control points, positions the camera, and prepares the optimizer.
-func _ready() -> void:
-	point_edit_component.request_points();
+const HIST_LINE_UPDATE_DIST = 0.5
+var inst_cost = NAN
+var hist_pos = []
+var last_pos = Vector3.ZERO
 
-	# prepare the optimizer
-	optimizer = Optimizer.create();
-	params_manager.apply_to_optimizer(optimizer)
-	
-	var conf = DebugDraw2D.get_config()
-	conf.set_text_default_size(30)
-	DebugDraw2D.set_config(conf)
+const COM_OFFSET = 1;
 
+
+func setup_chart() -> void:
 	# Let's create our @x values
 	var x: Array = [0,0]
 	
@@ -88,20 +88,77 @@ func _ready() -> void:
 	ke_chart.plot([f1], cp)
 
 
-var hist_pos = []
-var last_pos = Vector3.ZERO
+func debug_draw(anim_pos, anim_vel) -> void:
+	if (anim_pos - last_pos).length() > HIST_LINE_UPDATE_DIST:
+		hist_pos.push_back(anim_pos)
+		last_pos = anim_pos
 
-const COM_OFFSET = 1;
+	const MULT = 1000;
+
+	DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_vel, Color.BLUE)
+	var cp = curve.pos_at(physics.u());
+	var r = 1 / curve.kappa_at(physics.u()) + COM_OFFSET
+	var cpag = cp + MULT * physics.vel().length() ** 2 / r * curve.normal_at(physics.u())
+	DebugDraw3D.draw_line(cp, cpag, Color.RED)
+	DebugDraw3D.draw_line(cpag, cpag + MULT * Vector3(0, 0.01, 0), Color.ORCHID)
+	DebugDraw3D.draw_line(cp, cpag + MULT * Vector3(0, 0.01, 0), Color.WHITE)
+
+	DebugDraw3D.draw_line(cp, cp + MULT * curve.normal_at(physics.u()), Color.YELLOW)
+
+	if !physics.jitter_detected():
+		DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.4, Color.YELLOW)
+	else:
+		DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.6, Color.RED)
+	DebugDraw3D.draw_sphere(physics.null_tgt_pos(), 0.2, Color.PURPLE)
+	DebugDraw3D.draw_sphere(physics.tgt_pos(), 0.2, Color.PINK)
+
+
+## This function is called when the node is added to the scene.
+## Initializes control points, positions the camera, and prepares the optimizer.
+func _ready() -> void:
+	point_edit_component.request_points();
+
+	# prepare the optimizer
+	optimizer = Optimizer.create();
+	params_manager.apply_to_optimizer(optimizer)
+	
+	var conf = DebugDraw2D.get_config()
+	conf.set_text_default_size(30)
+	DebugDraw2D.set_config(conf)
+
+	DebugDraw3D.scoped_config()
+
+	setup_chart()
 
 
 func _process(_delta: float) -> void:
 	optimizer.update()
 	DebugDraw2D.set_text("FPS", Engine.get_frames_per_second())
+
+	for i in range(len(hist_pos) - 1):
+		DebugDraw3D.draw_line(
+			hist_pos[i],
+			hist_pos[i + 1],
+			Color.WHITE
+		)
+	
+	if true:
+		var _s = DebugDraw3D.new_scoped_config().set_thickness(0.1)
+		for i in range(len(inst_cost_hist_curve_pos) - 1):
+			var c;
+			if inst_cost_hist_curve_g_safe[i]:
+				c = lerp(Color.DARK_BLUE, Color.YELLOW, inst_cost_hist_curve_delta_cost[i])
+			else:
+				c = Color.RED
+			DebugDraw3D.draw_line(
+				inst_cost_hist_curve_pos[i],
+				inst_cost_hist_curve_pos[i + 1],
+				c#lerp(Color.DARK_BLUE, Color.YELLOW, inst_cost_hist_curve_delta_cost[i])
+			)
 	
 	# update physics simulation
 	if curve != null:
 		anim.visible = true
-		"""&& physics.found_exact_solution()"""
 		var physics_did_step = ((!manual_physics) # && physics.found_exact_solution())
 			|| Input.is_action_just_pressed("step_physics"))
 		if physics_did_step:
@@ -113,36 +170,7 @@ func _process(_delta: float) -> void:
 		if camera_follow_anim:
 			camera.op = anim_pos
 		
-		for i in range(len(hist_pos) - 1):
-			DebugDraw3D.draw_line(
-				hist_pos[i],
-				hist_pos[i + 1],
-				Color.PURPLE
-			)
-		const HIST_LINE_UPDATE_DIST = 0.1
-		if (anim_pos - last_pos).length() > HIST_LINE_UPDATE_DIST:
-			hist_pos.push_back(anim_pos)
-			last_pos = anim_pos
-
-		const MULT = 1000;
-
-		DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_vel, Color.BLUE)
-		#DebugDraw3D.draw_line(anim_pos, anim_pos + MULT * anim_up, Color.GREEN)
-		var cp = curve.pos_at(physics.u());
-		var r = 1 / curve.kappa_at(physics.u()) + COM_OFFSET
-		var cpag = cp + MULT * physics.vel().length() ** 2 / r * curve.normal_at(physics.u())
-		DebugDraw3D.draw_line(cp, cpag, Color.RED)
-		DebugDraw3D.draw_line(cpag, cpag + MULT * Vector3(0, 0.01, 0), Color.ORCHID)
-		DebugDraw3D.draw_line(cp, cpag + MULT * Vector3(0, 0.01, 0), Color.WHITE)
-
-		DebugDraw3D.draw_line(cp, cp + MULT * curve.normal_at(physics.u()), Color.YELLOW)
-
-		if !physics.jitter_detected():
-			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.4, Color.YELLOW)
-		else:
-			DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.6, Color.RED)
-		DebugDraw3D.draw_sphere(physics.null_tgt_pos(), 0.2, Color.PURPLE)
-		DebugDraw3D.draw_sphere(physics.tgt_pos(), 0.2, Color.PINK)
+		debug_draw(anim_pos, anim_vel)
 
 		f1.set_point(0, physics.t_kinetic_energy(), 0)
 		f1.set_point(1, physics.r_kinetic_energy(), 0)
@@ -159,11 +187,17 @@ func _process(_delta: float) -> void:
 	if len(curve_points) > 1:
 		var m = basic_lines.mesh;
 		m.clear_surfaces();
-		m.surface_begin(Mesh.PRIMITIVE_LINES);
+		m.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 
-		Utils.cylinder_line(m, optimizer.as_segment_points(), 0.2)
+		Utils.cylinder_line(m, optimizer.as_segment_points(), 0.04)
 				
 		m.surface_end();
+	
+	if optimize:
+		if optimizer.points_changed():
+			optimizer.reset_points_changed()
+			var p = optimizer.get_points()
+			set_points(p, false)
 
 	if physics == null:
 		label.text = "physics not initialized"
@@ -178,7 +212,9 @@ func _process(_delta: float) -> void:
 
 
 ## Input is an array of Vector3
-func set_points(points: Array[Vector3]) -> void:
+func set_points(points: Array[CoasterPoint], update_optimizer=true) -> void:
+	print("set_points: ")
+	print(points[0].get_xp())
 	# remove old control points
 	for cp in control_points:
 		cp.queue_free()
@@ -188,7 +224,7 @@ func set_points(points: Array[Vector3]) -> void:
 	var avg_pos = Vector3.ZERO
 	for i in range(len(points)):
 		var p = points[i]
-		var v = Vector3(p[0], p[1], p[2])
+		var v = Vector3(p.get_x(), p.get_y(), p.get_z())
 		avg_pos += v
 		var control_point: ControlPoint = control_point_scene.instantiate();
 		control_point.initialize(v, i)
@@ -213,13 +249,13 @@ func set_points(points: Array[Vector3]) -> void:
 	# add points to scene
 	for cp in control_points:
 		add_child(cp)
-
-	var positions: Array[Vector3] = []
-	for cp in control_points:
-		positions.push_back(cp.position)
 	
 	# update optimizer
-	optimizer.set_points(positions)
+	coaster_points = points
+	print("#### set points from set_points()")
+	print(points[0].get_xp())
+	if update_optimizer:
+		optimizer.set_points(coaster_points, false)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -231,6 +267,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		selected_point = null
 		for cp in control_points:
 			cp.selected = false
+			cp.shown_deriv = null
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -242,40 +279,57 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			optimizer.disable_optimizer()
 		optimizer_checkbox.button_pressed = optimize
 	if event.is_action_pressed("reset_curve"):
-		var positions: Array[Vector3] = []
-		for cp in control_points:
-			positions.push_back(cp.position)
-		optimizer.set_points(positions)
+		optimizer.set_points(coaster_points, true)
+		var p = optimizer.get_points()
+		set_points(p)
 	if event.is_action_pressed("toggle_follow_anim"):
 		camera_follow_anim = !camera_follow_anim
 	if event.is_action_pressed("run_simulation"):
 		curve = optimizer.get_curve()
 		hist_pos = []
 
-		physics = CoasterPhysicsV3.create(params_manager.mass, params_manager.gravity, curve, COM_OFFSET)
+		physics = CoasterPhysicsV3.create(params_manager.mass, params_manager.gravity, curve, COM_OFFSET, params_manager.friction)
 	if event.is_action_pressed("get_inst_cost"):
 		print("get_inst_cost")
 		inst_cost = optimizer.calc_cost_inst(
 			params_manager.mass,
 			params_manager.gravity,
 			params_manager.friction,
-			params_manager.com_offset_mag
+			params_manager.com_offset_mag,
+			HIST_LINE_UPDATE_DIST
 		)
-
-var inst_cost = NAN
+		inst_cost_hist_curve_pos = optimizer.get_inst_cost_path_pos()
+		print(inst_cost_hist_curve_pos)
+		inst_cost_hist_curve_delta_cost = optimizer.get_inst_cost_path_delta_cost()
+		var max_delta = inst_cost_hist_curve_delta_cost.max()
+		inst_cost_hist_curve_delta_cost = inst_cost_hist_curve_delta_cost\
+			.map(func(x): return x / max_delta)
+		inst_cost_hist_curve_g_safe = optimizer.get_inst_cost_path_g_safe()
+	if event.is_action_pressed("edit_pos"):
+		point_edit_component.set_editing(0)
+	if event.is_action_pressed("edit_d1"):
+		point_edit_component.set_editing(1)
+	if event.is_action_pressed("edit_d2"):
+		point_edit_component.set_editing(2)
+	if event.is_action_pressed("edit_d3"):
+		point_edit_component.set_editing(3)
 
 
 func _on_check_button_toggled(toggled_on: bool) -> void:
 	if toggled_on:
+		optimize = true
 		optimizer.enable_optimizer()
 	else:
+		optimize = false
 		optimizer.disable_optimizer()
 
 
 func _on_control_point_clicked(index: int) -> void:
 	selected_index = index
 	selected_point = optimizer.get_point(index)
-	point_edit_component.set_point_pos(selected_point)
+	point_edit_component.set_point(selected_point)
+	control_points[index].shown_deriv = \
+		new_shown_deriv(selected_point, point_edit_component.editing)
 
 	# update selected point
 	for i in range(control_points.size()):
@@ -291,11 +345,7 @@ func _on_save_button_pressed() -> void:
 
 
 func _on_save_dialogue_file_selected(path: String) -> void:
-	var p: Array[Vector3] = [];
-	for cp in control_points:
-		p.push_back(cp.position)
-	
-	var saver = Saver.to_path(path, p)
+	var saver = Saver.to_path(path, coaster_points)
 	if saver.success():
 		return
 
@@ -310,15 +360,6 @@ func _on_point_edit_component_oints_loaded(pts: Array) -> void:
 	set_points(pts)
 
 
-func _on_point_edit_component_pos_changed(pos: Vector3) -> void:
-	if selected_point:
-		selected_point.set_x(pos.x)
-		selected_point.set_y(pos.y)
-		selected_point.set_z(pos.z)
-		control_points[selected_index].position = pos
-		optimizer.set_point(selected_index, selected_point)
-
-
 func _on_point_edit_component_points_failed_to_load() -> void:
 	var diag = AcceptDialog.new()
 	diag.content_scale_factor = 2
@@ -331,3 +372,63 @@ func _on_point_edit_component_points_failed_to_load() -> void:
 
 func _on_params_manager_params_changed() -> void:
 	params_manager.apply_to_optimizer(optimizer)
+
+
+func new_shown_deriv(sp: CoasterPoint, i: int):
+	match i:
+		0: return null
+		1: return Vector3(
+			sp.get_xp(), sp.get_yp(), sp.get_zp()
+		)
+		2: return Vector3(
+			sp.get_xpp(), sp.get_ypp(), sp.get_zpp()
+		)
+		3: return Vector3(
+			sp.get_xppp(), sp.get_yppp(), sp.get_zppp()
+		)
+		_: push_error("Unknown deriv: " + str(i))
+
+
+func _on_point_edit_component_should_show(deriv: int) -> void:
+	if selected_point:
+		point_edit_component.set_point(selected_point)
+		control_points[selected_index].shown_deriv = new_shown_deriv(selected_point, deriv)
+
+
+func _on_point_edit_component_pos_changed(pos: Vector3) -> void:
+	if selected_point:
+		selected_point.set_x(pos.x)
+		selected_point.set_y(pos.y)
+		selected_point.set_z(pos.z)
+		control_points[selected_index].position = pos
+		coaster_points[selected_index].set_x(pos.x)
+		coaster_points[selected_index].set_y(pos.y)
+		coaster_points[selected_index].set_z(pos.z)
+		optimizer.set_point(selected_index, selected_point)
+
+
+func _on_point_edit_component_d_1_changed(pos: Vector3) -> void:
+	if selected_point:
+		selected_point.set_xp(pos.x)
+		selected_point.set_yp(pos.y)
+		selected_point.set_zp(pos.z)
+		control_points[selected_index].shown_deriv = pos
+		optimizer.set_point(selected_index, selected_point)
+
+
+func _on_point_edit_component_d_2_changed(pos: Vector3) -> void:
+	if selected_point:
+		selected_point.set_xpp(pos.x)
+		selected_point.set_ypp(pos.y)
+		selected_point.set_zpp(pos.z)
+		control_points[selected_index].shown_deriv = pos
+		optimizer.set_point(selected_index, selected_point)
+
+
+func _on_point_edit_component_d_3_changed(pos: Vector3) -> void:
+	if selected_point:
+		selected_point.set_xppp(pos.x)
+		selected_point.set_yppp(pos.y)
+		selected_point.set_zppp(pos.z)
+		control_points[selected_index].shown_deriv = pos
+		optimizer.set_point(selected_index, selected_point)

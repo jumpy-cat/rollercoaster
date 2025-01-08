@@ -3,10 +3,11 @@
 members = [
      "gd",
     "num_opt", "testbed", "py"
-]
+, "persist"]
 
 [profile.dev]
 opt-level = 3
+debug = "full"
 
 [profile.dev.package."*"]
 opt-level = 3
@@ -16,3 +17,8 @@ debug = 1
 codegen-units = 1
 lto = "thin"
 #lto = "fat"
+
+[profile.unoptimized]
+inherits = "dev"
+opt-level = 0
+debug = "full"

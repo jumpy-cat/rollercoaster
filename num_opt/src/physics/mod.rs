@@ -1,9 +1,9 @@
 //! Physics solver and cost function
 
-use std::{f64::consts::PI, sync::RwLock};
+use std::f64::consts::PI;
 
 use info::{use_sigfigs, PhysicsAdditionalInfo};
-use linalg::{vector_projection, ComPos, ComVel, MyQuaternion, MyVector3};
+use linalg::{scaler_projection, vector_projection, ComPos, ComVel, MyQuaternion, MyVector3};
 use log::warn;
 
 use crate::{
@@ -13,24 +13,29 @@ use crate::{
 };
 
 mod geo;
-mod info;
+pub mod info;
 pub mod linalg;
 pub mod solver;
 
 #[cfg(test)]
 mod geo_test;
 
-pub static TOL: RwLock<Fpt> = RwLock::new(1e-10);
-
-pub fn set_tol(tol: Fpt) {
-    *TOL.write().unwrap() = tol;
-}
-
 /// tolerance for du from dt calculations
 #[inline(always)]
-fn tol() -> Fpt {
+pub fn tol() -> Fpt {
     1e-10
-    //*TOL.read().unwrap()
+}
+
+pub fn g_force_is_safe(up_gs: Fpt, side_gs: Fpt) -> bool {
+    if up_gs < -2.0 || up_gs > 6.0 {
+        false
+    } else if up_gs < -1.0 {
+        side_gs < 3.0 * (up_gs + 2.0)
+    } else if up_gs < 4.0 {
+        side_gs < -0.2 * (up_gs + 1.0) + 3.0
+    } else {
+        side_gs < -(up_gs - 4.0) + 2.0
+    }
 }
 
 /// Physics solver v3  
@@ -49,6 +54,7 @@ pub struct PhysicsStateV3<T: MyFloat> {
     g: MyVector3<T>,
     o: T,
     rot_inertia: T,
+    mu: T,
 
     i: u64,
     prev_u: T,
@@ -76,7 +82,8 @@ macro_rules! add_info {
 impl<T: MyFloat> PhysicsStateV3<T> {
     /// Initialize the physics state: `m` mass, `g` Gravity vector,
     /// `curve.curve_at(0.0)`: Starting position of the curve at `u=0`
-    pub fn new(m: Fpt, g_: Fpt, curve: &hermite::Spline<T>, o: Fpt) -> Self {
+    pub fn new(m: Fpt, g_: Fpt, curve: &hermite::Spline<T>, o: Fpt, mu: Fpt) -> Self {
+        log::info!("Physics initalized with mu: {}", mu);
         assert!(curve.max_u() > 0.0);
         let g = MyVector3::new_f(0.0, g_, 0.0);
         let g_dir = if g_ == 0.0 {
@@ -96,14 +103,13 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             rot_inertia: T::from_f(0.1),
             g: g.clone(),
             o: T::from_f(o),
+            mu: T::from_f(mu),
             // simulation state
             prev_u: T::zero(),
             u: T::zero(), //0.0,
             // center of mass
             x: ComPos::new(&(hl_pos.clone() - hl_normal.clone() * T::from_f(o))), //o,
-            v: ComVel::new(&(hl_forward * 
-                g.magnitude() * T::from_f(0.05 * 256.0)
-            )),
+            v: ComVel::new(&(hl_forward * g.magnitude() * T::from_f(0.05 * 256.0))),
 
             // heart line
             hl_normal,
@@ -126,16 +132,16 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         pos: &ComPos<T>,
     ) -> T {
         let actual_hl_dir = (curve.curve_at(&u).unwrap() - pos.inner()).normalize();
+        assert!(
+            !actual_hl_dir.has_nan(),
+            "AHD {:#?} {u} {:#?}",
+            actual_hl_dir,
+            pos
+        );
 
         let fut_vel = self.updated_v(step, pos);
-        let fut_w = self.new_ang_vel(step, &actual_hl_dir);
 
-        //let fut_vel_corr = self.correct_for_angular_energy(, &fut_vel);
-
-        let change_in_angular_energy =
-            self.rot_energy(fut_w.magnitude()) - self.rot_energy(self.w.magnitude());
         let fut_vel_corr = fut_vel;
-        //let fut_vel_corr = self.correct_for_angular_energy(change_in_angular_energy, &fut_vel);
 
         let least_resistance = self
             .hl_normal
@@ -148,12 +154,16 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         .normalize();
 
         let tgt_hl_dir = ideal_hl_dir_p;
-        (actual_hl_dir - tgt_hl_dir).magnitude_squared()
+        let r = (actual_hl_dir.clone() - tgt_hl_dir.clone()).magnitude_squared();
+        assert!(!r.is_nan(), "{:#?} {:#?}", actual_hl_dir, tgt_hl_dir);
+        r
     }
 
     fn hl_normal_errs_at_u(&self, u: &T, curve: &hermite::Spline<T>, step: &T) -> (T, T) {
         let positions = self.possible_positions(&curve, &step, &u);
         if let Some([p1, p2]) = positions {
+            assert!(!p1.inner().has_nan());
+            assert!(!p2.inner().has_nan());
             let errs = [
                 self.hl_normal_err_at_u_manual_pos(u, step, curve, &p1),
                 self.hl_normal_err_at_u_manual_pos(u, step, curve, &p2),
@@ -315,46 +325,43 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.u = new_u;
 
         let accel = (new_v.inner() - self.v.inner()) / step.clone();
+        let normal_force = (accel.clone() - self.g.clone()) * self.m.clone();
+        let distance = (new_x.inner() - self.x.inner()).magnitude();
         // new values
+        let old_v = self.v.clone();
         (self.x, self.v, self.w) = (new_x, new_v, new_w);
 
-        //self.hl_normal = tgt_norm.clone();
         self.hl_normal = MyQuaternion::from_scaled_axis(self.w.clone() * step.clone())
             .rotate_vector(&self.hl_normal);
-
-        let move_to_tgt_err = (tgt_pos - self.x.clone()).magnitude();
-        add_info!(self, move_to_tgt_err);
-        let hl_normal_shift_err = tgt_norm.angle(&self.hl_normal);
-        add_info!(self, hl_normal_shift_err);
-
-        add_info!(
-            self,
-            prev_move_to_tgt_err,
-            self.additional_info.move_to_tgt_err.clone()
-        );
-        add_info!(
-            self,
-            prev_hl_normal_shift_err,
-            self.additional_info.hl_normal_shift_err.clone()
-        );
 
         add_info!(self, potential_energy, self.potential_energy().to_f());
         add_info!(self, kinetic_energy, self.kinetic_energy().to_f());
         add_info!(self, rot_energy, self.rot_energy(self.w.magnitude()).to_f());
 
-        self.v = self.correct_for_angular_energy(change_in_angular_energy, &self.v);
+        // velocity correction
+        let loss_to_friction = normal_force.magnitude() * self.mu.clone() * distance;
+        self.v = self
+            .correct_v_to_reduce_energy_by(change_in_angular_energy + loss_to_friction, &self.v);
 
         self.additional_info.update(&self.u);
 
-        /*log::info!(
-            "G force: {}",
-            (accel.clone() - self.g.clone()).magnitude().to_f() / self.g.magnitude().to_f()
-        );*/
         self.cost += accel.magnitude_squared().to_f() * step.to_f();
 
         self.additional_info
             .ang_energies
             .push((self.u.to_f(), self.rot_energy(self.w.magnitude()).to_f()));
+        
+        // calculate COM Gs
+        let corr_accel = (self.v.clone().inner() - old_v.inner()) / step.clone();
+        let accel = corr_accel - self.g.clone();
+        let g_mag = self.g.clone().magnitude();
+        let up_gs = scaler_projection(accel.clone(), self.hl_normal.clone()) / g_mag.clone();
+        let forward_gs = scaler_projection(accel.clone(), self.v.inner()) / g_mag.clone();
+        let side = self.v.inner().cross(&self.hl_normal.clone()).normalize();
+        let side_gs = scaler_projection(accel, side) / g_mag;
+        add_info!(self, up_gs, up_gs.to_f());
+        add_info!(self, forward_gs, forward_gs.to_f());
+        add_info!(self, side_gs, side_gs.to_f());
 
         Some(())
     }
@@ -365,7 +372,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         rot_impulse.clone() / step.clone()
     }
 
-    fn correct_for_angular_energy(
+    fn correct_v_to_reduce_energy_by(
         &self,
         change_in_angular_energy: T,
         vel_to_correct: &ComVel<T>,
@@ -423,11 +430,20 @@ impl<T: MyFloat> PhysicsStateV3<T> {
             r: self.v.speed() * delta_t.clone(),
         };
 
-        let circle_plane = geo::Plane::from_origin_normal_and_u(
-            curve.curve_at(u).unwrap(),
-            curve.curve_direction_at(u).unwrap(),
-            curve.curve_normal_at(u).unwrap(),
+        let curve_dir = curve.curve_direction_at(u).unwrap();
+        let curve_norm = curve.curve_normal_at(u).unwrap();
+        assert!(!curve_dir.has_nan());
+        assert!(curve_dir.magnitude() > 0.5);
+        assert!(
+            (curve_dir.angle(&curve_norm) - PI / 2.0).abs() < 0.1,
+            "curve_dir {:#?} curve_norm {:#?} angle {}",
+            curve_dir,
+            curve_norm,
+            curve_dir.angle(&curve_norm)
         );
+
+        let circle_plane =
+            geo::Plane::from_origin_normal_and_u(curve.curve_at(u).unwrap(), curve_dir, curve_norm);
 
         let circle = geo::Circle {
             r: self.o.clone(),
@@ -438,7 +454,11 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let intersections =
             geo::sphere_circle_intersections(&future_sphere, &circle, &circle_plane);
 
-        intersections.map(|[p1, p2]| [ComPos::new(&p1), ComPos::new(&p2)])
+        intersections.map(|[p1, p2]| {
+            assert!(!p1.has_nan());
+            assert!(!p2.has_nan());
+            [ComPos::new(&p1), ComPos::new(&p2)]
+        })
     }
 
     #[allow(dead_code)]
