@@ -3,7 +3,7 @@
 use std::f64::consts::PI;
 
 use info::{use_sigfigs, PhysicsAdditionalInfo};
-use linalg::{vector_projection, ComPos, ComVel, MyQuaternion, MyVector3};
+use linalg::{scaler_projection, vector_projection, ComPos, ComVel, MyQuaternion, MyVector3};
 use log::warn;
 
 use crate::{
@@ -24,6 +24,18 @@ mod geo_test;
 #[inline(always)]
 pub fn tol() -> Fpt {
     1e-10
+}
+
+pub fn g_force_is_safe(up_gs: Fpt, side_gs: Fpt) -> bool {
+    if up_gs < -2.0 || up_gs > 6.0 {
+        false
+    } else if up_gs < -1.0 {
+        side_gs < 3.0 * (up_gs + 2.0)
+    } else if up_gs < 4.0 {
+        side_gs < -0.2 * (up_gs + 1.0) + 3.0
+    } else {
+        side_gs < -(up_gs - 4.0) + 2.0
+    }
 }
 
 /// Physics solver v3  
@@ -316,6 +328,7 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         let normal_force = (accel.clone() - self.g.clone()) * self.m.clone();
         let distance = (new_x.inner() - self.x.inner()).magnitude();
         // new values
+        let old_v = self.v.clone();
         (self.x, self.v, self.w) = (new_x, new_v, new_w);
 
         self.hl_normal = MyQuaternion::from_scaled_axis(self.w.clone() * step.clone())
@@ -337,6 +350,18 @@ impl<T: MyFloat> PhysicsStateV3<T> {
         self.additional_info
             .ang_energies
             .push((self.u.to_f(), self.rot_energy(self.w.magnitude()).to_f()));
+        
+        // calculate COM Gs
+        let corr_accel = (self.v.clone().inner() - old_v.inner()) / step.clone();
+        let accel = corr_accel - self.g.clone();
+        let g_mag = self.g.clone().magnitude();
+        let up_gs = scaler_projection(accel.clone(), self.hl_normal.clone()) / g_mag.clone();
+        let forward_gs = scaler_projection(accel.clone(), self.v.inner()) / g_mag.clone();
+        let side = self.v.inner().cross(&self.hl_normal.clone()).normalize();
+        let side_gs = scaler_projection(accel, side) / g_mag;
+        add_info!(self, up_gs, up_gs.to_f());
+        add_info!(self, forward_gs, forward_gs.to_f());
+        add_info!(self, side_gs, side_gs.to_f());
 
         Some(())
     }

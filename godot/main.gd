@@ -33,6 +33,7 @@ var f1: Function
 
 var inst_cost_hist_curve_pos = []
 var inst_cost_hist_curve_delta_cost = []
+var inst_cost_hist_curve_g_safe = []
 
 const HIST_LINE_UPDATE_DIST = 0.5
 var inst_cost = NAN
@@ -144,10 +145,15 @@ func _process(_delta: float) -> void:
 	if true:
 		var _s = DebugDraw3D.new_scoped_config().set_thickness(0.1)
 		for i in range(len(inst_cost_hist_curve_pos) - 1):
+			var c;
+			if inst_cost_hist_curve_g_safe[i]:
+				c = lerp(Color.DARK_BLUE, Color.YELLOW, inst_cost_hist_curve_delta_cost[i])
+			else:
+				c = Color.RED
 			DebugDraw3D.draw_line(
 				inst_cost_hist_curve_pos[i],
 				inst_cost_hist_curve_pos[i + 1],
-				lerp(Color.DARK_BLUE, Color.YELLOW, inst_cost_hist_curve_delta_cost[i])
+				c#lerp(Color.DARK_BLUE, Color.YELLOW, inst_cost_hist_curve_delta_cost[i])
 			)
 	
 	# update physics simulation
@@ -183,7 +189,7 @@ func _process(_delta: float) -> void:
 		m.clear_surfaces();
 		m.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 
-		Utils.cylinder_line(m, optimizer.as_segment_points(), 0.02)
+		Utils.cylinder_line(m, optimizer.as_segment_points(), 0.04)
 				
 		m.surface_end();
 	
@@ -298,6 +304,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		var max_delta = inst_cost_hist_curve_delta_cost.max()
 		inst_cost_hist_curve_delta_cost = inst_cost_hist_curve_delta_cost\
 			.map(func(x): return x / max_delta)
+		inst_cost_hist_curve_g_safe = optimizer.get_inst_cost_path_g_safe()
 	if event.is_action_pressed("edit_pos"):
 		point_edit_component.set_editing(0)
 	if event.is_action_pressed("edit_d1"):

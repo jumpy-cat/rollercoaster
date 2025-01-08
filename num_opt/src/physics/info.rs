@@ -17,6 +17,10 @@ pub struct PhysicsAdditionalInfo<T: MyFloat> {
     pub jitter_detected: bool,
     pub ang_energies: Vec<(Fpt, Fpt)>,
     has_made_plot: bool,
+    // center of mass g values
+    pub forward_gs: Fpt,
+    pub side_gs: Fpt,
+    pub up_gs: Fpt,
 }
 
 impl<T: MyFloat> Default for PhysicsAdditionalInfo<T> {
@@ -35,6 +39,9 @@ impl<T: MyFloat> Default for PhysicsAdditionalInfo<T> {
             jitter_detected: false,
             ang_energies: Vec::new(),
             has_made_plot: false,
+            up_gs: 0.0,
+            forward_gs: 0.0,
+            side_gs: 0.0,
         }
     }
 }
@@ -42,14 +49,17 @@ impl<T: MyFloat> Default for PhysicsAdditionalInfo<T> {
 impl<T: MyFloat> PhysicsAdditionalInfo<T> {
     pub fn description(&self) -> String {
         format!(
-            "du: {:.4?}\ndt: {:.4?}\ntgt_pos_spd_err: {:.4}\nE: {:.4} ({:.4}P + {:.4}K + {:.4}R)",  
+            "du: {:.4?}\ndt: {:.4?}\nE: {:.4} ({:.4}P + {:.4}K + {:.4}R)\nGs: {:.4} (up: {:.4} fwd: {:.4} side: {:.4})",  
             use_sigfigs(&self.delta_u_),
             &self.delta_t_,
-            use_sigfigs(&self.tgt_pos_spd_err),
             use_sigfigs(&(self.potential_energy + self.kinetic_energy + self.rot_energy)),
             use_sigfigs(&self.potential_energy),
             use_sigfigs(&self.kinetic_energy),
             use_sigfigs(&self.rot_energy),
+            &(self.up_gs.powi(2) + self.forward_gs.powi(2) + self.side_gs.powi(2)).sqrt(),
+            &self.up_gs,
+            &self.forward_gs,
+            &self.side_gs,
         )
     }
 

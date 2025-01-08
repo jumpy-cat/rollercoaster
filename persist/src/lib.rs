@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[test]
 fn migrate() {
-    let data = serde_json::from_str::<DataLegacy>(include_str!("../../hi2.json")).unwrap();
+    let data = serde_json::from_str::<DataLegacy>(include_str!("../../hi5.json")).unwrap();
     println!("{:#?}", data);
     let migrated = Data {
         points: data

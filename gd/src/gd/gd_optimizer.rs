@@ -59,6 +59,7 @@ pub struct Optimizer {
     points_changed: bool,
     inst_cost_path_pos: Vec<Vector3>,
     inst_cost_path_delta_cost: Vec<Fpt>,
+    inst_cost_path_g_safe: Vec<bool>,
 }
 
 #[godot_api]
@@ -88,6 +89,7 @@ impl Optimizer {
             points_changed: false,
             inst_cost_path_pos: vec![],
             inst_cost_path_delta_cost: vec![],
+            inst_cost_path_g_safe: vec![],
         })
     }
 
@@ -385,6 +387,7 @@ impl Optimizer {
                 .map(|x| Vector3::new(x.x as f32, x.y as f32, x.z as f32))
                 .collect();
         self.inst_cost_path_delta_cost = r.1.iter().map(|x| x.delta_cost).collect();
+        self.inst_cost_path_g_safe = r.1.iter().map(|x| x.safe).collect();
         r.0.unwrap_or(Fpt::NAN)
     }
 
@@ -396,6 +399,11 @@ impl Optimizer {
     #[func]
     fn get_inst_cost_path_delta_cost(&self) -> Array<Fpt> {
         self.inst_cost_path_delta_cost.iter().cloned().collect()
+    }
+
+    #[func]
+    fn get_inst_cost_path_g_safe(&self) -> Array<bool> {
+        self.inst_cost_path_g_safe.iter().cloned().collect()
     }
 
     /// Get the iterations per second from the most recent optimizer start

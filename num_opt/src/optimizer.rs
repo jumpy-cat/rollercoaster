@@ -5,7 +5,7 @@ use rand::Rng;
 use crate::{
     hermite,
     my_float::{Fpt, MyFloat},
-    physics::{self, info::use_sigfigs, linalg::MyVector3, tol},
+    physics::{self, g_force_is_safe, info::use_sigfigs, linalg::MyVector3, tol},
     point,
 };
 
@@ -14,6 +14,7 @@ pub struct CostHistoryPoint {
     pub x: Fpt,
     pub y: Fpt,
     pub z: Fpt,
+    pub safe: bool,
 }
 
 /// Given initial state and curve, calculates the total cost of the curve
@@ -51,7 +52,10 @@ pub fn cost_v2_with_history<T: MyFloat>(
     let mut hist = vec![];
     let mut ppos: Option<MyVector3<T>> = None;
     let mut pcost = 0.0;
+    let mut safe = true;
     while phys.step(&T::from_f(step), curve).is_some() {
+        safe =
+            safe && g_force_is_safe(phys.additional_info().up_gs, phys.additional_info().side_gs);
         if let Some(min_dist) = min_dist_between_points {
             let cp = phys.x().clone().inner();
             if ppos
@@ -65,9 +69,11 @@ pub fn cost_v2_with_history<T: MyFloat>(
                     y: cp.y.to_f(),
                     z: cp.z.to_f(),
                     delta_cost: ccost - pcost,
+                    safe,
                 });
                 pcost = ccost;
                 ppos = Some(cp);
+                safe = true;
             }
         }
     }

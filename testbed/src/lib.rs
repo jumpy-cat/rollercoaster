@@ -1,11 +1,11 @@
 use num_opt::{my_float::Fpt, point::Point};
 
-pub fn points_from_file() -> Vec<num_opt::point::Point<Fpt>> {
-    let pts: persist::Data = serde_json::from_str(include_str!("../../hi2.json")).unwrap();
+pub fn points_from_file() -> Vec<Point<Fpt>> {
+    let pts: persist::Data = serde_json::from_str(include_str!("../../hi5.json")).unwrap();
     pts.points.into_iter().map(|p| p.into()).collect()
 }
 
-pub fn points() -> Vec<num_opt::point::Point<Fpt>> {
+pub fn points() -> Vec<Point<Fpt>> {
     let points = [
         [30, 24, 1],
         [21, 6, 1],
@@ -30,6 +30,6 @@ pub fn points() -> Vec<num_opt::point::Point<Fpt>> {
     ];
     points
         .iter()
-        .map(|p| num_opt::point::Point::new(p[0] as Fpt, p[1] as Fpt, p[2] as Fpt))
+        .map(|p| Point::new(p[0] as Fpt, p[1] as Fpt, p[2] as Fpt))
         .collect()
 }
