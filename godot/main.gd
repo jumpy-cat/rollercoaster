@@ -24,7 +24,7 @@ var optimize: bool = false
 var selected_index;
 var selected_point;
 var control_points: Array[ControlPoint]  # Nodes in the scene tree
-var coaster_points: Array[CoasterPoint]  # Data structure used in optimization
+var coaster_points: Array[CoasterPoint]  # Data structure used in optimization, cost calculations
 
 var curve: CoasterCurve
 var physics: CoasterPhysicsV3
@@ -39,6 +39,9 @@ const HIST_LINE_UPDATE_DIST = 0.5
 var inst_cost = NAN
 var hist_pos = []
 var last_pos = Vector3.ZERO
+
+var last_autosave = Time.get_unix_time_from_system()
+const AUTOSAVE_INTERVAL = 300
 
 const COM_OFFSET = 1;
 
@@ -132,6 +135,10 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	var now = Time.get_unix_time_from_system()
+	if now - AUTOSAVE_INTERVAL > last_autosave:
+		quicksave("auto_")
+		last_autosave = now
 	optimizer.update()
 	DebugDraw2D.set_text("FPS", Engine.get_frames_per_second())
 
@@ -153,13 +160,13 @@ func _process(_delta: float) -> void:
 			DebugDraw3D.draw_line(
 				inst_cost_hist_curve_pos[i],
 				inst_cost_hist_curve_pos[i + 1],
-				c#lerp(Color.DARK_BLUE, Color.YELLOW, inst_cost_hist_curve_delta_cost[i])
+				c
 			)
 	
 	# update physics simulation
 	if curve != null:
 		anim.visible = true
-		var physics_did_step = ((!manual_physics) # && physics.found_exact_solution())
+		var physics_did_step = (!manual_physics
 			|| Input.is_action_just_pressed("step_physics"))
 		if physics_did_step:
 			physics.step(curve, params_manager.anim_step_size)
@@ -279,6 +286,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			optimizer.disable_optimizer()
 		optimizer_checkbox.button_pressed = optimize
 	if event.is_action_pressed("reset_curve"):
+		quicksave("res_")
 		optimizer.set_points(coaster_points, true)
 		var p = optimizer.get_points()
 		set_points(p)
@@ -326,7 +334,8 @@ func _on_check_button_toggled(toggled_on: bool) -> void:
 
 func _on_control_point_clicked(index: int) -> void:
 	selected_index = index
-	selected_point = optimizer.get_point(index)
+	#selected_point = optimizer.get_point(index)
+	selected_point = coaster_points[index]
 	point_edit_component.set_point(selected_point)
 	control_points[index].shown_deriv = \
 		new_shown_deriv(selected_point, point_edit_component.editing)
@@ -344,7 +353,11 @@ func _on_save_button_pressed() -> void:
 	save_file_dialog.popup()
 
 
-func _on_save_dialogue_file_selected(path: String) -> void:
+func quicksave(prefix):
+	save_coaster_to_path("/tmp/" + prefix + str(int(Time.get_unix_time_from_system())) + ".json")
+
+
+func save_coaster_to_path(path: String) -> void:
 	var saver = Saver.to_path(path, coaster_points)
 	if saver.success():
 		return
@@ -354,6 +367,10 @@ func _on_save_dialogue_file_selected(path: String) -> void:
 	diag.dialog_text = "Failed to write file"
 	add_child(diag)
 	diag.popup_centered_ratio()
+
+
+func _on_save_dialogue_file_selected(path: String) -> void:
+	save_coaster_to_path(path)
 
 
 func _on_point_edit_component_points_loaded(pts: Array) -> void:
@@ -412,6 +429,9 @@ func _on_point_edit_component_d_1_changed(pos: Vector3) -> void:
 		selected_point.set_xp(pos.x)
 		selected_point.set_yp(pos.y)
 		selected_point.set_zp(pos.z)
+		print("....")
+		print(selected_point.get_xp())
+		print(coaster_points[selected_index].get_xp())
 		control_points[selected_index].shown_deriv = pos
 		optimizer.set_point(selected_index, selected_point)
 
