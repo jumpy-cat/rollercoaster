@@ -51,10 +51,10 @@ class Interp(Scene):
         q_d3_a = Arrow((*(q + qp + qpp), 0), (*(q + qp + qpp + qppp), 0))
         q_d3_a.stroke_color = GREEN
 
-        #self.play(Create(p_dot), Create(q_dot))
-        #self.play(Create(p_d1_a), Create(q_d1_a))
-        #self.play(Create(p_d2_a), Create(q_d2_a))
-        #self.play(Create(p_d3_a), Create(q_d3_a))
+        # self.play(Create(p_dot), Create(q_dot))
+        # self.play(Create(p_d1_a), Create(q_d1_a))
+        # self.play(Create(p_d2_a), Create(q_d2_a))
+        # self.play(Create(p_d3_a), Create(q_d3_a))
 
         # return
 
