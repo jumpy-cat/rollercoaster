@@ -8,6 +8,7 @@ class CreateCircle(Scene):
         circle.set_fill(PINK, opacity=0.5)  # set the color and transparency
         self.play(Create(circle))  # show the circle on screen
 
+
 class SquareToCircle(Scene):
     def construct(self):
         circle = Circle()  # create a circle
@@ -33,7 +34,7 @@ class Interp(Scene):
         qpp = array([2, -2])
         qppp = array([-3, -3])
 
-        #SHRINK_FACTOR =
+        # SHRINK_FACTOR =
         p_dot = Dot(point=(*p, 0))
         p_d1_a = Arrow((*p, 0), (*(p + pp), 0))
         p_d1_a.stroke_color = RED
@@ -55,56 +56,58 @@ class Interp(Scene):
         self.play(Create(p_d2_a), Create(q_d2_a))
         self.play(Create(p_d3_a), Create(q_d3_a))
 
-
-
-        #return
+        # return
 
         circle = Circle()
         circle.set_fill(PINK, opacity=0.5)
-        eq = MathTex(r'\vec{r}(u)=Au^7+Bu^6+Cu^5+Du^4+Eu^3+Fu^2+Gu+H')
-        mat = Matrix([
-                [0,0,0,0,0,0,0,1],
-                [0,0,0,0,0,0,1,0],
-                [0,0,0,0,0,2,0,0],
-                [0,0,0,0,6,0,0,0],
-                [1]*8,
-                [7-i for i in range(8)],
-                [(7-i)*(6-i) for i in range(8)],
-                [(7-i)*(6-i)*(5-i) for i in range(8)]
-        ])
+        eq = MathTex(r"\vec{r}(u)=Au^7+Bu^6+Cu^5+Du^4+Eu^3+Fu^2+Gu+H")
+        mat = Matrix(
+            [
+                [0, 0, 0, 0, 0, 0, 0, 1],
+                [0, 0, 0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 2, 0, 0],
+                [0, 0, 0, 0, 6, 0, 0, 0],
+                [1] * 8,
+                [7 - i for i in range(8)],
+                [(7 - i) * (6 - i) for i in range(8)],
+                [(7 - i) * (6 - i) * (5 - i) for i in range(8)],
+            ]
+        )
         mat.scale(0.5)
         mat.next_to(eq, UP)
 
-        param_mat = Matrix([[ch] for ch in 'ABCDEFGH'])
+        param_mat = Matrix([[ch] for ch in "ABCDEFGH"])
         param_mat.scale(0.5)
         param_mat.next_to(mat, RIGHT)
 
-        input_mat = Matrix([
-            [x] for x in ['p', "p'", "p''", "p'''", "q", "q'", "q''", "q'''"]
-        ])
-        equals = MathTex('=')
+        input_mat = Matrix(
+            [[x] for x in ["p", "p'", "p''", "p'''", "q", "q'", "q''", "q'''"]]
+        )
+        equals = MathTex("=")
         equals.next_to(param_mat, RIGHT)
         input_mat.scale(0.5)
         input_mat.next_to(equals)
 
-        matinv = Matrix([
-            [20,10,2,'1/6', -20, -10, -2,'1/6'],
-            [-70,-36,'-15/2','-2/3',70,-34,'13/2','-1/2'],
-            [84,45,10,1,-84,39,-7,'1/2'],
-            [-35,-20,-5,'-2/3',35,-15,'5/2','-1/6'],
-            [0,0,0,'1/6',0,0,0,0],
-            [0,0,'1/2',0,0,0,0,0],
-            [0,1,0,0,0,0,0,0],
-            [1,0,0,0,0,0,0,0]
-        ])
+        matinv = Matrix(
+            [
+                [20, 10, 2, "1/6", -20, -10, -2, "1/6"],
+                [-70, -36, "-15/2", "-2/3", 70, -34, "13/2", "-1/2"],
+                [84, 45, 10, 1, -84, 39, -7, "1/2"],
+                [-35, -20, -5, "-2/3", 35, -15, "5/2", "-1/6"],
+                [0, 0, 0, "1/6", 0, 0, 0, 0],
+                [0, 0, "1/2", 0, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0, 0, 0, 0],
+                [1, 0, 0, 0, 0, 0, 0, 0],
+            ]
+        )
         matinv.scale(0.5)
-        matinv.next_to(param_mat,LEFT)
+        matinv.next_to(param_mat, LEFT)
 
-        mat_equat = MathTex(r'MX=Y')
-        mat_equat2 = MathTex(r'M^{-1}MX=M^{-1}Y')
-        mat_equat3 = MathTex(r'IX=M^{-1}Y')
-        mat_equat4 = MathTex(r'X=M^{-1}Y')
-        mat_equat5 = MathTex(r'M^{-1}Y=X')
+        mat_equat = MathTex(r"MX=Y")
+        mat_equat2 = MathTex(r"M^{-1}MX=M^{-1}Y")
+        mat_equat3 = MathTex(r"IX=M^{-1}Y")
+        mat_equat4 = MathTex(r"X=M^{-1}Y")
+        mat_equat5 = MathTex(r"M^{-1}Y=X")
 
         mat_equat.next_to(eq, DOWN)
         mat_equat2.next_to(mat_equat, DOWN)
@@ -128,34 +131,31 @@ class Interp(Scene):
             Transform(mat, matinv),
             input_mat.animate.next_to(matinv),
             param_mat.animate.next_to(equals),
-            Transform(mat_equat4, mat_equat5)
+            Transform(mat_equat4, mat_equat5),
         )
-        
+
         self.wait()
+
 
 class Optim(Scene):
     def func(self, t):
-        return -t**3 - 2*t**2
-    
+        return -(t**3) - 2 * t**2
+
     def construct(self):
-        #function graph
+        # function graph
         graph = FunctionGraph(self.func, x_range=[-2.2, 0.8])
         graph.scale(1.5)
         graph.shift(LEFT)
         graph.shift(LEFT)
         graph.shift(UP)
         self.play(Create(graph))
-        dot = Dot().move_to(graph.point_from_proportion(0))  # create a point at the top of the graph
-
+        dot = Dot().move_to(
+            graph.point_from_proportion(0)
+        )  # create a point at the top of the graph
 
         def update_dot(mob, alpha):
             mob.move_to(graph.point_from_proportion(alpha))
 
-        
         self.play(Create(dot))
-        #self.play(UpdateFromAlphaFunc(dot, update_dot))   
+        # self.play(UpdateFromAlphaFunc(dot, update_dot))
         self.play(MoveAlongPath(dot, graph), rate_func=linear)
-             
-
-
-
