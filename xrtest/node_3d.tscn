@@ -1,0 +1,34 @@
+[gd_scene load_steps=3 format=3 uid="uid://7jpqye8u62tn"]
+
+[ext_resource type="Script" path="res://main.gd" id="1_qulo4"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_p5a7i"]
+
+[node name="Node3D" type="Node3D"]
+script = ExtResource("1_qulo4")
+
+[node name="XROrigin3D" type="XROrigin3D" parent="."]
+
+[node name="XRCamera3D" type="XRCamera3D" parent="XROrigin3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0)
+
+[node name="LeftHand" type="XRController3D" parent="XROrigin3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 1, -0.5)
+tracker = &"left_hand"
+
+[node name="RightHand" type="XRController3D" parent="XROrigin3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 1, -0.5)
+tracker = &"right_hand"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.598664, -7.24694)
+mesh = SubResource("BoxMesh_p5a7i")
+skeleton = NodePath("../XROrigin3D")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -0.275084, 0.96142, 0, -0.96142, -0.275084, 0, 2.1761, -5.72324)
+
+[node name="Button" type="Button" parent="."]
+offset_right = 8.0
+offset_bottom = 8.0
+text = "PressMe"
