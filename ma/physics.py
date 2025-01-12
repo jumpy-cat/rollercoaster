@@ -167,20 +167,29 @@ class Physics(ThreeDScene):
         pos_upt2.next_to(pos_upt, DOWN, aligned_edge=RIGHT)
         self.play(Create(pos_upt2))
         self.wait()
-        sphere = Sphere(com_pos() - np.array([0, 0, 0.1]), 0.2)
-        sphere.z_index = 1
+
+        self.next_section(skip_animations=SKIP_SECTIONS)
+
+        print(f"sphere is at: {axes_3d.p2c(com_pos() - np.array([0, 0, 0.1]))}")
+        sphere = Sphere(com_pos() - np.array([0, 0, 0.1]), 0.2, z_index=5).set_color(
+            BLUE
+        )
+        sphere.set_z_index(5)
         self.play(
             FadeOut(pos_upt),
             FadeOut(vel_upt4),
             pos_upt2.animate.to_corner(UR),
             Create(sphere),
         )
+
         self.wait()
 
-        self.next_section(skip_animations=False)#SKIP_SECTIONS)
+        self.next_section(skip_animations=SKIP_SECTIONS)
 
         constr2 = MathTex(r"x_{n+1}-\vec{r}(u_{n+1})=\vec{V}")
-        txt = MathTex(r"\text{where } ||\vec{V}||=o\text{ and }\vec{V}\cdot\vec{r'}(u_{n+1})=0")
+        txt = MathTex(
+            r"\text{where } ||\vec{V}||=o\text{ and }\vec{V}\cdot\vec{r'}(u_{n+1})=0"
+        )
         txt.scale(0.75)
         constr2.next_to(pos_upt2, DOWN, aligned_edge=RIGHT)
         txt.next_to(constr2, DOWN, aligned_edge=RIGHT)
@@ -189,28 +198,96 @@ class Physics(ThreeDScene):
 
         self.wait()
 
+        print(f"u: {u}")
         u2 = u + 1.0
-        circ = Circle(O)
+        circ = Circle(O, z_index=-5)
         circ.save_state()
+        self.add(circ)
+
         def update_circ(_):
-            global u2 
+            global u2
             circ.restore()
             circ.save_state()
-            circ.rotate(PI/2+angle_between_vectors(dr(u2), RIGHT),UP)
+            circ.rotate(PI / 2 + angle_between_vectors(dr(u2), RIGHT), UP)
             circ.move_to(r(u2))
 
         circ.add_updater(update_circ)
-        circ.rotate(PI/2+angle_between_vectors(dr(u2), RIGHT),UP)
+        circ.rotate(PI / 2 + angle_between_vectors(dr(u2), RIGHT), UP)
         circ.move_to(r(u2))
         self.play(Create(circ))
+
         def updt_u(dt):
-            global u2 
+            global u2
             u2 -= dt
+
         self.add_updater(updt_u)
+
+        self.wait_until(lambda: u2 <= u)
+        self.remove_updater(updt_u)
+
+        self.next_section(skip_animations=SKIP_SECTIONS)  # SKIP_SECTIONS)
+
+        self.play(
+            FadeOut(circ),
+            FadeOut(sphere),
+            FadeOut(pos_upt2),
+            FadeOut(txt),
+            FadeOut(constr2),
+        )
+
+        ucm_end = r(u) + 4.0 * (0.5 * rN(u) + np.array([0.3, 0, 0.0]))
+        ucm_accel = Arrow3D(r(u), ucm_end)
+        self.play(Create(ucm_accel))
+
+        self.next_section(skip_animations=SKIP_SECTIONS)
+
+        gf = Arrow3D(ucm_end, ucm_end + np.array([0, 0, 4.0]))
+
+        self.play(Create(gf))
+        self.wait()
+
+        self.next_section(skip_animations=SKIP_SECTIONS)
+
+        g_force = ucm_end + np.array([0, 0, 4.0]) - r(u)
+        cgf = Arrow3D(r(u), ucm_end + np.array([0, 0, 4.0]))
+        self.play(Create(cgf))
+        self.play(FadeOut(ucm_accel), FadeOut(gf))
 
         self.wait()
 
-        self.interactive_embed()
+        self.next_section(skip_animations=False)
+
+        up_theta = 0
+        ideal_up = up_vec()
+        ideal_fwd = rT(u)
+        ideal_side = np.cross(ideal_up, ideal_fwd)
+
+        iup_vec = Arrow3D(r(u), r(u) + ideal_up).set_color(RED)
+        ifwd_vec = Arrow3D(r(u), r(u) + ideal_fwd).set_color(GREEN)
+        iside_vec = Arrow3D(r(u), r(u) + ideal_side).set_color(BLUE)
+
+        self.play(Create(iup_vec), Create(ifwd_vec), Create(iside_vec))
+
+        self.wait()
+        self.next_section(skip_animations=False)
+
+        pup = vec_proj(g_force, ideal_up)
+        pfwd = vec_proj(g_force, ideal_fwd)
+        pside = vec_proj(g_force, ideal_side)
+
+        pup_vec = Arrow3D(r(u), r(u) + pup).set_color(RED)
+        pfwd_vec = Arrow3D(r(u), r(u) + pfwd).set_color(GREEN)
+        pside_vec = Arrow3D(r(u), r(u) + pside).set_color(BLUE)
+
+        self.play(
+            Transform(iup_vec, pup_vec),
+            Transform(ifwd_vec, pfwd_vec),
+            Transform(iside_vec, pside_vec),
+        )
+
+        self.wait()
+
+        # self.interactive_embed()
 
 
 def vec_proj(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -258,6 +335,14 @@ def dr(t: float) -> np.ndarray:
     dz = -1 / 3 + (1 / 3) * math.cos(t / 3)
     d = np.array([dx, dy, dz])
     return d
+
+
+def rT(t: float) -> np.ndarray:
+    return normalize(dr(t))
+
+
+def rN(t: float) -> np.ndarray:
+    return normalize(rT(t + 0.001) - rT(t - 0.001))
 
 
 def rotate_up(t: float) -> None:
