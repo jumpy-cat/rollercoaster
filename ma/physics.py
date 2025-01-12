@@ -68,14 +68,36 @@ class Physics(ThreeDScene):
         )
         self.add_updater(increase_u)
 
-        self.wait(1, frozen_frame=False)
+        self.wait(1)
+        self.remove_updater(increase_u)
         self.play(u_label.animate.set_opacity(0.3))
         self.wait()
         
         # com pos
         self.next_section()
+        up_vec = dr(u)
+        #up_vec = np.array([0,0,1])
+        #up_vec = normalize(make_ortho_to(np.array([0, 0, 1]), dr(u)))
+        #up = Line3D(up_vec).put_start_and_end_on(r(u), r(u) + up_vec)
+        up = Line3D(r(u), r(u)+up_vec)
+        print(r(u))
+        print(up_vec)
+        self.add(up)
+        self.wait(1)
 
-        up = Vector([])
+        self.interactive_embed()
+
+
+def vec_proj(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    return np.dot(a, b) / np.linalg.norm(b) * b / np.linalg.norm(b)
+
+
+def vec_normalize(a: np.ndarray) -> np.ndarray:
+    return a / np.linalg.norm(a)
+
+
+def make_ortho_to(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    return a - vec_proj(a, b)
 
     
 def update_u_label(m: Mobject) -> None:
@@ -108,7 +130,11 @@ def r(t: float) -> np.ndarray:
 
 
 def dr(t: float) -> np.ndarray:
-    d = np.array([1, 0, -1 / 3 + 1 / 3 * math.cos(t / 3)])
+    # Calculate the derivative of the position vector r(t)
+    dx = 1  # Derivative of x with respect to t
+    dy = 0  # Derivative of y with respect to t
+    dz = -1 / 3 + (1 / 3) * math.cos(t / 3)  # Corrected derivative of z with respect to t
+    d = np.array([dx, dy, dz])
     if axes_3d is None:
         raise ValueError
     return axes_3d.c2p(*d)
