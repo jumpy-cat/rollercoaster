@@ -23,7 +23,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	const PAN_SPD: float = 0.8;
+	"""const PAN_SPD: float = 0.8;
 	const ORBIT_SPD: float = 1.0;
 	
 	const ZOOM_SPD: float = 1.0;
@@ -60,7 +60,8 @@ func _process(delta: float) -> void:
 			oe += ORBIT_SPD * delta;
 		oe = clamp(oe, -OE_LIM, OE_LIM)
 		
-	recalculate_transform();
+	recalculate_transform();"""
+	pass
 
 
 func recalculate_transform():

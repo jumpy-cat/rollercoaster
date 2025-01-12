@@ -5,6 +5,7 @@
 [sub_resource type="SphereMesh" id="SphereMesh_ecjtu"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_yd73w"]
+transparency = 1
 diffuse_mode = 2
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_udoqp"]
@@ -15,6 +16,7 @@ diffuse_mode = 2
 script = ExtResource("1_3n11d")
 
 [node name="Body" type="MeshInstance3D" parent="."]
+transparency = 0.5
 mesh = SubResource("SphereMesh_ecjtu")
 surface_material_override/0 = SubResource("StandardMaterial3D_yd73w")
 

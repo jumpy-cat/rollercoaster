@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://br738eihq2cus"]
+[gd_scene load_steps=13 format=3 uid="uid://br738eihq2cus"]
 
 [ext_resource type="Script" path="res://main.gd" id="1_w5dqp"]
 [ext_resource type="PackedScene" uid="uid://c3vuka4b0smhh" path="res://components/control_point.tscn" id="2_o72i1"]
@@ -16,6 +16,15 @@ emission = Color(0.120418, 0.120418, 0.120418, 1)
 
 [sub_resource type="SystemFont" id="SystemFont_k2qav"]
 subpixel_positioning = 0
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_1bgk5"]
+vertex_color_use_as_albedo = true
+vertex_color_is_srgb = true
+uv1_triplanar = true
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_4kx3k"]
+material = SubResource("StandardMaterial3D_1bgk5")
+size = Vector2(80, 80)
 
 [node name="Main" type="Node3D" node_paths=PackedStringArray("point_edit_component", "params_manager", "save_file_dialog", "ke_chart")]
 script = ExtResource("1_w5dqp")
@@ -90,6 +99,9 @@ access = 2
 use_native_dialog = true
 
 [node name="Logger" type="Logger" parent="."]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("PlaneMesh_4kx3k")
 
 [connection signal="toggled" from="VBoxContainer/CheckButton" to="." method="_on_check_button_toggled"]
 [connection signal="toggled" from="VBoxContainer/CheckBox" to="." method="_on_check_box_toggled"]

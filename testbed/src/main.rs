@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::{fs::File, io::Write, time::Instant};
 
 use num_opt::{
     hermite::{self, Spline},
@@ -6,9 +6,10 @@ use num_opt::{
     optimizer::{self, cost_v2},
     physics::{self, linalg::MyVector3},
 };
+use serde::Serialize;
 use testbed::{points, points_from_file};
 
-const MU: Fpt = 0.05;
+const MU: Fpt = 0.01;
 
 #[allow(dead_code)]
 fn does_changing_step_size_affect_cost() {
@@ -44,43 +45,178 @@ fn does_changing_tol_affect_cost() {
     }
 }*/
 
+fn desmos_list(name: &str, values: &[f64]) -> String {
+    let mut out = String::new();
+    out.push_str(&format!("{name} = ["));
+    for (i, v) in values.iter().enumerate() {
+        if i == values.len() - 1 {
+            out.push_str(&format!("{v}"));
+        } else {
+            out.push_str(&format!("{v},"));
+        }
+    }
+    out.push_str(&format!("]"));
+    out
+}
+
+#[derive(Serialize)]
+struct PhysicsThing {
+    rails1: Vec<(f64, f64, f64)>,
+    rails2: Vec<(f64, f64, f64)>,
+    cross_support: Vec<bool>,
+    hl_pos: Vec<(f64, f64, f64)>,
+    hl_up: Vec<(f64, f64, f64)>,
+}
+
 fn main() {
     env_logger::init();
 
     let mut points = points_from_file();
     //hermite::set_derivatives_using_catmull_rom(&mut points);
     let mut curve: hermite::Spline<Fpt> = num_opt::hermite::Spline::new(&points);
-    for s in curve.iter() {
 
+    /*let x_lists: Vec<_> = (0..=7)
+        .map(|i| curve.iter().map(|s| s.x[i]).collect::<Vec<_>>())
+        .collect();
+    let y_lists: Vec<_> = (0..=7)
+        .map(|i| curve.iter().map(|s| s.y[i]).collect::<Vec<_>>())
+        .collect();
+    let z_lists: Vec<_> = (0..=7)
+        .map(|i| curve.iter().map(|s| s.z[i]).collect::<Vec<_>>())
+        .collect();
+
+    let list_names = ["A_", "B_", "C_", "D_", "E_", "F_", "G_", "H_"];
+    for i in 0..=7 {
+        println!("{}", desmos_list(&format!("{}{}", list_names[i], "x"), &x_lists[i]));
+    }
+    for i in 0..=7 {
+        println!("{}", desmos_list(&format!("{}{}", list_names[i], "y"), &y_lists[i]));
+    }
+    for i in 0..=7 {
+        println!("{}", desmos_list(&format!("{}{}", list_names[i], "z"), &z_lists[i]));
+    }
+
+    print!("(A_x t^7+B_x t^6+C_x t^5+D_x t^4+E_x t^3+F_x t^2+G_x t+H_x, ");
+    print!("A_y t^7+B_y t^6+C_y t^5+D_y t^4+E_y t^3+F_y t^2+G_y t+H_y, ");
+    print!("A_z t^7+B_z t^6+C_z t^5+D_z t^4+E_z t^3+F_z t^2+G_z t+H_z)\n");
+
+    return;*/
+
+    for (i, s) in curve.iter().enumerate() {
+        //s.x
+
+        let t = format!("(t-{{{i}}})");
         let x = format!(
-            "{}t^7+{}t^6+{}t^5+{}t^4+{}t^3+{}t^2+{}t+{}",
+            "{}{t}^7+{}{t}^6+{}{t}^5+{}{t}^4+{}{t}^3+{}{t}^2+{}{t}+{}",
             s.x[0], s.x[1], s.x[2], s.x[3], s.x[4], s.x[5], s.x[6], s.x[7]
         );
         let y = format!(
-            "{}t^7+{}t^6+{}t^5+{}t^4+{}t^3+{}t^2+{}t+{}",
+            "{}{t}^7+{}{t}^6+{}{t}^5+{}{t}^4+{}{t}^3+{}{t}^2+{}{t}+{}",
             s.y[0], s.y[1], s.y[2], s.y[3], s.y[4], s.y[5], s.y[6], s.y[7]
         );
         let z = format!(
-            "{}t^7+{}t^6+{}t^5+{}t^4+{}t^3+{}t^2+{}t+{}",
+            "{}{t}^7+{}{t}^6+{}{t}^5+{}{t}^4+{}{t}^3+{}{t}^2+{}{t}+{}",
             s.z[0], s.z[1], s.z[2], s.z[3], s.z[4], s.z[5], s.z[6], s.z[7]
         );
-        println!("({x}, {y}, {z})");
+        println!("C_{{{}}}(t)=({x}, {y}, {z})", i);
     }
 
-    return;
+    let mut piecewise = String::from(r"C(t)=\left\{");
+    for i in 0..curve.params.len() {
+        piecewise.push_str(&format!("t<{}: C_{{{i}}}(t)", i + 1));
+        if i != curve.params.len() - 1 {
+            piecewise.push_str(",");
+        }
+    }
+    piecewise.push_str(r"\right\}");
+    println!("{}", piecewise);
 
-    let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 1.0, MU);
-    phys.set_v(&MyVector3::new(0.0, 0.01 * 0.05 * 256.0, 0.0));
+    //return;
 
-    let ic = cost_v2(phys.clone(), &curve, 0.05);
+    let mut thing = PhysicsThing {
+        rails1: Vec::new(),
+        rails2: Vec::new(),
+        cross_support: Vec::new(),
+        hl_pos: Vec::new(),
+        hl_up: Vec::new(),
+    };
+    let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 0.5, MU);
+    let mut i = 0;
+    while phys.step(&0.05, &curve).is_some() {
+        i += 1;
+        if i % 20 != 0 {
+            continue;
+        }
+        let track_centerline = phys.x().inner() - phys.hl_normal().clone() * 1.0 * *phys.o();
+        let binormal = phys.v().inner().cross(phys.hl_normal()).normalize();
+        let rail1 = track_centerline.clone() + binormal.clone() * *phys.o();
+        let rail2 = track_centerline.clone() - binormal * *phys.o();
+        println!("{:.4?} {:.4?} {:.4?}", track_centerline, rail1, rail2);
+        thing.rails1.push((rail1.x, rail1.y, rail1.z));
+        thing.rails2.push((rail2.x, rail2.y, rail2.z));
+        thing.cross_support.push(false);
+        let hl_pos = curve.curve_at(phys.u()).unwrap();
+        thing.hl_pos.push((hl_pos.x, hl_pos.y, hl_pos.z));
+        let hl_up = phys.hl_normal();
+        thing.hl_up.push((hl_up.x, hl_up.y, hl_up.z));
+    }
 
-    let st = Instant::now();
+    //let mut extras = vec![];
+    for c in &curve.additional {
+        let mut u = 0.0;
+        while u <= 1.0 {
+            let hl_pos = (c.x)(u);
+            let tangent = ((c.x)(u + 0.0001) - hl_pos.clone()).normalize();
+            let up = MyVector3::new(0.0, 1.0, 0.0)
+                .make_ortho_to(&tangent)
+                .normalize();
+            let com_pos = hl_pos.clone() - up.clone() * *phys.o();
+            let track_centerline = hl_pos.clone() - up.clone() * *phys.o() * 2.0;
+            let binormal = up.cross(&tangent).normalize();
+            let rail1 = track_centerline.clone() - binormal.clone() * *phys.o();
+            let rail2 = track_centerline.clone() + binormal.clone() * *phys.o();
+
+            thing.rails1.push((rail1.x, rail1.y, rail1.z));
+            thing.rails2.push((rail2.x, rail2.y, rail2.z));
+            thing.cross_support.push(false);
+
+            //let hl_pos = curve.curve_at(phys.u()).unwrap();
+            thing.hl_pos.push((hl_pos.x, hl_pos.y, hl_pos.z));
+            //let hl_up = phys.hl_normal();
+            thing.hl_up.push((up.x, up.y, up.z));
+
+            /*extras.push((
+                Vector3::new(com_pos.x as f32, com_pos.y as f32, com_pos.z as f32),
+                0.0,
+                true,
+            ));*/
+            u += 0.1;
+        }
+    }
+
+    File::create("/tmp/rail1.json")
+        .unwrap()
+        .write_all(&format!("{:?}", thing.rails1).as_bytes())
+        .unwrap();
+    File::create("/tmp/rail2.json")
+        .unwrap()
+        .write_all(&format!("{:?}", thing.rails2).as_bytes())
+        .unwrap();
+
+    println!("{}", thing.rails1.len());
+    println!("{:?}", thing.rails1);
+    //serde_json::to_writer_pretty(File::create("/tmp/out.json").unwrap(), &thing).unwrap();
+    //phys.set_v(&MyVector3::new(0.0, 0.01 * 0.05 * 256.0, 0.0));
+
+    //let ic = cost_v2(phys.clone(), &curve, 0.05);
+
+    /*let st = Instant::now();
     loop {
         let c = optimizer::optimize_v3(&phys, &curve, &mut points, 0.001);
         log::info!("Cost: {:?} T: {}ms", c, st.elapsed().as_millis());
         curve = Spline::new(&points);
         log::info!("New Cost: {:?}", cost_v2(phys.clone(), &curve, 0.05));
-    }
+    }*/
 
     return;
 

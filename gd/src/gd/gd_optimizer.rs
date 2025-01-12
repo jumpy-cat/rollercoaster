@@ -12,7 +12,7 @@ use num_opt::{
     hermite,
     my_float::{Fpt, MyFloat, MyFloatType},
     optimizer,
-    physics::{self, PhysicsStateV3},
+    physics::{self, linalg::MyVector3, PhysicsStateV3},
     point,
 };
 use num_traits::cast::AsPrimitive;
@@ -339,6 +339,12 @@ impl Optimizer {
                         .map(|(x, y, z)| Vector3::new(x.as_(), y.as_(), z.as_()))
                         .collect::<Vec<_>>()
                 })
+                .chain(self.curve.additional.iter().flat_map(|c| {
+                    (0..10).map(|u| {
+                        let v = (c.x)(u as f64 / 10.0);
+                        Vector3::new(v.x as f32, v.y as f32, v.z as f32)
+                    })
+                }))
                 .collect();
             self.segment_points_cache = Some(pts.clone());
             self.as_segment_points()
@@ -388,6 +394,30 @@ impl Optimizer {
                 .collect();
         self.inst_cost_path_delta_cost = r.1.iter().map(|x| x.delta_cost).collect();
         self.inst_cost_path_g_safe = r.1.iter().map(|x| x.safe).collect();
+
+        let mut extras = vec![];
+        for c in &self.curve.additional {
+            let mut u = 0.0;
+            while u <= 1.0 {
+                let hl_pos = (c.x)(u);
+                let tangent = ((c.x)(u + 0.0001) - hl_pos.clone()).normalize();
+                let up = MyVector3::new(0.0, 1.0, 0.0)
+                    .make_ortho_to(&tangent)
+                    .normalize();
+                let com_pos = hl_pos - up * com_offset_mag;
+                extras.push((
+                    Vector3::new(com_pos.x as f32, com_pos.y as f32, com_pos.z as f32),
+                    0.0,
+                    true,
+                ));
+                u += 0.05;
+            }
+        }
+
+        self.inst_cost_path_pos.extend(extras.iter().map(|x|x.0));
+        self.inst_cost_path_delta_cost.extend(extras.iter().map(|x|x.1));
+        self.inst_cost_path_g_safe.extend(extras.iter().map(|x|x.2));
+
         r.0.unwrap_or(Fpt::NAN)
     }
 

@@ -1536,6 +1536,7 @@ dependencies = [
  "persist",
  "plotters",
  "rand",
+ "serde",
  "serde_json",
 ]
 

@@ -11,6 +11,7 @@ num_opt = { path = "../num_opt" }
 plotters = "0.3.7"
 rand = "0.8.5"
 serde_json = "1.0.134"
+serde = { version = "1.0.217", features = ["derive"] }
 
 [dev-dependencies]
 criterion = "0.5.1"
