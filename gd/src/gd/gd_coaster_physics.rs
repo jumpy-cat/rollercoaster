@@ -46,7 +46,7 @@ impl CoasterPhysicsV3 {
     fn step(&mut self, curve: Gd<CoasterCurve>, step_size: Fpt) {
         if let Some(phys) = &mut self.inner {
             let curve = &curve.bind().inner;
-            for _ in 0..1 {
+            for _ in 0..2 {
                 let _ = phys
                     .step(&MyFloatType::from_f(step_size), curve)
                     .is_none();

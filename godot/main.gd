@@ -35,7 +35,7 @@ var inst_cost_hist_curve_pos = []
 var inst_cost_hist_curve_delta_cost = []
 var inst_cost_hist_curve_g_safe = []
 
-const HIST_LINE_UPDATE_DIST = 0.5
+const HIST_LINE_UPDATE_DIST = 0.2
 var inst_cost = NAN
 var hist_pos = []
 var last_pos = Vector3.ZERO
@@ -108,10 +108,10 @@ func debug_draw(anim_pos, anim_vel) -> void:
 
 	DebugDraw3D.draw_line(cp, cp + MULT * curve.normal_at(physics.u()), Color.YELLOW)
 
-	if !physics.jitter_detected():
+	"""if !physics.jitter_detected():
 		DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.4, Color.YELLOW)
 	else:
-		DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.6, Color.RED)
+		DebugDraw3D.draw_sphere(curve.pos_at(physics.u()), 0.6, Color.RED)"""
 	DebugDraw3D.draw_sphere(physics.null_tgt_pos(), 0.2, Color.PURPLE)
 	DebugDraw3D.draw_sphere(physics.tgt_pos(), 0.2, Color.PINK)
 
@@ -175,7 +175,7 @@ func _process(_delta: float) -> void:
 		var anim_up = physics.hl_normal()
 
 		if camera_follow_anim:
-			camera.op = anim_pos
+			camera.look_at_from_position(curve.pos_at(physics.u()), curve.pos_at(physics.u()) + physics.vel(), physics.hl_normal())
 		
 		debug_draw(anim_pos, anim_vel)
 
@@ -190,7 +190,7 @@ func _process(_delta: float) -> void:
 			anim.visible = false
 
 	# generate mesh for curves between control points
-	var curve_points = optimizer.as_segment_points();
+	"""var curve_points = optimizer.as_segment_points();
 	if len(curve_points) > 1:
 		var m = basic_lines.mesh;
 		m.clear_surfaces();
@@ -198,7 +198,7 @@ func _process(_delta: float) -> void:
 
 		Utils.cylinder_line(m, optimizer.as_segment_points(), 0.04)
 				
-		m.surface_end();
+		m.surface_end();"""
 	
 	if optimize:
 		if optimizer.points_changed():

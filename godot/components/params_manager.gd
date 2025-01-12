@@ -8,9 +8,9 @@ signal params_changed();
 var learning_rate: float = 0.0001
 var mass: float = 1.00
 var gravity: float = -0.01
-var friction: float = 0.002
+var friction: float = 0.01
 var anim_step_size: float = 0.05
-var com_offset_mag: float = 1.0
+var com_offset_mag: float = 0.5
 
 # parameter editing
 @export var lr_edit: FloatEdit

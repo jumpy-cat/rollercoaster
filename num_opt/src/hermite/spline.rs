@@ -1,6 +1,65 @@
-use crate::{my_float::{Fpt, MyFloat}, physics::linalg::MyVector3, point};
+use std::rc::Rc;
+
+use crate::{
+    my_float::{Fpt, MyFloat},
+    physics::linalg::MyVector3,
+    point,
+};
 
 use super::{solve, CurveParams};
+
+#[derive(Clone)]
+pub struct Curve {
+    pub x: Rc<dyn Fn(f64) -> MyVector3<f64>>,
+}
+
+fn extra_curves() -> Vec<Curve> {
+    let station = 20.0;
+    let runoff = 20.0;
+    let use_domain = |a: f64, b: f64, t: f64| a + t * (b - a);
+    let si = |x, a, b| a + (b - a) * x;
+    let a = |x| if x > 0.0 { f64::exp(-1.0 / x) } else { 0.0 };
+    let r0 = move |x| a(x) / (a(x) + a(1.0 - x));
+    let f0 = move |t| MyVector3::new(35.0 + station + t, 5.0, -0.4300066828727722);
+    let f1 = |t| MyVector3::new(70.0 - t, 5.0 + 3.0 * t / 2.0, 5.0);
+    let f2 = |t| MyVector3::new(40.0 + 5.0 - t, 30.0 + 5.0 - t, 1.800000548362732);
+    let t0 = 5.0;
+    let t1 = 5.0;
+    let t2 = 15.0;
+    let c0 = Curve {
+        x: Rc::new(move |t| {
+            let t = use_domain(0.0, 5.0, t);
+            MyVector3::new(35.0 + t, 5.0, -0.4300066828727722)
+        }),
+    };
+    let c1 = Curve {
+        x: Rc::new(move |t| f0(t))
+    };
+    let c2 = Curve {
+        x: Rc::new(move |t| {
+            //let t = use_domain(0.0, runoff, t);
+            f0(si.clone()(t, t0, runoff)) * (1.0 - r0(t)) + f1(si(t, 0.0, 5.0)) * r0(t)
+        }),
+    };
+    let c3 = Curve {
+        x: Rc::new(move |t| {
+            let t=use_domain(t1, t2, t);
+            f1(t)
+        })
+    };
+    let c4 = Curve {
+        x: Rc::new(move |t| {
+            f1(si(t,t2,20.0))*(1.0-r0(t))+f2(si(t,0.0,5.0))*r0(t)
+        })
+    };
+    let c5 = Curve {
+        x: Rc::new(move |t| {
+            let t= use_domain(0.0, 5.0, t);
+            f2(t)
+        })
+    };
+    vec![c0, c1, c2, /*c3,*/c4/* ,c5*/]
+}
 
 /// A hermite spline, each curve parameterized by CurveParms.
 #[derive(Clone)]
@@ -8,7 +67,8 @@ pub struct Spline<T>
 where
     T: MyFloat,
 {
-    params: Vec<CurveParams<T>>,
+    pub params: Vec<CurveParams<T>>,
+    pub additional: Vec<Curve>,
 }
 
 impl<T> Default for Spline<T>
@@ -17,7 +77,10 @@ where
 {
     /// Creates an empty spline
     fn default() -> Self {
-        Self { params: vec![] }
+        Self {
+            params: vec![],
+            additional: vec![],
+        }
     }
 }
 
@@ -51,11 +114,15 @@ where
         for pts in points.windows(2) {
             params.push(solve(&pts[0], &pts[1]));
         }
-        Self { params }
+
+        Self { params, additional: extra_curves() }
     }
 
     pub fn max_u(&self) -> Fpt {
         self.params.len() as Fpt - 0.00001
+    }
+    pub fn max_additional_u(&self) -> f64 {
+        self.params.len() as f64 + self.additional.len() as f64 - 0.00001
     }
 
     /// Iterate through the hermite curves of the spline
