@@ -61,11 +61,28 @@ fn desmos_list(name: &str, values: &[f64]) -> String {
 
 #[derive(Serialize)]
 struct PhysicsThing {
-    rails1: Vec<(f64, f64, f64)>,
-    rails2: Vec<(f64, f64, f64)>,
+    rails1: Vec<[f64; 3]>,
+    rails2: Vec<[f64; 3]>,
     cross_support: Vec<bool>,
-    hl_pos: Vec<(f64, f64, f64)>,
-    hl_up: Vec<(f64, f64, f64)>,
+    hl_pos: Vec<[f64; 3]>,
+    hl_up: Vec<[f64; 3]>,
+    hl_fwd: Vec<[f64; 3]>,
+    is_extra: Vec<bool>,
+}
+
+fn codegen(thing: &PhysicsThing) -> String {
+    format!(r#"
+class_name Data
+
+var rail1 = {:?}
+var rail2 = {:?}
+var cross = {:?}
+var pos = {:?}
+var up = {:?}
+var fwd = {:?}
+var is_extra = {:?}
+"#
+, thing.rails1, thing.rails2, thing.cross_support, thing.hl_pos, thing.hl_up, thing.hl_fwd, thing.is_extra)
 }
 
 fn main() {
@@ -139,29 +156,48 @@ fn main() {
         cross_support: Vec::new(),
         hl_pos: Vec::new(),
         hl_up: Vec::new(),
+        hl_fwd: Vec::new(),
+        is_extra: Vec::new(),
     };
     let mut phys = physics::PhysicsStateV3::new(1.0, -0.01, &curve, 0.5, MU);
     let mut i = 0;
+    const CROSS_DIST: f64 = 2.0;
+    let mut last_cl_pos: Option<MyVector3<f64>> = None;
+    let mut distance_since_last_cross = 0.0;
+    const RAIL_MULT: f64 = 0.75;
     while phys.step(&0.05, &curve).is_some() {
         i += 1;
-        if i % 20 != 0 {
+        if i % 5 != 0 {
             continue;
         }
-        let track_centerline = phys.x().inner() - phys.hl_normal().clone() * 1.0 * *phys.o();
+        let track_centerline = phys.x().inner() - phys.hl_normal().clone() * RAIL_MULT * *phys.o();
+        if let Some(p) = &last_cl_pos {
+            distance_since_last_cross += (track_centerline.clone() - p.clone()).magnitude();
+            if distance_since_last_cross > CROSS_DIST {
+                distance_since_last_cross = 0.0;
+                thing.cross_support.push(true);
+            } else {
+                thing.cross_support.push(false);
+            }
+        } else {
+            thing.cross_support.push(false);
+        }
+        last_cl_pos = Some(track_centerline.clone());
         let binormal = phys.v().inner().cross(phys.hl_normal()).normalize();
-        let rail1 = track_centerline.clone() + binormal.clone() * *phys.o();
-        let rail2 = track_centerline.clone() - binormal * *phys.o();
+        let rail1 = track_centerline.clone() + binormal.clone() * *phys.o() * RAIL_MULT;
+        let rail2 = track_centerline.clone() - binormal * *phys.o() * RAIL_MULT;
         println!("{:.4?} {:.4?} {:.4?}", track_centerline, rail1, rail2);
-        thing.rails1.push((rail1.x, rail1.y, rail1.z));
-        thing.rails2.push((rail2.x, rail2.y, rail2.z));
-        thing.cross_support.push(false);
+        thing.rails1.push([rail1.x, rail1.y, rail1.z]);
+        thing.rails2.push([rail2.x, rail2.y, rail2.z]);
         let hl_pos = curve.curve_at(phys.u()).unwrap();
-        thing.hl_pos.push((hl_pos.x, hl_pos.y, hl_pos.z));
+        thing.hl_pos.push([hl_pos.x, hl_pos.y, hl_pos.z]);
         let hl_up = phys.hl_normal();
-        thing.hl_up.push((hl_up.x, hl_up.y, hl_up.z));
+        thing.hl_up.push([hl_up.x, hl_up.y, hl_up.z]);
+        let hl_fwd = phys.v().inner();
+        thing.hl_fwd.push([hl_fwd.x, hl_fwd.y, hl_fwd.z]);
+        thing.is_extra.push(false);
     }
 
-    //let mut extras = vec![];
     for c in &curve.additional {
         let mut u = 0.0;
         while u <= 1.0 {
@@ -171,30 +207,43 @@ fn main() {
                 .make_ortho_to(&tangent)
                 .normalize();
             let com_pos = hl_pos.clone() - up.clone() * *phys.o();
-            let track_centerline = hl_pos.clone() - up.clone() * *phys.o() * 2.0;
+            let track_centerline = hl_pos.clone() - up.clone() * *phys.o() * (1.0 + RAIL_MULT);
+            if let Some(p) = &last_cl_pos {
+                distance_since_last_cross += (track_centerline.clone() - p.clone()).magnitude();
+                if distance_since_last_cross > CROSS_DIST {
+                    distance_since_last_cross = 0.0;
+                    thing.cross_support.push(true);
+                } else {
+                    thing.cross_support.push(false);
+                }
+            } else {
+                thing.cross_support.push(false);
+            }
+            last_cl_pos = Some(track_centerline.clone());
             let binormal = up.cross(&tangent).normalize();
-            let rail1 = track_centerline.clone() - binormal.clone() * *phys.o();
-            let rail2 = track_centerline.clone() + binormal.clone() * *phys.o();
+            let rail1 = track_centerline.clone() - binormal.clone() * *phys.o() * RAIL_MULT;
+            let rail2 = track_centerline.clone() + binormal.clone() * *phys.o() * RAIL_MULT;
 
-            thing.rails1.push((rail1.x, rail1.y, rail1.z));
-            thing.rails2.push((rail2.x, rail2.y, rail2.z));
-            thing.cross_support.push(false);
+            thing.rails1.push([rail1.x, rail1.y, rail1.z]);
+            thing.rails2.push([rail2.x, rail2.y, rail2.z]);
+            thing.is_extra.push(true);
 
             //let hl_pos = curve.curve_at(phys.u()).unwrap();
-            thing.hl_pos.push((hl_pos.x, hl_pos.y, hl_pos.z));
+            //thing.hl_pos.push((hl_pos.x, hl_pos.y, hl_pos.z));
             //let hl_up = phys.hl_normal();
-            thing.hl_up.push((up.x, up.y, up.z));
+            //thing.hl_up.push((up.x, up.y, up.z));
 
             /*extras.push((
                 Vector3::new(com_pos.x as f32, com_pos.y as f32, com_pos.z as f32),
                 0.0,
                 true,
             ));*/
-            u += 0.1;
+            u += 0.001;
         }
     }
 
-    File::create("/tmp/rail1.json")
+    File::create("/tmp/data.gd").unwrap().write_all(codegen(&thing).as_bytes()).unwrap();
+    /*File::create("/tmp/rail1.json")
         .unwrap()
         .write_all(&format!("{:?}", thing.rails1).as_bytes())
         .unwrap();
@@ -202,6 +251,23 @@ fn main() {
         .unwrap()
         .write_all(&format!("{:?}", thing.rails2).as_bytes())
         .unwrap();
+    File::create("/tmp/cross.json")
+        .unwrap()
+        .write_all(&format!("{:?}", thing.cross_support).as_bytes())
+        .unwrap();
+    File::create("/tmp/pos.json")
+        .unwrap()
+        .write_all(&format!("{:?}", thing.hl_pos).as_bytes())
+        .unwrap();
+    File::create("/tmp/fwd.json")
+        .unwrap()
+        .write_all(&format!("{:?}", thing.hl_fwd).as_bytes())
+        .unwrap();
+    File::create("/tmp/up.json")
+        .unwrap()
+        .write_all(&format!("{:?}", thing.hl_up).as_bytes())
+        .unwrap();*/
+
 
     println!("{}", thing.rails1.len());
     println!("{:?}", thing.rails1);

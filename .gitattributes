@@ -1,2 +1,3 @@
 godot/addons/** linguist-vendored
 godot/examples_dd3d/** linguist-vendored
+xrtest/data.gd linguist-generated
