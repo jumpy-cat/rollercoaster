@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 env_logger = "0.11.6"
-log = "0.4.22"
+log = "0.4.25"
 persist = { path = "../persist" }
 num_opt = { path = "../num_opt" }
 plotters = "0.3.7"
