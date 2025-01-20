@@ -10,7 +10,7 @@ persist = { path = "../persist" }
 num_opt = { path = "../num_opt" }
 plotters = "0.3.7"
 rand = "0.8.5"
-serde_json = "1.0.134"
+serde_json = "1.0.137"
 serde = { version = "1.0.217", features = ["derive"] }
 
 [dev-dependencies]
